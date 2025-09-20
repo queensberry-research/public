@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+
+echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
+
+main() {
+	[ $# -ne 0 ] && echo_date "Expected no arguments; got $#" && return 1
+	file="${HOME}/.ssh/authorized_keys"
+	echo_date "Updating '${file}'..."
+	url='https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt'
+	mkdir -p "$(dirname "${file}")"
+	curl -fsSL "${url}" -o "${file}"
+	chmod u=rw,o=,g= "${file}"
+}
+
+main "$@"
