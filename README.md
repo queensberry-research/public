@@ -20,6 +20,12 @@ curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/he
 curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-authorized-keys | sh
 ```
 
+## `setup-venv`
+
+```console
+curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/scripts/setup-venv | sh
+```
+
 ## `setup-vm`
 
 ```console
