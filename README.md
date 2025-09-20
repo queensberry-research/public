@@ -8,6 +8,12 @@
 curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/scripts/generate-deploy-key | sh - -- KEY_NAME HOST_NAME
 ```
 
+## `reboot-proxmox`
+
+```console
+curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/scripts/reboot-proxmox | sh
+```
+
 ### `setup-authorized-keys`
 
 ```console

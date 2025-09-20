@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
+
+main() {
+	[ $# -ne 0 ] && echo_date "'reboot-proxmox' accepts 2 arguments KEY_NAME and HOST_NAME; got $#" && return 1
+	echo_date "Rebooting 'proxmox'..."
+	echo 1 >/proc/sys/kernel/sysrq && echo b >/proc/sysrq-trigger
+}
+
+main "$@"

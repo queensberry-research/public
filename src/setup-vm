@@ -1,11 +1,9 @@
 #!/usr/bin/env sh
 
-echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*"; }
+echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
 
 main() {
-	if [ $# -ne 0 ]; then
-		echo_date "'setup-vm' accepts 0 arguments; got $#" >&2 && return 1
-	fi
+	[ $# -ne 0 ] && echo_date "'setup-vm' accepts 0 arguments; got $#" && return 1
 	setup_aliases
 	setup_bottom
 	setup_direnv
