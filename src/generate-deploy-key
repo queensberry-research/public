@@ -1,11 +1,9 @@
 #!/usr/bin/env sh
 
-echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*"; }
+echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
 
 main() {
-	if [ $# -ne 2 ]; then
-		echo_date "'generate-deploy-key' accepts 2 arguments KEY_NAME and HOST_NAME; got $#" >&2 && return 1
-	fi
+	[ $# -ne 2 ] && echo_date "'generate-deploy-key' accepts 2 arguments KEY_NAME and HOST_NAME; got $#" >&2 && return 1
 	key_name="$1"
 	host_name="$2"
 	filename="deploy-key-${key_name}"
