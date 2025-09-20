@@ -1,0 +1,41 @@
+#!/usr/bin/env sh
+
+echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
+
+main() {
+	[ $# -ne 0 ] && echo_date "Expected no arguments; got $#" && return 1
+	venv_path='.venv'
+	if [ -d "${venv_path}" ]; then
+		echo_date 'Removing existing virtual environment...'
+		rm -rf "${venv_path}"
+	fi
+	write_envrc
+	direnv allow
+}
+
+write_envrc() {
+	echo_date "Writing '.envrc'..."
+	cat >'.envrc' <<'EOF'
+echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*"; }
+
+# uv
+export UV_INDEX='qrt=http://pypi.qrt/'
+export UV_MANAGED_PYTHON='true'
+export UV_PYTHON='3.12'
+
+# python
+use_uv_python() {
+        activate='.venv/bin/activate'
+        if [ -f "${activate}" ]; then
+    echo_date 'Activating virtual environment...'
+                . "${activate}"
+        else
+    echo_date 'Creating new virtual environment...'
+                uv venv
+        fi
+}
+use_uv_python
+EOF
+}
+
+main "$@"
