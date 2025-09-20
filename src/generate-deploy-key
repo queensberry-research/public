@@ -1,0 +1,30 @@
+#!/usr/bin/env sh
+
+echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*"; }
+
+main() {
+	if [ $# -ne 2 ]; then
+		echo_date "'generate-deploy-key' accepts 2 arguments KEY_NAME and HOST_NAME; got $#" >&2 && return 1
+	fi
+	key_name="$1"
+	host_name="$2"
+	filename="deploy-key-${key_name}"
+	path="${HOME}/.ssh/${filename}"
+	ssh-keygen -f "${path}" -N '' -t ed25519 -C "$(whoami)@$(hostname)"
+	echo "Your public key is:"
+	sed 's/^/    /' "${path}.pub"
+	cat >>"${HOME}/.ssh/config" <<EOF
+
+
+Host ${key_name}
+    HostName ${host_name}
+    User git
+    IdentityFile ~/.ssh/${filename}
+    IdentitiesOnly yes
+EOF
+
+	echo "After adding your deploy key, clone using:"
+	echo "    git clone git@${key_name}:USERNAME/REPO.git"
+}
+
+main "$@"
