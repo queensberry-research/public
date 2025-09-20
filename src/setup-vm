@@ -1,0 +1,118 @@
+#!/usr/bin/env sh
+
+echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*"; }
+
+main() {
+	if [ $# -ne 0 ]; then
+		echo_date "'setup-vm' accepts 0 arguments; got $#" >&2 && return 1
+	fi
+	setup_aliases
+	setup_bottom
+	setup_direnv
+	setup_env_vars
+	setup_git
+	setup_just
+	setup_neovim
+	setup_lazyvim        # after neovim
+	setup_neovim_plugins # after LazyVim
+	setup_starship
+}
+
+setup_aliases() {
+	cat <<'EOF' >>"${HOME}"/.bashrc
+
+# aliases
+alias ~='cd "${HOME}"'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias l='ls -al'
+EOF
+}
+
+setup_bottom() {
+	temp_dir=$(mktemp -d)
+	trap 'rm -rf "${temp_dir}"' EXIT
+	cd "${temp_dir}" || exit 1
+	curl -LO https://github.com/ClementTsang/bottom/releases/download/0.11.1/bottom_0.11.1-1_amd64.deb
+	if [ "$(whoami)" = 'root' ]; then
+		dpkg -i bottom_*_amd64.deb
+	else
+		sudo dpkg -i bottom_*_amd64.deb
+	fi
+}
+
+setup_direnv() {
+	curl -sfL https://direnv.net/install.sh | bash
+	cat <<'EOF' >>"${HOME}"/.bashrc
+
+# direnv
+eval "$(direnv hook bash)"
+EOF
+}
+
+setup_env_vars() {
+	cat <<'EOF' >>"${HOME}"/.bashrc
+
+# env vars
+export EDITOR='nvim'
+export PATH="${HOME}/bin${PATH:+:${PATH}}"
+EOF
+}
+
+setup_git() {
+	if [ "$(whoami)" = 'root' ]; then
+		apt install -y git
+	else
+		sudo apt install -y git
+	fi
+}
+
+setup_just() {
+	curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to "${HOME}"/bin
+}
+
+setup_neovim() {
+	temp_dir=$(mktemp -d)
+	trap 'rm -rf "${temp_dir}"' EXIT
+	cd "${temp_dir}" || exit 1
+	curl -LO https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linux-x86_64.tar.gz
+	tar xzvf nvim-linux-x86_64.tar.gz
+	cp -r nvim-linux-x86_64 "${HOME}"/bin
+	(
+		cd "${HOME}"/bin || exit 1
+		ln -s nvim-linux-x86_64/bin/nvim .
+	)
+	cat <<'EOF' >>"${HOME}"/.bashrc
+
+# neovim
+alias n='nvim'
+EOF
+
+}
+
+setup_lazyvim() {
+	rm -rf "${HOME}"/.config/nvim/
+	rm -rf "${HOME}"/.local/share/
+	rm -rf "${HOME}"/.local/state/
+	rm -rf "${HOME}"/.cache/nvim/
+	command -v git >/dev/null 2>&1 || setup_git
+	git clone https://github.com/LazyVim/starter "${HOME}"/.config/nvim
+}
+
+setup_neovim_plugins() {
+	cat <<'EOF' >>"${HOME}"/.config/nvim/lua/plugins/auto-save.lua
+return { "pocco81/auto-save.nvim" }
+EOF
+}
+
+setup_starship() {
+	curl -sS https://starship.rs/install.sh | sh
+	cat <<'EOF' >>"${HOME}"/.bashrc
+
+# starship
+eval "$(starship init bash)"
+EOF
+}
+
+main "$@"
