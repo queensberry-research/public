@@ -6,14 +6,14 @@ main() {
 	[ $# -ne 0 ] && echo_date "'setup-vm' accepts 0 arguments; got $#" && return 1
 	setup_aliases
 	setup_bottom
-	setup_direnv
 	setup_env_vars
+	setup_direnv #         after env vars
 	setup_git
 	setup_just
 	setup_neovim
 	setup_lazyvim        # after neovim
 	setup_neovim_plugins # after LazyVim
-	setup_starship
+	setup_starship       # after env vars
 }
 
 get_shell_rc() {
