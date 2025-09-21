@@ -16,8 +16,27 @@ main() {
 	setup_starship
 }
 
+get_shell_rc() {
+	case "${SHELL}" in
+	*/bash) filename='.bashrc' ;;
+	*/zsh) filename='.zshrc' ;;
+	*) echo_date "Invalid shell: '${SHELL}'" && return 1 ;;
+	esac
+	echo "${HOME}/${filename}"
+}
+
+get_shell_name() {
+	case "${SHELL}" in
+	*/bash) echo 'bash' ;;
+	*/zsh) echo 'zsh' ;;
+	*) echo_date "Invalid shell: '${SHELL}'" && return 1 ;;
+	esac
+}
+
 setup_aliases() {
-	cat <<'EOF' >>"${HOME}"/.bashrc
+	path=$(get_shell_rc) || return 1
+	if ! grep -q '# aliases' "${path}"; then
+		cat <<'EOF' >>"${path}"
 
 # aliases
 alias ~='cd "${HOME}"'
@@ -26,67 +45,87 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias l='ls -al'
 EOF
+	fi
 }
 
 setup_bottom() {
-	temp_dir=$(mktemp -d)
-	trap 'rm -rf "${temp_dir}"' EXIT
-	cd "${temp_dir}" || exit 1
-	curl -LO https://github.com/ClementTsang/bottom/releases/download/0.11.1/bottom_0.11.1-1_amd64.deb
-	if [ "$(whoami)" = 'root' ]; then
-		dpkg -i bottom_*_amd64.deb
-	else
-		sudo dpkg -i bottom_*_amd64.deb
+	if ! command -v btm >/dev/null 2>&1; then
+		temp_dir=$(mktemp -d)
+		trap 'rm -rf "${temp_dir}"' EXIT
+		cd "${temp_dir}" || exit 1
+		version='0.11.1'
+		url="https://github.com/ClementTsang/bottom/releases/download/${version}/bottom_${version}-1_amd64.deb"
+		curl -LO "${url}"
+		if [ "$(whoami)" = 'root' ]; then
+			dpkg -i bottom_*_amd64.deb
+		else
+			sudo dpkg -i bottom_*_amd64.deb
+		fi
 	fi
 }
 
 setup_direnv() {
-	curl -sfL https://direnv.net/install.sh | bash
-	cat <<'EOF' >>"${HOME}"/.bashrc
+	curl -sfL https://direnv.net/install.sh | sh
+	path=$(get_shell_rc) || return 1
+	if ! grep -q '# env vars' "${path}"; then
+		cat <<EOF >>"${path}"
 
 # direnv
-eval "$(direnv hook bash)"
+eval "\$(direnv hook $(get_shell_name))"
 EOF
+	fi
 }
 
 setup_env_vars() {
-	cat <<'EOF' >>"${HOME}"/.bashrc
+	path=$(get_shell_rc) || return 1
+	if ! grep -q '# env vars' "${path}"; then
+		cat <<'EOF' >>"${path}"
 
 # env vars
 export EDITOR='nvim'
 export PATH="${HOME}/bin${PATH:+:${PATH}}"
 EOF
+	fi
 }
 
 setup_git() {
-	if [ "$(whoami)" = 'root' ]; then
-		apt install -y git
-	else
-		sudo apt install -y git
+	if ! command -v git >/dev/null 2>&1; then
+		if [ "$(whoami)" = 'root' ]; then
+			apt install -y git
+		else
+			sudo apt install -y git
+		fi
 	fi
 }
 
 setup_just() {
-	curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to "${HOME}"/bin
+	if ! command -v just >/dev/null 2>&1; then
+		curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | sh -s -- --to "${HOME}"/bin
+	fi
 }
 
 setup_neovim() {
 	temp_dir=$(mktemp -d)
 	trap 'rm -rf "${temp_dir}"' EXIT
 	cd "${temp_dir}" || exit 1
-	curl -LO https://github.com/neovim/neovim/releases/download/v0.11.4/nvim-linux-x86_64.tar.gz
-	tar xzvf nvim-linux-x86_64.tar.gz
-	cp -r nvim-linux-x86_64 "${HOME}"/bin
+	filename='nvim-linux-x86_64'
+	tar_gz="${filename}.tar.gz"
+	url="https://github.com/neovim/neovim/releases/download/v0.11.4/${tar_gz}"
+	curl -LO "${url}"
+	tar xzvf "${tar_gz}"
+	cp -r "${filename}" "${HOME}"/bin
 	(
 		cd "${HOME}"/bin || exit 1
-		ln -s nvim-linux-x86_64/bin/nvim .
+		ln -s "${filename}/bin/nvim" .
 	)
-	cat <<'EOF' >>"${HOME}"/.bashrc
+	path=$(get_shell_rc) || return 1
+	if ! grep -q '# neovim' "${path}"; then
+		cat <<'EOF' >>"${path}"
 
 # neovim
 alias n='nvim'
 EOF
-
+	fi
 }
 
 setup_lazyvim() {
@@ -105,12 +144,15 @@ EOF
 }
 
 setup_starship() {
-	curl -sS https://starship.rs/install.sh | sh
-	cat <<'EOF' >>"${HOME}"/.bashrc
+	curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir "${HOME}"/bin
+	path=$(get_shell_rc) || return 1
+	if ! grep -q 'starship init' "${path}"; then
+		cat <<EOF >>"${path}"
 
 # starship
-eval "$(starship init bash)"
+eval "\$(starship init $(get_shell_name))"
 EOF
+	fi
 }
 
 main "$@"
