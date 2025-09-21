@@ -1,0 +1,24 @@
+#!/usr/bin/env sh
+
+echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $* " >&2; }
+
+main() {
+	[ $# -ne 0 ] && echo_date "Expected no arguments; got $#" && return 1
+	[ -z "${API_KEY}" ] && echo "Env var 'API_KEY' must be given" && return 1
+	now=$(date -u +"%Y-%m-%dT%H-%M-%S-UTC")
+	path="${HOME}/qrt_dropbox/${now}"
+	mkdir -p "$(dirname "${path}")"
+	echo_date "Backing up to '${path}'..."
+	curl \
+		--header "Authorization: Bearer ${API_KEY}" \
+		--header "accept: */*" \
+		--header "Content-Type: application/json" \
+		--insecure \
+		--no-progress-meter \
+		--output "${path}" \
+		--request POST 'http://truenas.qrt/api/v2.0/config/save'
+	size=$(stat -c%s "${path}" 2>/dev/null || wc -c <"${path}")
+	[ "${size}" -lt 102400 ] && echo_date "'${path}' is too small; removing..." && rm "${path}"
+}
+
+main "$@"
