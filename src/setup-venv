@@ -3,7 +3,7 @@
 echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
 
 main() {
-	[ $# -ne 0 ] && echo_date "Expected no arguments; got $#" && return 1
+	[ $# -ne 0 ] && echo_date "'setup-venv' accepts no arguments; got $#" && return 1
 	venv_path='.venv'
 	if [ -d "${venv_path}" ]; then
 		echo_date 'Removing existing virtual environment...'

@@ -3,7 +3,7 @@
 echo_date() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2; }
 
 main() {
-	[ $# -ne 0 ] && echo_date "'setup-vm' accepts 0 arguments; got $#" && return 1
+	[ $# -ne 0 ] && echo_date "'setup-vm' accepts no arguments; got $#" && return 1
 	setup_aliases
 	setup_bottom
 	setup_env_vars
