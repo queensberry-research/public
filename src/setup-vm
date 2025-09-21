@@ -107,9 +107,9 @@ setup_just() {
 }
 
 setup_neovim() {
-	temp_dir=$(mktemp -d)
+	temp_dir=$(mktemp -d) || return 1
 	trap 'rm -rf "${temp_dir}"' EXIT
-	cd "${temp_dir}" || exit 1
+	cd "${temp_dir}" || return 1
 	filename='nvim-linux-x86_64'
 	tar_gz="${filename}.tar.gz"
 	url="https://github.com/neovim/neovim/releases/download/v0.11.4/${tar_gz}"
@@ -140,9 +140,12 @@ setup_lazyvim() {
 }
 
 setup_neovim_plugins() {
-	cat <<'EOF' >>"${HOME}"/.config/nvim/lua/plugins/auto-save.lua
+	path="${HOME}"/.config/nvim/lua/plugins/auto-save.lua
+	if [ ! -f "${path}" ]; then
+		cat <<'EOF' >>"${path}"
 return { "pocco81/auto-save.nvim" }
 EOF
+	fi
 }
 
 setup_starship() {
