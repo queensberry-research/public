@@ -65,9 +65,11 @@ setup_bottom() {
 }
 
 setup_direnv() {
-	curl -sfL https://direnv.net/install.sh | sh
+	if ! command -v direnv >/dev/null 2>&1; then
+		curl -sfL https://direnv.net/install.sh | bash # must be bash
+	fi
 	path=$(get_shell_rc) || return 1
-	if ! grep -q '# env vars' "${path}"; then
+	if ! grep -q '# direnv' "${path}"; then
 		cat <<EOF >>"${path}"
 
 # direnv
