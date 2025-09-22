@@ -14,6 +14,12 @@ curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/he
 curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/generate-deploy-key | sh - -- KEY_NAME HOST_NAME
 ```
 
+### `purge-packages`
+
+```console
+curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/purge-packages | sh
+```
+
 ### `reboot-proxmox`
 
 ```console
