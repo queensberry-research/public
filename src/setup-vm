@@ -115,7 +115,7 @@ setup_neovim() {
 	url="https://github.com/neovim/neovim/releases/download/v0.11.4/${tar_gz}"
 	curl -LO "${url}"
 	tar xzvf "${tar_gz}"
-	cp -r "${filename}" "${HOME}"/bin
+	cp -r "${filename}" "${HOME}/bin/${filename}"
 	(
 		cd "${HOME}"/bin || exit 1
 		ln -s "${filename}/bin/nvim" .
