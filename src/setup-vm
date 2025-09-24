@@ -6,6 +6,7 @@ main() {
 	[ $# -ne 0 ] && echo_date "'setup-vm' accepts no arguments; got $#" && return 1
 	setup_aliases
 	setup_bottom
+	setup_editing_mode
 	setup_env_vars
 	setup_direnv #         after env vars
 	setup_git
@@ -61,6 +62,22 @@ setup_bottom() {
 		else
 			sudo dpkg -i bottom_*_amd64.deb
 		fi
+	fi
+}
+
+setup_editing_mode() {
+	path=$(get_shell_rc) || return 1
+	if ! grep -q '# editing mode' "${path}"; then
+		case "${SHELL}" in
+		*/bash) cmd='set -o vi' ;;
+		*/zsh) cmd='bindkey -v' ;;
+		*) echo_date "Invalid shell: '${SHELL}'" && return 1 ;;
+		esac
+		cat <<EOF >>"${path}"
+
+# editing mode
+${cmd}
+EOF
 	fi
 }
 
