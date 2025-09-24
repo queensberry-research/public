@@ -11,7 +11,7 @@ curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/he
 ### `generate-deploy-key`
 
 ```console
-curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/generate-deploy-key | sh - -- KEY_NAME HOST_NAME
+curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/generate-deploy-key | bash -s -- KEY_NAME HOST_NAME
 ```
 
 ### `purge-packages` (⚠️ - runs `sudo`)
