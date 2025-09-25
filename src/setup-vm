@@ -245,7 +245,7 @@ setup_starship() {
 		echo_date "'starship' already set up"
 	else
 		echo_date "Setting up 'starship'..."
-		curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir "${HOME}"/bin
+		curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir="${HOME}"/bin --yes
 		path=$(get_shell_rc) || return 1
 		cat <<EOF >>"${path}"
 
