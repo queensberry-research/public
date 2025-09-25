@@ -19,6 +19,7 @@ _LOGGER = getLogger(__name__)
 _BOTTOM_VERSION = "0.11.1"
 _DELTA_VERSION = "0.18.2"
 _DIRENV_VERSION = "2.37.1"
+_JUST_VERSION = "1.42.4"
 _PATH_LOCAL_BIN = Path.home().joinpath(".local", "bin")
 _PATH_LOCAL_BIN.mkdir(parents=True, exist_ok=True)
 basicConfig(
@@ -38,8 +39,14 @@ class Settings:
     direnv: bool = False
     direnv_version: str = _DIRENV_VERSION
     git: bool = False
+    just: bool = False
+    just_version: str = _JUST_VERSION
     proxmox_apt: bool = False
     vim: bool = False
+
+    def __post_init__(self) -> None:
+        if self.git or self.vim:
+            self.proxmox_apt = True
 
 
 class Shell(Enum):
@@ -80,6 +87,8 @@ def main(settings: Settings, /) -> None:
         _setup_direnv(version=settings.direnv_version)
     if settings.git:
         _setup_git()
+    if settings.just:
+        _setup_just()
     if settings.vim:
         _setup_vim()
 
@@ -158,6 +167,15 @@ def _setup_env_vars() -> None:
 
 
 def _setup_git() -> None:
+    if _has_command("git"):
+        _LOGGER.info("'git' is already set up")
+        return
+    _update_apt()
+    _LOGGER.info("Installing 'git'...")
+    check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", "git"]))
+
+
+def _setup_just() -> None:
     if _has_command("git"):
         _LOGGER.info("'git' is already set up")
         return
@@ -283,6 +301,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-g", "--git", action="store_true", help="Install 'git' (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--just", action="store_true", help="Install 'just' (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--just-version",
+        default=_JUST_VERSION,
+        help="'just' version (default: %(default)s)",
     )
     parser.add_argument(
         "--proxmox-apt",
