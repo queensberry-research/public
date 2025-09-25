@@ -1,7 +1,16 @@
 repos:
+  # fixers
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.1
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
   - repo: https://github.com/dycw/pre-commit-hooks
     rev: 0.12.4
     hooks:
+      - id: format-requirements
+      - id: replace-sequence-str
       - id: run-bump-my-version
         args: [--mode=bumpversion]
   - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
@@ -13,10 +22,12 @@ repos:
     rev: v3.12.0-2
     hooks:
       - id: shfmt
+  # linters
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
+  # fixers/linters
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
