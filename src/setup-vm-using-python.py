@@ -35,7 +35,8 @@ class Shell(Enum):
             case "zsh":
                 return Shell.zsh
             case shell:
-                raise ValueError(f"Invalid shell: {shell!r}")
+                msg = f"Invalid shell: {shell!r}"
+                raise ValueError(msg)
 
     @property
     def path_rc(self) -> Path:
@@ -85,7 +86,6 @@ def _setup_bottom() -> None:
     if _has_command("btm"):
         _LOGGER.info("'bottom' is already set up")
         return
-    pass
 
 
 # utilities
@@ -104,10 +104,7 @@ if __name__ == "__main__":
         help="Add aliases (default: disabled)",
     )
     parser.add_argument(
-        "--bottom",
-        dest="bottom",
-        action="store_true",
-        help="Install bottom",
+        "--bottom", dest="bottom", action="store_true", help="Install bottom"
     )
     args = parser.parse_args()
     settings = Settings(aliases=args.aliases, bottom=args.bottom)
