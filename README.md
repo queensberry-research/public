@@ -41,5 +41,5 @@ curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/he
 ### `setup-vm`
 
 ```console
-curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-vm.py | python3.13 -
+wget -qO- https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-vm.py | python3.13 -
 ```
