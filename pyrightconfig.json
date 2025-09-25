@@ -1,3 +1,4 @@
 {
+  "enableReachabilityAnalysis": false,
   "pythonVersion": "3.13"
 }

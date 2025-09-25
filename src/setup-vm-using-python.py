@@ -37,6 +37,7 @@ class Settings:
     bottom_version: str = _BOTTOM_VERSION
     delta: bool = False
     delta_version: str = _DELTA_VERSION
+    direnv: bool = False
 
 
 class Shell(Enum):
@@ -72,6 +73,8 @@ def main(settings: Settings, /) -> None:
         _setup_bottom(version=settings.bottom_version)
     if settings.delta:
         _setup_delta(version=settings.delta_version)
+    if settings.direnv:
+        _setup_direnv()
 
 
 def _setup_aliases() -> None:
@@ -116,6 +119,16 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
         path_from = dir_from.joinpath("delta")
         path_to = _PATH_LOCAL_BIN.joinpath("delta")
         move(path_from, path_to)
+
+
+def _setup_direnv() -> None:
+    if _has_command("direnv") and 0:
+        _LOGGER.info("'direnv' is already set up")
+        return
+    _LOGGER.info("Setting up 'direnv' %s...")
+    url = "https://direnv.net/install.sh"
+    with _yield_download(url) as temp_file:
+        assert 0, temp_file
 
 
 def _setup_editing_mode() -> None:
@@ -201,15 +214,15 @@ if __name__ == "__main__":
         help="'bottom' version (default: %(default)s)",
     )
     parser.add_argument(
-        "-d",
-        "--delta",
-        action="store_true",
-        help="Install 'delta' (default: %(default)s)",
+        "--delta", action="store_true", help="Install 'delta' (default: %(default)s)"
     )
     parser.add_argument(
         "--delta-version",
         default=_DELTA_VERSION,
         help="'delta' version (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--direnv", action="store_true", help="Install 'direnv' (default: %(default)s)"
     )
     settings = Settings(**vars(parser.parse_args()))
     main(settings)
