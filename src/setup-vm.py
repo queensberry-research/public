@@ -9,6 +9,7 @@ from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
 from shutil import copyfile, copytree, rmtree, which
+from stat import S_IXUSR
 from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import assert_never
@@ -331,6 +332,7 @@ def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
             path_from = dir_from.joinpath(name)
             path_to = _PATH_LOCAL_BIN.joinpath(name)
             _copyfile_logged(path_from, path_to)
+            _set_executable(path_to)
 
 
 def _setup_vim(*, force: bool = False) -> None:
@@ -393,10 +395,8 @@ def _unlink_logged(path: Path, /) -> None:
         path.unlink(missing_ok=True)
 
 
-def _update_apt() -> None:
-    _LOGGER.info("Updating 'apt'...")
-    cmd = ["apt", "update"]
-    check_call(_prepend_sudo_if_not_root(cmd))
+def _set_executable(path: Path, /) -> None:
+    path.chmod(path.stat().st_mode | S_IXUSR)
 
 
 def _setup_via_apt(cmd: str, /, *, force: bool = False) -> None:
@@ -406,6 +406,12 @@ def _setup_via_apt(cmd: str, /, *, force: bool = False) -> None:
     _LOGGER.info("Setting up %r...", str(cmd))
     _update_apt()
     check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", cmd]))
+
+
+def _update_apt() -> None:
+    _LOGGER.info("Updating 'apt'...")
+    cmd = ["apt", "update"]
+    check_call(_prepend_sudo_if_not_root(cmd))
 
 
 @contextmanager
