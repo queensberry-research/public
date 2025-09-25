@@ -1,20 +1,26 @@
 #!/usr/bin/env python3.13
+import tarfile
 from argparse import ArgumentParser
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum, auto
 from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
 from re import search
-from shutil import which
+from shutil import move, which
 from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import TextIO
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 _LOGGER = getLogger(__name__)
 _BOTTOM_VERSION = "0.11.1"
 _DELTA_VERSION = "0.18.2"
+_PATH_LOCAL_BIN = Path.home().joinpath(".local", "bin")
+_PATH_LOCAL_BIN.mkdir(parents=True, exist_ok=True)
 basicConfig(
     format="{asctime} | {message}", datefmt="%Y-%m-%d %H:%M:%S", style="{", level="INFO"
 )
@@ -28,6 +34,8 @@ class Settings:
     aliases: bool = False
     bottom: bool = False
     bottom_version: str = _BOTTOM_VERSION
+    delta: bool = False
+    delta_version: str = _DELTA_VERSION
 
 
 class Shell(Enum):
@@ -95,12 +103,11 @@ def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
     if _has_command("btm"):
         _LOGGER.info("'bottom' is already set up")
         return
-    filename = f"bottom_{version}-1_amd64.deb"
-    url = _github_url("ClementTsang", "bottom", version, filename)
-    with TemporaryDirectory() as temp_dir:
-        temp_file = Path(temp_dir, filename)
-        with urlopen(url) as response, temp_file.open(mode="wb") as fh:  # noqa: S310
-            fh.write(response.read())
+    _LOGGER.info("Setting up 'bottom' %s...", version)
+    url = _github_url(
+        "ClementTsang", "bottom", version, f"bottom_{version}-1_amd64.deb"
+    )
+    with _yield_download(url) as temp_file:
         cmd = ["dpkg", "-i", str(temp_file)]
         if not _is_root():
             cmd = ["sudo", *cmd]
@@ -108,20 +115,21 @@ def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
 
 
 def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
-    if _has_command("delta"):
+    if _has_command("delta") and 0:
         _LOGGER.info("'delta' is already set up")
         return
-    stem = f"delta-{version}-x64_64-unknown-linux-gnu"
+    _LOGGER.info("Setting up 'delta' %s...", version)
+    stem = f"delta-{version}-x86_64-unknown-linux-gnu"
     filename = f"{stem}.tar.gz"
     url = _github_url("dandavison", "delta", version, filename)
-    with TemporaryDirectory() as temp_dir:
-        temp_file = Path(temp_dir, filename)
-        with urlopen(url) as response, temp_file.open(mode="wb") as fh:  # noqa: S310
-            fh.write(response.read())
-        cmd = ["dpkg", "-i", str(temp_file)]
-        if not _is_root():
-            cmd = ["sudo", *cmd]
-        check_call(cmd)  # noqa: S603
+    with (
+        _yield_download(url) as temp_file,
+        _yield_tar_gz_contents(temp_file) as temp_dir,
+    ):
+        (dir_from,) = temp_dir.iterdir()
+        path_from = dir_from.joinpath("delta")
+        path_to = _PATH_LOCAL_BIN.joinpath("delta")
+        move(path_from, path_to)
 
 
 # utilities
@@ -137,6 +145,23 @@ def _has_command(cmd: str, /) -> bool:
 
 def _is_root() -> bool:
     return geteuid() == 0
+
+
+@contextmanager
+def _yield_download(url: str, /) -> Iterator[Path]:
+    filename = Path(urlparse(url).path).name
+    with TemporaryDirectory() as temp_dir:
+        temp_file = Path(temp_dir, filename)
+        with urlopen(url) as response, temp_file.open(mode="wb") as fh:  # noqa: S310
+            fh.write(response.read())
+        yield temp_file
+
+
+@contextmanager
+def _yield_tar_gz_contents(path: Path, /) -> Iterator[Path]:
+    with tarfile.open(path, "r:gz") as tf, TemporaryDirectory() as temp_dir:
+        _ = tf.extractall(path=temp_dir, filter="data")
+        yield Path(temp_dir)
 
 
 if __name__ == "__main__":
@@ -166,6 +191,5 @@ if __name__ == "__main__":
         default=_DELTA_VERSION,
         help="'delta' version (default: %(default)s)",
     )
-    args = parser.parse_args()
-    settings = Settings(aliases=args.aliases, bottom=args.bottom)
+    settings = Settings(**vars(parser.parse_args()))
     main(settings)
