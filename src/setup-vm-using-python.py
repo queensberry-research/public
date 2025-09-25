@@ -119,7 +119,6 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
 
 
 def _setup_editing_mode() -> None:
-    _LOGGER.info("Setting up editing mode...")
     match Shell.get():
         case Shell.bash:
             line = "set -o vi"
