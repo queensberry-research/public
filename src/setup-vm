@@ -8,14 +8,21 @@ main() {
 	setup_bottom
 	setup_delta
 	setup_editing_mode
-	setup_env_vars
-	setup_direnv #         after env vars
-	setup_git
 	setup_just
+
+	# apt
+	setup_apt
+	setup_git # after apt
+
+	# env vars
+	setup_env_vars
+	setup_direnv   # after env vars
+	setup_starship # after env vars
+
+	# neovim
 	setup_neovim
-	setup_lazyvim        # after neovim
-	setup_neovim_plugins # after LazyVim
-	setup_starship       # after env vars
+	setup_lazyvim        # after git & neovim
+	setup_neovim_plugins # after lazyvim
 }
 
 get_shell_rc() {
@@ -48,6 +55,17 @@ alias ....='cd ../../..'
 alias l='ls -al'
 EOF
 	fi
+}
+
+setup_apt() {
+	dir_='/etc/apt/sources.list.d/'
+	for filename in 'ceph.sources' 'pve-enterprise.sources'; do
+		path="${dir_}/${filename}"
+		if [ -f "${path}" ]; then
+			echo_date "Deleting '${path}'..."
+			rm "${path}"
+		fi
+	done
 }
 
 setup_bottom() {
@@ -136,7 +154,7 @@ setup_git() {
 
 setup_just() {
 	if ! command -v just >/dev/null 2>&1; then
-		curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | sh -s -- --to "${HOME}"/bin
+		curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | sh -s -- --to "${HOME}/bin"
 	fi
 }
 
