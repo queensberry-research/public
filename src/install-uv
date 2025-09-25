@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+
+setup_apt() {
+	echo_date "Checking 'apt' sources..."
+	dir_='/etc/apt/sources.list.d/'
+	for filename in 'ceph.sources' 'pve-enterprise.sources'; do
+		path="${dir_}/${filename}"
+		if [ -f "${path}" ]; then
+			echo_date "Deleting '${path}'..."
+			rm "${path}"
+		fi
+	done
+}
