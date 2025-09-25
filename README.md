@@ -38,8 +38,8 @@ curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/he
 curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-venv | sh
 ```
 
-### `setup-vm`
+### `setup-infra`
 
 ```console
-wget -qO- https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-vm.py | python3.13 -
+wget -qO- https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-infra.py | python3.13 -
 ```

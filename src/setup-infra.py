@@ -345,6 +345,7 @@ def _setup_proxmox_apt_remove(name: str, /) -> bool:
 
 
 def _setup_ssh_keys(*, mode: SSHKeysMode) -> None:
+    _LOGGER.info("Setting up SSH keys...")
     url = "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt"
     path = Path.home().joinpath(".ssh", "authorized_keys")
     with _yield_download(url) as temp_file:
@@ -363,6 +364,7 @@ def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) ->
     if _has_command("starship") and not force:
         _LOGGER.info("'starship' is already set up")
         return
+    _LOGGER.info("Setting up 'starship'...")
     url = _github_url(
         "starship",
         "starship",
