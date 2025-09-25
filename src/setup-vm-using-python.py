@@ -9,7 +9,7 @@ from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
 from shutil import copyfile, copytree, rmtree, which
-from subprocess import check_call, check_output
+from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import assert_never
 from urllib.parse import urlparse
@@ -228,14 +228,14 @@ def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
 
 
 def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> None:
-    if _has_command("neovim") and not force:
+    if _has_command("nvim") and not force:
         _LOGGER.info("'neovim' is already set up")
         return
     stem = "nvim-linux-x86_64"
     path_to = _PATH_LOCAL_BIN.joinpath("neovim", stem)
     if path_to.exists():
         _LOGGER.info("Removing %r...", str(path_to))
-        # rmtree(path_
+        rmtree(path_to)
     url = _github_url("neovim", "neovim", f"v{version}", f"{stem}.tar.gz")
     with (
         _yield_download(url) as temp_file,
@@ -244,18 +244,12 @@ def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> Non
         (path_from,) = temp_dir.iterdir()
         _LOGGER.info("Copying %r -> %r...", str(path_from), str(path_to))
         copytree(path_from, path_to)
-        # assert 0, check_output(
-        #     f"ls -al {temp_dir}/nvim-linux-x86_64", shell=True, text=True
-        # )
-        # assert 0, check_output(f"ls -al {temp_dir}", shell=True, text=True)
-        # path_to = _PATH_LOCAL_BIN.joinpath("neovim")
-        # copyfile(path_from, path_to)
-
-    path_from = _PATH_LOCAL_BIN
-
-    # path_to = _PATH_LOCAL_BIN.joinpath("nvim")
-    # path_to.unlink()
-    # if path_to.exists()
+    path_from = _PATH_LOCAL_BIN.joinpath("nvim")
+    if path_from.exists():
+        _LOGGER.info("Removing %r...", str(path_from))
+        path_from.unlink(missing_ok=True)
+    path_to = _PATH_LOCAL_BIN.joinpath("neovim", stem, "bin", "nvim")
+    path_from.symlink_to(path_to)
 
 
 def _setup_proxmox_apt() -> None:
