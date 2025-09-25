@@ -31,9 +31,6 @@ basicConfig(
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class Settings:
-    aliases: bool = False
-    editing_mode: bool = False
-    ##
     bottom: bool = False
     bottom_version: str = _BOTTOM_VERSION
     delta: bool = False
@@ -67,10 +64,9 @@ class Shell(Enum):
 
 def main(settings: Settings, /) -> None:
     _LOGGER.info("Setting up VM...")
-    if settings.aliases:
-        _setup_aliases()
-    if settings.editing_mode:
-        _setup_editing_mode()
+    _setup_aliases()
+    _setup_editing_mode()
+    _setup_env_vars()
     if settings.bottom:
         _setup_bottom(version=settings.bottom_version)
     if settings.delta:
@@ -129,12 +125,13 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
 def _setup_direnv(*, version: str = _DIRENV_VERSION) -> None:
     if _has_command("direnv") and 0:
         _LOGGER.info("'direnv' is already set up")
-        return
-    _LOGGER.info("Setting up 'direnv'...")
-    url = _github_url("direnv", "direnv", f"v{version}", "direnv.linux-amd64")
-    with _yield_download(url) as temp_file:
-        path_to = _PATH_LOCAL_BIN.joinpath("direnv")
-        move(temp_file, path_to)
+    else:
+        _LOGGER.info("Setting up 'direnv'...")
+        url = _github_url("direnv", "direnv", f"v{version}", "direnv.linux-amd64")
+        with _yield_download(url) as temp_file:
+            path_to = _PATH_LOCAL_BIN.joinpath("direnv")
+            move(temp_file, path_to)
+        _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
 
 
 def _setup_editing_mode() -> None:
@@ -146,6 +143,11 @@ def _setup_editing_mode() -> None:
         case never:
             assert_never(never)
     _append_to_rc(line)
+
+
+def _setup_env_vars() -> None:
+    _append_to_rc("""export EDITOR='nvim'""")
+    _append_to_rc('''export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"''')
 
 
 # utilities
@@ -199,15 +201,6 @@ def _yield_tar_gz_contents(path: Path, /) -> Iterator[Path]:
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument(
-        "-a", "--aliases", action="store_true", help="Add aliases (default: disabled)"
-    )
-    parser.add_argument(
-        "-e",
-        "--editing-mode",
-        action="store_true",
-        help="Setup editing mode (default: disabled)",
-    )
     parser.add_argument(
         "-b",
         "--bottom",
