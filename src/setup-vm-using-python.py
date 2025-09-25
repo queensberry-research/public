@@ -8,7 +8,7 @@ from enum import Enum, auto
 from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
-from shutil import move, which
+from shutil import copyfile, which
 from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import assert_never
@@ -135,7 +135,7 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
         (dir_from,) = temp_dir.iterdir()
         path_from = dir_from.joinpath("delta")
         path_to = _PATH_LOCAL_BIN.joinpath("delta")
-        move(path_from, path_to)
+        copyfile(path_from, path_to)
 
 
 def _setup_direnv(*, version: str = _DIRENV_VERSION) -> None:
@@ -146,7 +146,7 @@ def _setup_direnv(*, version: str = _DIRENV_VERSION) -> None:
     url = _github_url("direnv", "direnv", f"v{version}", "direnv.linux-amd64")
     with _yield_download(url) as temp_file:
         path_to = _PATH_LOCAL_BIN.joinpath("direnv")
-        move(temp_file, path_to)
+        copyfile(temp_file, path_to)
     _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
 
 
@@ -175,13 +175,20 @@ def _setup_git() -> None:
     check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", "git"]))
 
 
-def _setup_just() -> None:
-    if _has_command("git"):
-        _LOGGER.info("'git' is already set up")
+def _setup_just(*, version: str = _JUST_VERSION) -> None:
+    if _has_command("just") and 0:
+        _LOGGER.info("'just' is already set up")
         return
-    _update_apt()
-    _LOGGER.info("Installing 'git'...")
-    check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", "git"]))
+    url = _github_url(
+        "casey", "just", version, f"just-{version}-x86_64-unknown-linux-musl.tar.gz"
+    )
+    with (
+        _yield_download(url) as temp_file,
+        _yield_tar_gz_contents(temp_file) as temp_dir,
+    ):
+        path_from = temp_dir.joinpath("just")
+        path_to = _PATH_LOCAL_BIN.joinpath("just")
+        copyfile(path_from, path_to)
 
 
 def _setup_proxmox_apt() -> None:
@@ -303,7 +310,10 @@ if __name__ == "__main__":
         "-g", "--git", action="store_true", help="Install 'git' (default: %(default)s)"
     )
     parser.add_argument(
-        "--just", action="store_true", help="Install 'just' (default: %(default)s)"
+        "-j",
+        "--just",
+        action="store_true",
+        help="Install 'just' (default: %(default)s)",
     )
     parser.add_argument(
         "--just-version",
