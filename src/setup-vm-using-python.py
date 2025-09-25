@@ -1,5 +1,4 @@
 #!/usr/bin/env python3.13
-
 import tarfile
 from argparse import ArgumentParser
 from collections.abc import Iterator
@@ -20,8 +19,9 @@ _LOGGER = getLogger(__name__)
 _BOTTOM_VERSION = "0.11.1"
 _DELTA_VERSION = "0.18.2"
 _DIRENV_VERSION = "2.37.1"
-_STARSHIP_VERSION = "1.23.0"
 _JUST_VERSION = "1.42.4"
+_STARSHIP_VERSION = "1.23.0"
+_UV_VERSION = "0.8.22"
 _PATH_LOCAL_BIN = Path.home().joinpath(".local", "bin")
 _PATH_LOCAL_BIN.mkdir(parents=True, exist_ok=True)
 basicConfig(
@@ -52,6 +52,9 @@ class Settings:
     starship: bool = False
     starship_force: bool = False
     starship_version: str = _STARSHIP_VERSION
+    uv: bool = False
+    uv_force: bool = False
+    uv_version: str = _UV_VERSION
     vim: bool = False
     vim_force: bool = False
 
@@ -100,6 +103,12 @@ def main(settings: Settings, /) -> None:
         _setup_git(force=settings.git_force)
     if settings.just:
         _setup_just(force=settings.just_force)
+    if settings.starship:
+        _setup_starship(
+            force=settings.starship_force, version=settings.starship_version
+        )
+    if settings.uv:
+        _setup_uv(force=settings.uv_force, version=settings.uv_version)
     if settings.vim:
         _setup_vim(force=settings.vim_force)
 
@@ -220,6 +229,41 @@ def _setup_proxmox_apt_remove(name: str, /) -> bool:
     return False
 
 
+def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
+    if _has_command("starship") and not force:
+        _LOGGER.info("'starship' is already set up")
+        return
+    url = _github_url(
+        "starship",
+        "starship",
+        f"v{version}",
+        "starship-x86_64-unknown-linux-gnu.tar.gz",
+    )
+    with (
+        _yield_download(url) as temp_file,
+        _yield_tar_gz_contents(temp_file) as temp_dir,
+    ):
+        (path_from,) = temp_dir.iterdir()
+        path_to = _PATH_LOCAL_BIN.joinpath("starship")
+        copyfile(path_from, path_to)
+
+
+def _setup_uv(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
+    if _has_command("uv") and not force:
+        _LOGGER.info("'uv' is already set up")
+        return
+    url = _github_url("astral-sh", "uv", version, "uv-x86_64-unknown-linux-gnu.tar.gz")
+    with (
+        _yield_download(url) as temp_file,
+        _yield_tar_gz_contents(temp_file) as temp_dir,
+    ):
+        (dir_from,) = temp_dir.iterdir()
+        for name in ["uv", "uvx"]:
+            path_from = dir_from.joinpath(name)
+            path_to = _PATH_LOCAL_BIN.joinpath(name)
+            copyfile(path_from, path_to)
+
+
 def _setup_vim(*, force: bool = False) -> None:
     if _has_command("git") and not force:
         _LOGGER.info("'git' is already set up")
@@ -290,6 +334,7 @@ def _yield_tar_gz_contents(path: Path, /) -> Iterator[Path]:
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    # bottom
     parser.add_argument(
         "-b",
         "--bottom",
@@ -306,6 +351,7 @@ if __name__ == "__main__":
         default=_BOTTOM_VERSION,
         help="'bottom' version (default: %(default)s)",
     )
+    # delta
     parser.add_argument(
         "--delta", action="store_true", help="Install 'delta' (default: %(default)s)"
     )
@@ -319,6 +365,7 @@ if __name__ == "__main__":
         default=_DELTA_VERSION,
         help="'delta' version (default: %(default)s)",
     )
+    # direnv
     parser.add_argument(
         "--direnv", action="store_true", help="Install 'direnv' (default: %(default)s)"
     )
@@ -335,6 +382,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-g", "--git", action="store_true", help="Install 'git' (default: %(default)s)"
     )
+    # just
     parser.add_argument(
         "-j",
         "--just",
@@ -351,11 +399,13 @@ if __name__ == "__main__":
         default=_JUST_VERSION,
         help="'just' version (default: %(default)s)",
     )
+    # proxmox
     parser.add_argument(
         "--proxmox-apt",
         action="store_true",
         help="Setup proxmox apt (default: %(default)s)",
     )
+    # starship
     parser.add_argument(
         "-s",
         "--starship",
@@ -372,6 +422,19 @@ if __name__ == "__main__":
         default=_STARSHIP_VERSION,
         help="'starship' version (default: %(default)s)",
     )
+    # uv
+    parser.add_argument(
+        "-u", "--uv", action="store_true", help="Install 'uv' (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--uv-force",
+        action="store_true",
+        help="Force install 'uv' (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--uv-version", default=_UV_VERSION, help="'uv' version (default: %(default)s)"
+    )
+    # vim
     parser.add_argument(
         "-v", "--vim", action="store_true", help="Install 'vim' (default: %(default)s)"
     )
