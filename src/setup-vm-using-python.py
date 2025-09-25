@@ -238,8 +238,10 @@ def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
 
 def _setup_lazyvim(*, force: bool = False) -> None:
     home = Path.home()
-    path = home.joinpath(".config", "nvim", "lua", "config", "lazy.lua")
-    if path.exists() and not force:
+    nvim = home.joinpath(".config", "nvim")
+    lua = nvim.joinpath("lua")
+    lazy = lua.joinpath("config", "lazy.lua")
+    if lazy.exists() and not force:
         _LOGGER.info("'lazyvim' is already set up")
         return
     _LOGGER.info("Setting up 'lazyvim'...")
@@ -249,8 +251,14 @@ def _setup_lazyvim(*, force: bool = False) -> None:
         Path(".local", "state"),
         Path(".cache", "nvim"),
     ]:
-        path = home.joinpath(tail)
-        _LOGGER.info("Removing %r...", str(path))
+        _unlink_logged(home.joinpath(tail))
+    check_call(["git", "clone", "https://github.com/LazyVim/starter", str(nvim)])
+    path = lua.joinpath("plugins", "auto-save.lua")
+    _unlink_logged(path)
+    _LOGGER.info("Writing %r...", str(path))
+    path.write_text("""
+return { "pocco81/auto-save.nvim }
+""")
 
 
 def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> None:
