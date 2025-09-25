@@ -104,7 +104,7 @@ def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
 
 
 def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
-    if _has_command("delta") and 0:
+    if _has_command("delta"):
         _LOGGER.info("'delta' is already set up")
         return
     _LOGGER.info("Setting up 'delta' %s...", version)
@@ -125,10 +125,10 @@ def _setup_direnv() -> None:
     if _has_command("direnv") and 0:
         _LOGGER.info("'direnv' is already set up")
         return
-    _LOGGER.info("Setting up 'direnv' %s...")
+    _LOGGER.info("Setting up 'direnv'...")
     url = "https://direnv.net/install.sh"
     with _yield_download(url) as temp_file:
-        assert 0, temp_file
+        check_call(["sh", str(temp_file)])  # noqa: S603, S607
 
 
 def _setup_editing_mode() -> None:
