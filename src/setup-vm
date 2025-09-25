@@ -86,17 +86,29 @@ setup_bottom() {
 
 setup_delta() {
 	if ! command -v delta >/dev/null 2>&1; then
-		temp_dir=$(mktemp -d)
+		# temp_dir=$(mktemp -d)
+		# trap 'rm -rf "${temp_dir}"' EXIT
+		# cd "${temp_dir}" || exit 1
+		# version='0.18.2'
+		# url="https://github.com/dandavison/delta/releases/download/${version}/git-delta_${version}.deb"
+		# curl -LO "${url}"
+		# if [ "$(whoami)" = 'root' ]; then
+		#     dpkg -i git-delta_*.deb
+		# else
+		#     sudo dpkg -i git-delta_*.deb
+		# fi
+
+		temp_dir=$(mktemp -d) || return 1
 		trap 'rm -rf "${temp_dir}"' EXIT
-		cd "${temp_dir}" || exit 1
+		cd "${temp_dir}" || return 1
 		version='0.18.2'
-		url="https://github.com/dandavison/delta/releases/download/${version}/git-delta_${version}.deb"
+		filename="delta-${version}-x64_64-unknown-linux-gnu"
+		tar_gz="${filename}.tar.gz"
+		url="https://github.com/dandavison/delta/releases/download/${version}/${tar_gz}"
 		curl -LO "${url}"
-		if [ "$(whoami)" = 'root' ]; then
-			dpkg -i git-delta_*_amd64.deb
-		else
-			sudo dpkg -i git-delta_*_amd64.deb
-		fi
+		tar xzvf "${tar_gz}"
+		mkdir -p "${HOME}/bin"
+		cp -r "${filename}/delta" "${HOME}/bin/delta"
 	fi
 }
 
@@ -162,9 +174,10 @@ setup_neovim() {
 	temp_dir=$(mktemp -d) || return 1
 	trap 'rm -rf "${temp_dir}"' EXIT
 	cd "${temp_dir}" || return 1
+	version='0.11.4'
 	filename='nvim-linux-x86_64'
 	tar_gz="${filename}.tar.gz"
-	url="https://github.com/neovim/neovim/releases/download/v0.11.4/${tar_gz}"
+	url="https://github.com/neovim/neovim/releases/download/v${version}/${tar_gz}"
 	curl -LO "${url}"
 	tar xzvf "${tar_gz}"
 	mkdir -p "${HOME}/bin"
