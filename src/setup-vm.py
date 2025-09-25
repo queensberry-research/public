@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 
 _LOGGER = getLogger(__name__)
+_AGE_VERSION = "1.2.1"
 _BOTTOM_VERSION = "0.11.1"
 _DELTA_VERSION = "0.18.2"
 _DIRENV_VERSION = "2.37.1"
@@ -36,6 +37,10 @@ basicConfig(
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class Settings:
+    # age
+    age: bool = False
+    age_force: bool = False
+    age_version: str = _AGE_VERSION
     # bottom
     bottom: bool = False
     bottom_force: bool = False
@@ -130,6 +135,8 @@ def main(settings: Settings, /) -> None:
         _setup_neovim(force=settings.neovim_force, version=settings.neovim_version)
     if settings.lazyvim:  # after neovim
         _setup_lazyvim(force=settings.lazyvim_force)
+    if settings.age:
+        _setup_age(force=settings.age_force, version=settings.age_version)
     if settings.bottom:
         _setup_bottom(force=settings.bottom_force, version=settings.bottom_version)
     if settings.curl:
@@ -157,6 +164,25 @@ def _setup_aliases() -> None:
         """alias l='ls -al'""",
     ]:
         _append_to_rc(line)
+
+
+def _setup_age(*, force: bool = False, version: str = _AGE_VERSION) -> None:
+    if _has_command("age") and not force:
+        _LOGGER.info("'age' is already set up")
+        return
+    _LOGGER.info("Setting up 'age' %s...", version)
+    url = _github_url(
+        "FiloSottile", "age", f"v{version}", f"age-v{version}-linux-amd64.tar.gz"
+    )
+    with (
+        _yield_download(url) as temp_file,
+        _yield_tar_gz_contents(temp_file) as temp_dir,
+    ):
+        (dir_from,) = temp_dir.iterdir()
+        for name in ["age", "age-keygen"]:
+            path_from = dir_from.joinpath(name)
+            path_to = _PATH_LOCAL_BIN.joinpath(name)
+            _copyfile_logged(path_from, path_to, executable=True)
 
 
 def _setup_bottom(*, force: bool = False, version: str = _BOTTOM_VERSION) -> None:
@@ -451,6 +477,20 @@ def _yield_tar_gz_contents(path: Path, /) -> Iterator[Path]:
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    # age
+    parser.add_argument(
+        "-a", "--age", action="store_true", help="Install 'age' (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--age-force",
+        action="store_true",
+        help="Force install 'age' (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--age-version",
+        default=_AGE_VERSION,
+        help="'age' version (default: %(default)s)",
+    )
     # bottom
     parser.add_argument(
         "-b",
