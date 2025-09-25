@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import StrEnum
 from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
@@ -72,6 +72,9 @@ class Settings:
     neovim_version: str = _NEOVIM_VERSION
     # proxmox
     proxmox_apt: bool = False
+    # SSH keys
+    ssh_keys: bool = False
+    ssh_keys_mode: "SSHKeysMode"
     # starship
     starship: bool = False
     starship_force: bool = False
@@ -97,9 +100,14 @@ class Settings:
         return self.proxmox_apt or self.git_use or self.vim
 
 
-class Shell(Enum):
-    bash = auto()
-    zsh = auto()
+class SSHKeysMode(StrEnum):
+    overwrite = "overwrite"
+    append = "append"
+
+
+class Shell(StrEnum):
+    bash = "bash"
+    zsh = "zsh"
 
     @classmethod
     def get(cls) -> "Shell":
@@ -147,6 +155,8 @@ def main(settings: Settings, /) -> None:
         _setup_direnv(force=settings.direnv_force, version=settings.direnv_version)
     if settings.just:
         _setup_just(force=settings.just_force)
+    if settings.ssh_keys:
+        _setup_ssh_key(mode=settings.ssh_keys_mode)
     if settings.starship:
         _setup_starship(
             force=settings.starship_force, version=settings.starship_version
@@ -334,6 +344,20 @@ def _setup_proxmox_apt_remove(name: str, /) -> bool:
     return False
 
 
+def _setup_ssh_key(*, mode: SSHKeysMode) -> None:
+    url = "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt"
+    path = Path.home().joinpath(".ssh", "authorized_keys")
+    with _yield_download(url) as temp_file:
+        match mode:
+            case SSHKeysMode.overwrite:
+                _copyfile_logged(temp_file, path)
+            case SSHKeysMode.append:
+                for key in temp_file.read_text().splitlines():
+                    _append_to_file(key, path)
+            case never:
+                assert_never(never)
+
+
 def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
     if _has_command("starship") and not force:
         _LOGGER.info("'starship' is already set up")
@@ -377,8 +401,7 @@ def _setup_vim(*, force: bool = False) -> None:
 # utilities
 
 
-def _append_to_rc(line: str, /) -> None:
-    path = Shell.get().path_rc
+def _append_to_file(line: str, path: Path, /) -> None:
     try:
         lines = path.read_text().splitlines()
     except FileNotFoundError:
@@ -392,6 +415,10 @@ def _append_to_rc(line: str, /) -> None:
             _LOGGER.info("Appending %r to %r...", line, str(path))
             with path.open(mode="a") as fh:
                 fh.write(f"{line}\n")
+
+
+def _append_to_rc(line: str, /) -> None:
+    return _append_to_file(line, Shell.get().path_rc)
 
 
 def _copyfile_logged(
@@ -608,6 +635,17 @@ if __name__ == "__main__":
         "--proxmox-apt",
         action="store_true",
         help="Setup proxmox apt (default: %(default)s)",
+    )
+    # SSH keys
+    parser.add_argument(
+        "--ssh-keys", action="store_true", help="Add SSH keys (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--ssh-keys-mode",
+        type=SSHKeysMode,
+        choices=list(SSHKeysMode),
+        default=SSHKeysMode.overwrite,
+        help="How to handle SSH keys (default: %(default)s)",
     )
     # starship
     parser.add_argument(
