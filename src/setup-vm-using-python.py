@@ -171,7 +171,7 @@ def _setup_delta(*, force: bool = False, version: str = _DELTA_VERSION) -> None:
         (dir_from,) = temp_dir.iterdir()
         path_from = dir_from.joinpath("delta")
         path_to = _PATH_LOCAL_BIN.joinpath("delta")
-        copyfile(path_from, path_to)
+        _copyfile_logged(path_from, path_to)
 
 
 def _setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> None:
@@ -182,7 +182,7 @@ def _setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> Non
     url = _github_url("direnv", "direnv", f"v{version}", "direnv.linux-amd64")
     with _yield_download(url) as temp_file:
         path_to = _PATH_LOCAL_BIN.joinpath("direnv")
-        copyfile(temp_file, path_to)
+        _copyfile_logged(temp_file, path_to)
     _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
 
 
@@ -224,7 +224,7 @@ def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
     ):
         path_from = temp_dir.joinpath("just")
         path_to = _PATH_LOCAL_BIN.joinpath("just")
-        copyfile(path_from, path_to)
+        _copyfile_logged(path_from, path_to)
 
 
 def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> None:
@@ -232,18 +232,14 @@ def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> Non
         _LOGGER.info("'neovim' is already set up")
         return
     stem = "nvim-linux-x86_64"
-    path_to = _PATH_LOCAL_BIN.joinpath("neovim", stem)
-    if path_to.exists():
-        _LOGGER.info("Removing %r...", str(path_to))
-        rmtree(path_to)
     url = _github_url("neovim", "neovim", f"v{version}", f"{stem}.tar.gz")
     with (
         _yield_download(url) as temp_file,
         _yield_tar_gz_contents(temp_file) as temp_dir,
     ):
         (path_from,) = temp_dir.iterdir()
-        _LOGGER.info("Copying %r -> %r...", str(path_from), str(path_to))
-        copytree(path_from, path_to)
+        path_to = _PATH_LOCAL_BIN.joinpath("neovim", stem)
+        _copytree_logged(path_from, path_to)
     path_from = _PATH_LOCAL_BIN.joinpath("nvim")
     if path_from.exists():
         _LOGGER.info("Removing %r...", str(path_from))
@@ -286,7 +282,7 @@ def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) ->
     ):
         (path_from,) = temp_dir.iterdir()
         path_to = _PATH_LOCAL_BIN.joinpath("starship")
-        copyfile(path_from, path_to)
+        _copyfile_logged(path_from, path_to)
 
 
 def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
@@ -302,7 +298,7 @@ def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
         for name in ["uv", "uvx"]:
             path_from = dir_from.joinpath(name)
             path_to = _PATH_LOCAL_BIN.joinpath(name)
-            copyfile(path_from, path_to)
+            _copyfile_logged(path_from, path_to)
 
 
 def _setup_vim(*, force: bool = False) -> None:
@@ -332,6 +328,22 @@ def _append_to_rc(line: str, /) -> None:
             _LOGGER.info("Appending %r to %r...", line, str(path))
             with path.open(mode="a") as fh:
                 fh.write(f"{line}\n")
+
+
+def _copyfile_logged(path_from: Path, path_to: Path, /) -> None:
+    if path_to.exists():
+        _LOGGER.info("Removing %r...", str(path_to))
+        path_to.unlink(missing_ok=True)
+    _LOGGER.info("Copying %r -> %r...", str(path_from), str(path_to))
+    copyfile(path_from, path_to)
+
+
+def _copytree_logged(path_from: Path, path_to: Path, /) -> None:
+    if path_to.exists():
+        _LOGGER.info("Removing %r...", str(path_to))
+        rmtree(path_to)
+    _LOGGER.info("Copying %r -> %r...", str(path_from), str(path_to))
+    copytree(path_from, path_to)
 
 
 def _github_url(owner: str, repo: str, version: str, filename: str, /) -> str:
