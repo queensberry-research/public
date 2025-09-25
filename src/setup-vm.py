@@ -185,7 +185,7 @@ def _setup_delta(*, force: bool = False, version: str = _DELTA_VERSION) -> None:
         (dir_from,) = temp_dir.iterdir()
         path_from = dir_from.joinpath("delta")
         path_to = _PATH_LOCAL_BIN.joinpath("delta")
-        _copyfile_logged(path_from, path_to)
+        _copyfile_logged(path_from, path_to, executable=True)
 
 
 def _setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> None:
@@ -196,7 +196,7 @@ def _setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> Non
     url = _github_url("direnv", "direnv", f"v{version}", "direnv.linux-amd64")
     with _yield_download(url) as temp_file:
         path_to = _PATH_LOCAL_BIN.joinpath("direnv")
-        _copyfile_logged(temp_file, path_to)
+        _copyfile_logged(temp_file, path_to, executable=True)
     _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
 
 
@@ -234,7 +234,7 @@ def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
     ):
         path_from = temp_dir.joinpath("just")
         path_to = _PATH_LOCAL_BIN.joinpath("just")
-        _copyfile_logged(path_from, path_to)
+        _copyfile_logged(path_from, path_to, executable=True)
 
 
 def _setup_lazyvim(*, force: bool = False) -> None:
@@ -315,8 +315,7 @@ def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) ->
     ):
         (path_from,) = temp_dir.iterdir()
         path_to = _PATH_LOCAL_BIN.joinpath("starship")
-        _copyfile_logged(path_from, path_to)
-        _set_executable(path_to)
+        _copyfile_logged(path_from, path_to, executable=True)
 
 
 def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
@@ -332,8 +331,7 @@ def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
         for name in ["uv", "uvx"]:
             path_from = dir_from.joinpath(name)
             path_to = _PATH_LOCAL_BIN.joinpath(name)
-            _copyfile_logged(path_from, path_to)
-            _set_executable(path_to)
+            _copyfile_logged(path_from, path_to, executable=True)
 
 
 def _setup_vim(*, force: bool = False) -> None:
@@ -360,10 +358,14 @@ def _append_to_rc(line: str, /) -> None:
                 fh.write(f"{line}\n")
 
 
-def _copyfile_logged(path_from: Path, path_to: Path, /) -> None:
+def _copyfile_logged(
+    path_from: Path, path_to: Path, /, *, executable: bool = False
+) -> None:
     _unlink_logged(path_to)
     _LOGGER.info("Copying %r -> %r...", str(path_from), str(path_to))
     copyfile(path_from, path_to)
+    if executable:
+        _set_executable(path_to)
 
 
 def _copytree_logged(path_from: Path, path_to: Path, /) -> None:
