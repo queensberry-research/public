@@ -8,7 +8,10 @@ skip-magic-trailing-comma = true
 [lint]
 explicit-preview-rules = true
 fixable = ["ALL"]
-ignore = ["D"]
+ignore = [
+  "D",
+  "COM812",  # missing-trailing-comma
+]
 preview = true
 select = ["ALL"]
 
