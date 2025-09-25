@@ -248,7 +248,7 @@ def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) ->
         copyfile(path_from, path_to)
 
 
-def _setup_uv(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
+def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
     if _has_command("uv") and not force:
         _LOGGER.info("'uv' is already set up")
         return
