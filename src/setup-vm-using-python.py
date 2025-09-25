@@ -9,6 +9,7 @@ from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
 from shutil import move, which
+from stat import S_IXUSR
 from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import assert_never
@@ -128,6 +129,7 @@ def _setup_direnv() -> None:
     _LOGGER.info("Setting up 'direnv'...")
     url = "https://direnv.net/install.sh"
     with _yield_download(url) as temp_file:
+        temp_file.chmod(temp_file.stat().st_mode | S_IXUSR)
         check_call(["sh", str(temp_file)])  # noqa: S603, S607
 
 
