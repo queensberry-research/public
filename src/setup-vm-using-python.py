@@ -33,16 +33,22 @@ basicConfig(
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class Settings:
     bottom: bool = False
+    bottom_force: bool = False
     bottom_version: str = _BOTTOM_VERSION
     delta: bool = False
+    delta_force: bool = False
     delta_version: str = _DELTA_VERSION
     direnv: bool = False
+    direnv_force: bool = False
     direnv_version: str = _DIRENV_VERSION
     git: bool = False
+    git_force: bool = False
     just: bool = False
+    just_force: bool = False
     just_version: str = _JUST_VERSION
     proxmox_apt: bool = False
     vim: bool = False
+    vim_force: bool = False
 
     def __post_init__(self) -> None:
         if self.git or self.vim:
@@ -80,17 +86,17 @@ def main(settings: Settings, /) -> None:
     if settings.proxmox_apt:
         _setup_proxmox_apt()
     if settings.bottom:
-        _setup_bottom(version=settings.bottom_version)
+        _setup_bottom(force=settings.bottom_force, version=settings.bottom_version)
     if settings.delta:
-        _setup_delta(version=settings.delta_version)
+        _setup_delta(force=settings.delta_force, version=settings.delta_version)
     if settings.direnv:
-        _setup_direnv(version=settings.direnv_version)
+        _setup_direnv(force=settings.direnv_force, version=settings.direnv_version)
     if settings.git:
-        _setup_git()
+        _setup_git(force=settings.git_force)
     if settings.just:
-        _setup_just()
+        _setup_just(force=settings.just_force)
     if settings.vim:
-        _setup_vim()
+        _setup_vim(force=settings.vim_force)
 
 
 def _setup_aliases() -> None:
@@ -104,8 +110,8 @@ def _setup_aliases() -> None:
         _append_to_rc(line)
 
 
-def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
-    if _has_command("btm"):
+def _setup_bottom(*, force: bool = False, version: str = _BOTTOM_VERSION) -> None:
+    if _has_command("btm") and not force:
         _LOGGER.info("'bottom' is already set up")
         return
     _LOGGER.info("Setting up 'bottom' %s...", version)
@@ -117,8 +123,8 @@ def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
         check_call(_prepend_sudo_if_not_root(cmd))
 
 
-def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
-    if _has_command("delta"):
+def _setup_delta(*, force: bool = False, version: str = _DELTA_VERSION) -> None:
+    if _has_command("delta") and not force:
         _LOGGER.info("'delta' is already set up")
         return
     _LOGGER.info("Setting up 'delta' %s...", version)
@@ -138,8 +144,8 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
         copyfile(path_from, path_to)
 
 
-def _setup_direnv(*, version: str = _DIRENV_VERSION) -> None:
-    if _has_command("direnv"):
+def _setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> None:
+    if _has_command("direnv") and not force:
         _LOGGER.info("'direnv' is already set up")
         return
     _LOGGER.info("Setting up 'direnv'...")
@@ -166,8 +172,8 @@ def _setup_env_vars() -> None:
     _append_to_rc('''export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"''')
 
 
-def _setup_git() -> None:
-    if _has_command("git"):
+def _setup_git(*, force: bool = False) -> None:
+    if _has_command("git") and not force:
         _LOGGER.info("'git' is already set up")
         return
     _update_apt()
@@ -175,8 +181,8 @@ def _setup_git() -> None:
     check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", "git"]))
 
 
-def _setup_just(*, version: str = _JUST_VERSION) -> None:
-    if _has_command("just"):
+def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
+    if _has_command("just") and not force:
         _LOGGER.info("'just' is already set up")
         return
     url = _github_url(
@@ -209,8 +215,8 @@ def _setup_proxmox_apt_remove(name: str, /) -> bool:
     return False
 
 
-def _setup_vim() -> None:
-    if _has_command("git"):
+def _setup_vim(*, force: bool = False) -> None:
+    if _has_command("git") and not force:
         _LOGGER.info("'git' is already set up")
         return
     _update_apt()
@@ -286,6 +292,11 @@ if __name__ == "__main__":
         help="Install 'bottom' (default: %(default)s)",
     )
     parser.add_argument(
+        "--bottom-force",
+        action="store_true",
+        help="Force install 'bottom' (default: %(default)s)",
+    )
+    parser.add_argument(
         "--bottom-version",
         default=_BOTTOM_VERSION,
         help="'bottom' version (default: %(default)s)",
@@ -294,12 +305,22 @@ if __name__ == "__main__":
         "--delta", action="store_true", help="Install 'delta' (default: %(default)s)"
     )
     parser.add_argument(
+        "--delta-force",
+        action="store_true",
+        help="Force install 'delta' (default: %(default)s)",
+    )
+    parser.add_argument(
         "--delta-version",
         default=_DELTA_VERSION,
         help="'delta' version (default: %(default)s)",
     )
     parser.add_argument(
         "--direnv", action="store_true", help="Install 'direnv' (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--direnv-force",
+        action="store_true",
+        help="Force install 'direnv' (default: %(default)s)",
     )
     parser.add_argument(
         "--direnv-version",
@@ -316,6 +337,11 @@ if __name__ == "__main__":
         help="Install 'just' (default: %(default)s)",
     )
     parser.add_argument(
+        "--just-force",
+        action="store_true",
+        help="Force install 'just' (default: %(default)s)",
+    )
+    parser.add_argument(
         "--just-version",
         default=_JUST_VERSION,
         help="'just' version (default: %(default)s)",
@@ -327,6 +353,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-v", "--vim", action="store_true", help="Install 'vim' (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--vim-force",
+        action="store_true",
+        help="Force install 'vim' (default: %(default)s)",
     )
     settings = Settings(**vars(parser.parse_args()))
     main(settings)
