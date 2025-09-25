@@ -99,9 +99,7 @@ def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
     )
     with _yield_download(url) as temp_file:
         cmd = ["dpkg", "-i", str(temp_file)]
-        if not _is_root():
-            cmd = ["sudo", *cmd]
-        check_call(cmd)
+        check_call(_prepend_sudo_if_not_root(cmd))
 
 
 def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
@@ -154,14 +152,23 @@ def _setup_env_vars() -> None:
 
 
 def _setup_proxmox_apt() -> None:
-    path = Path("/etc", "apt", "sources.list.d")
-    for name in ["ceph", "pve-enterprise"]:
-        file = path.joinpath(f"{name}.sources")
-        if file.exists():
-            _LOGGER.info("Removing %r...", str(file))
-            file.unlink()
-        else:
-            _LOGGER.info("%r is already removed", str(file))
+    any_removed = any(
+        _setup_proxmox_apt_remove(name) for name in ["ceph", "pve-enterprise"]
+    )
+    if any_removed:
+        _LOGGER.info("Updating 'apt'...")
+        cmd = ["apt", "update"]
+        check_call(_prepend_sudo_if_not_root(cmd))
+
+
+def _setup_proxmox_apt_remove(name: str, /) -> bool:
+    file = Path("/etc", "apt", "sources.list.d", f"{name}.sources")
+    if file.exists():
+        _LOGGER.info("Removing %r...", str(file))
+        file.unlink()
+        return True
+    _LOGGER.info("%r is already removed", str(file))
+    return False
 
 
 # utilities
@@ -190,6 +197,10 @@ def _github_url(owner: str, repo: str, version: str, filename: str, /) -> str:
 
 def _has_command(cmd: str, /) -> bool:
     return which(cmd) is not None
+
+
+def _prepend_sudo_if_not_root(cmd: list[str], /) -> list[str]:
+    return cmd if _is_root() else ["sudo", *cmd]
 
 
 def _is_root() -> bool:
