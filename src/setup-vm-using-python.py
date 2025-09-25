@@ -272,6 +272,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "-g", "--git", action="store_true", help="Install 'git' (default: %(default)s)"
     )
-    parser.add_argument("--proxmox-apt", action="store_true", help="Setup proxmox apt")
+    parser.add_argument(
+        "--proxmox-apt",
+        action="store_true",
+        help="Setup proxmox apt (default: %(default)s)",
+    )
     settings = Settings(**vars(parser.parse_args()))
     main(settings)
