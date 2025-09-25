@@ -9,7 +9,6 @@ from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
 from shutil import move, which
-from stat import S_IXUSR
 from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import assert_never
@@ -19,6 +18,7 @@ from urllib.request import urlopen
 _LOGGER = getLogger(__name__)
 _BOTTOM_VERSION = "0.11.1"
 _DELTA_VERSION = "0.18.2"
+_DIRENV_VERSION = "2.37.1"
 _PATH_LOCAL_BIN = Path.home().joinpath(".local", "bin")
 _PATH_LOCAL_BIN.mkdir(parents=True, exist_ok=True)
 basicConfig(
@@ -27,11 +27,6 @@ basicConfig(
 
 
 # classes
-
-
-class Mode(Enum):
-    binary = auto()
-    text = auto()
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
@@ -44,6 +39,7 @@ class Settings:
     delta: bool = False
     delta_version: str = _DELTA_VERSION
     direnv: bool = False
+    direnv_version: str = _DIRENV_VERSION
 
 
 class Shell(Enum):
@@ -80,7 +76,7 @@ def main(settings: Settings, /) -> None:
     if settings.delta:
         _setup_delta(version=settings.delta_version)
     if settings.direnv:
-        _setup_direnv()
+        _setup_direnv(version=settings.direnv_version)
 
 
 def _setup_aliases() -> None:
@@ -102,7 +98,7 @@ def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
     url = _github_url(
         "ClementTsang", "bottom", version, f"bottom_{version}-1_amd64.deb"
     )
-    with _yield_download(url, Mode.binary) as temp_file:
+    with _yield_download(url) as temp_file:
         cmd = ["dpkg", "-i", str(temp_file)]
         if not _is_root():
             cmd = ["sudo", *cmd]
@@ -114,11 +110,14 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
         _LOGGER.info("'delta' is already set up")
         return
     _LOGGER.info("Setting up 'delta' %s...", version)
-    stem = f"delta-{version}-x86_64-unknown-linux-gnu"
-    filename = f"{stem}.tar.gz"
-    url = _github_url("dandavison", "delta", version, filename)
+    url = _github_url(
+        "dandavison",
+        "delta",
+        version,
+        f"delta-{version}-x86_64-unknown-linux-gnu.tar.gz",
+    )
     with (
-        _yield_download(url, Mode.binary) as temp_file,
+        _yield_download(url) as temp_file,
         _yield_tar_gz_contents(temp_file) as temp_dir,
     ):
         (dir_from,) = temp_dir.iterdir()
@@ -127,15 +126,15 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
         move(path_from, path_to)
 
 
-def _setup_direnv() -> None:
+def _setup_direnv(*, version: str = _DIRENV_VERSION) -> None:
     if _has_command("direnv") and 0:
         _LOGGER.info("'direnv' is already set up")
         return
     _LOGGER.info("Setting up 'direnv'...")
-    url = "https://direnv.net/install.sh"
-    with _yield_download(url, Mode.text) as temp_file:
-        temp_file.chmod(temp_file.stat().st_mode | S_IXUSR)
-        check_call(["sh", str(temp_file)])
+    url = _github_url("direnv", "direnv", f"v{version}", "direnv.linux-amd64")
+    with _yield_download(url) as temp_file:
+        path_to = _PATH_LOCAL_BIN.joinpath("direnv")
+        move(temp_file, path_to)
 
 
 def _setup_editing_mode() -> None:
@@ -182,20 +181,12 @@ def _is_root() -> bool:
 
 
 @contextmanager
-def _yield_download(url: str, mode: Mode, /) -> Iterator[Path]:
+def _yield_download(url: str, /) -> Iterator[Path]:
     filename = Path(urlparse(url).path).name
     with TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir, filename)
-        with urlopen(url) as response:
-            match mode:
-                case Mode.binary:
-                    with temp_file.open(mode="wb") as fh:
-                        fh.write(response.read())
-                case Mode.text:
-                    with temp_file.open(mode="w") as fh:
-                        fh.write(response.read().decode())
-                case never:
-                    assert_never(never)
+        with urlopen(url) as response, temp_file.open(mode="wb") as fh:
+            fh.write(response.read())
         yield temp_file
 
 
@@ -238,6 +229,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--direnv", action="store_true", help="Install 'direnv' (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--direnv-version",
+        default=_DIRENV_VERSION,
+        help="'direnv' version (default: %(default)s)",
     )
     settings = Settings(**vars(parser.parse_args()))
     main(settings)
