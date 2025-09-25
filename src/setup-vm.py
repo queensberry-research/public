@@ -396,7 +396,12 @@ def _unlink_logged(path: Path, /) -> None:
 
 
 def _set_executable(path: Path, /) -> None:
-    path.chmod(path.stat().st_mode | S_IXUSR)
+    mode = path.stat().st_mode
+    if mode & S_IXUSR:
+        _LOGGER.info("%r is already executable", str(path))
+        return
+    _LOGGER.info("Making %r executable...", str(path))
+    path.chmod(mode | S_IXUSR)
 
 
 def _setup_via_apt(cmd: str, /, *, force: bool = False) -> None:
