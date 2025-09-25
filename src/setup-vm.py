@@ -9,7 +9,7 @@ from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
 from shutil import copyfile, copytree, rmtree, which
-from stat import S_IXUSR
+from stat import S_IRUSR, S_IWUSR, S_IXUSR
 from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import assert_never
@@ -156,7 +156,7 @@ def main(settings: Settings, /) -> None:
     if settings.just:
         _setup_just(force=settings.just_force)
     if settings.ssh_keys:
-        _setup_ssh_key(mode=settings.ssh_keys_mode)
+        _setup_ssh_keys(mode=settings.ssh_keys_mode)
     if settings.starship:
         _setup_starship(
             force=settings.starship_force, version=settings.starship_version
@@ -344,7 +344,7 @@ def _setup_proxmox_apt_remove(name: str, /) -> bool:
     return False
 
 
-def _setup_ssh_key(*, mode: SSHKeysMode) -> None:
+def _setup_ssh_keys(*, mode: SSHKeysMode) -> None:
     url = "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt"
     path = Path.home().joinpath(".ssh", "authorized_keys")
     with _yield_download(url) as temp_file:
@@ -356,6 +356,7 @@ def _setup_ssh_key(*, mode: SSHKeysMode) -> None:
                     _append_to_file(key, path)
             case never:
                 assert_never(never)
+    path.chmod(S_IRUSR | S_IWUSR)
 
 
 def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
