@@ -29,6 +29,11 @@ basicConfig(
 # classes
 
 
+class Mode(Enum):
+    binary = auto()
+    text = auto()
+
+
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class Settings:
     aliases: bool = False
@@ -97,11 +102,11 @@ def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
     url = _github_url(
         "ClementTsang", "bottom", version, f"bottom_{version}-1_amd64.deb"
     )
-    with _yield_download(url) as temp_file:
+    with _yield_download(url, Mode.binary) as temp_file:
         cmd = ["dpkg", "-i", str(temp_file)]
         if not _is_root():
             cmd = ["sudo", *cmd]
-        check_call(cmd)  # noqa: S603
+        check_call(cmd)
 
 
 def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
@@ -113,7 +118,7 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
     filename = f"{stem}.tar.gz"
     url = _github_url("dandavison", "delta", version, filename)
     with (
-        _yield_download(url) as temp_file,
+        _yield_download(url, Mode.binary) as temp_file,
         _yield_tar_gz_contents(temp_file) as temp_dir,
     ):
         (dir_from,) = temp_dir.iterdir()
@@ -128,9 +133,9 @@ def _setup_direnv() -> None:
         return
     _LOGGER.info("Setting up 'direnv'...")
     url = "https://direnv.net/install.sh"
-    with _yield_download(url) as temp_file:
+    with _yield_download(url, Mode.text) as temp_file:
         temp_file.chmod(temp_file.stat().st_mode | S_IXUSR)
-        check_call(["sh", str(temp_file)])  # noqa: S603, S607
+        check_call(["sh", str(temp_file)])
 
 
 def _setup_editing_mode() -> None:
@@ -177,12 +182,20 @@ def _is_root() -> bool:
 
 
 @contextmanager
-def _yield_download(url: str, /) -> Iterator[Path]:
+def _yield_download(url: str, mode: Mode, /) -> Iterator[Path]:
     filename = Path(urlparse(url).path).name
     with TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir, filename)
-        with urlopen(url) as response, temp_file.open(mode="wb") as fh:  # noqa: S310
-            fh.write(response.read())
+        with urlopen(url) as response:
+            match mode:
+                case Mode.binary:
+                    with temp_file.open(mode="wb") as fh:
+                        fh.write(response.read())
+                case Mode.text:
+                    with temp_file.open(mode="w") as fh:
+                        fh.write(response.read().decode())
+                case never:
+                    assert_never(never)
         yield temp_file
 
 

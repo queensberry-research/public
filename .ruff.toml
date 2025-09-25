@@ -11,6 +11,7 @@ fixable = ["ALL"]
 ignore = [
   "D",
   "COM812",  # missing-trailing-comma
+  "S",
 ]
 preview = true
 select = ["ALL"]
