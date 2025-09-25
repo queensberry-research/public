@@ -37,6 +37,7 @@ class Settings:
     delta_version: str = _DELTA_VERSION
     direnv: bool = False
     direnv_version: str = _DIRENV_VERSION
+    proxmox_apt: bool = False
 
 
 class Shell(Enum):
@@ -73,6 +74,8 @@ def main(settings: Settings, /) -> None:
         _setup_delta(version=settings.delta_version)
     if settings.direnv:
         _setup_direnv(version=settings.direnv_version)
+    if settings.proxmox_apt:
+        _setup_proxmox_apt()
 
 
 def _setup_aliases() -> None:
@@ -148,6 +151,17 @@ def _setup_editing_mode() -> None:
 def _setup_env_vars() -> None:
     _append_to_rc("""export EDITOR='nvim'""")
     _append_to_rc('''export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"''')
+
+
+def _setup_proxmox_apt() -> None:
+    path = Path("/etc", "apt", "sources.list.d")
+    for name in ["ceph", "pve-enterprise"]:
+        file = path.joinpath(f"{name}.sources")
+        if file.exists():
+            _LOGGER.info("Removing %r...", str(file))
+            file.unlink()
+        else:
+            _LOGGER.info("%r is already removed", str(file))
 
 
 # utilities
@@ -228,5 +242,6 @@ if __name__ == "__main__":
         default=_DIRENV_VERSION,
         help="'direnv' version (default: %(default)s)",
     )
+    parser.add_argument("--proxmox-apt", action="store_true", help="Setup proxmox apt")
     settings = Settings(**vars(parser.parse_args()))
     main(settings)
