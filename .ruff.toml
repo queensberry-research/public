@@ -1,0 +1,15 @@
+target-version = "py313"
+unsafe-fixes = true
+
+[format]
+preview = true
+skip-magic-trailing-comma = true
+
+[lint]
+explicit-preview-rules = true
+fixable = ["ALL"]
+preview = true
+select = ["ALL"]
+
+[lint.isort]
+split-on-trailing-comma = false
