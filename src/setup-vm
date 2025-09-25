@@ -173,13 +173,19 @@ setup_git() {
 }
 
 setup_just() {
-	if ! command -v just >/dev/null 2>&1; then
+	if command -v just >/dev/null 2>&1; then
+		echo_date "'just' already set up..."
+	else
+		echo_date "Setting up 'just'..."
 		curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | sh -s -- --to "${HOME}/bin"
 	fi
 }
 
 setup_neovim() {
-	if ! command -v nvim >/dev/null 2>&1; then
+	if command -v nvim >/dev/null 2>&1; then
+		echo_date "'neovim' already set up..."
+	else
+		echo_date "Setting up 'neovim'..."
 		temp_dir=$(mktemp -d) || return 1
 		trap 'rm -rf "${temp_dir}"' EXIT
 		cd "${temp_dir}" || return 1
