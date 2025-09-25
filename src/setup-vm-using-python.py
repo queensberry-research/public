@@ -37,6 +37,7 @@ class Settings:
     delta_version: str = _DELTA_VERSION
     direnv: bool = False
     direnv_version: str = _DIRENV_VERSION
+    git: bool = False
     proxmox_apt: bool = False
 
 
