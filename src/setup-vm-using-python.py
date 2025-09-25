@@ -21,7 +21,5 @@ if __name__ == "__main__":
         help="Add aliases (default: disabled)",
     )
     args = parser.parse_args()
-    cfg = Settings(
-        aliases=args.alias,
-    )
+    cfg = Settings(aliases=args.alias)
     main(cfg)
