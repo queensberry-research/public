@@ -40,6 +40,9 @@ class Settings:
     bottom: bool = False
     bottom_force: bool = False
     bottom_version: str = _BOTTOM_VERSION
+    # curl
+    curl: bool = False
+    curl_force: bool = False
     # delta
     delta: bool = False
     delta_force: bool = False
@@ -129,6 +132,8 @@ def main(settings: Settings, /) -> None:
         _setup_lazyvim(force=settings.lazyvim_force)
     if settings.bottom:
         _setup_bottom(force=settings.bottom_force, version=settings.bottom_version)
+    if settings.curl:
+        _setup_curl(force=settings.curl_force)
     if settings.delta:
         _setup_delta(force=settings.delta_force, version=settings.delta_version)
     if settings.direnv:
@@ -165,6 +170,10 @@ def _setup_bottom(*, force: bool = False, version: str = _BOTTOM_VERSION) -> Non
     with _yield_download(url) as temp_file:
         cmd = ["dpkg", "-i", str(temp_file)]
         check_call(_prepend_sudo_if_not_root(cmd))
+
+
+def _setup_curl(*, force: bool = False) -> None:
+    _setup_via_apt("curl", force=force)
 
 
 def _setup_delta(*, force: bool = False, version: str = _DELTA_VERSION) -> None:
@@ -459,6 +468,18 @@ if __name__ == "__main__":
         default=_BOTTOM_VERSION,
         help="'bottom' version (default: %(default)s)",
     )
+    # curl
+    parser.add_argument(
+        "-c",
+        "--curl",
+        action="store_true",
+        help="Install 'curl' (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--curl-force",
+        action="store_true",
+        help="Force install 'curl' (default: %(default)s)",
+    )
     # delta
     parser.add_argument(
         "--delta", action="store_true", help="Install 'delta' (default: %(default)s)"
@@ -487,8 +508,14 @@ if __name__ == "__main__":
         default=_DIRENV_VERSION,
         help="'direnv' version (default: %(default)s)",
     )
+    # git
     parser.add_argument(
         "-g", "--git", action="store_true", help="Install 'git' (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--git-force",
+        action="store_true",
+        help="Force install 'git' (default: %(default)s)",
     )
     # just
     parser.add_argument(
