@@ -75,11 +75,17 @@ class Settings:
     vim: bool = False
     vim_force: bool = False
 
-    def __post_init__(self) -> None:
-        if self.git or self.vim:
-            self.proxmox_apt = True
-        if self.lazyvim:
-            self.neovim = True
+    @property
+    def git_use(self) -> bool:
+        return self.git or self.lazyvim
+
+    @property
+    def neovim_use(self) -> bool:
+        return self.neovim or self.lazyvim
+
+    @property
+    def proxmox_apt_use(self) -> bool:
+        return self.proxmox_apt or self.git_use or self.vim
 
 
 class Shell(Enum):
@@ -110,13 +116,13 @@ def main(settings: Settings, /) -> None:
     _setup_aliases()
     _setup_editing_mode()
     _setup_env_vars()
-    if settings.proxmox_apt:
+    if settings.proxmox_apt_use:
         _setup_proxmox_apt()
-    if settings.git:  # after proxmox_apt
+    if settings.git_use:  # after proxmox_apt
         _setup_git(force=settings.git_force)
     if settings.vim:  # after proxmox_apt
         _setup_vim(force=settings.vim_force)
-    if settings.neovim:
+    if settings.neovim_use:
         _setup_neovim(force=settings.neovim_force, version=settings.neovim_version)
     if settings.lazyvim:  # after neovim
         _setup_lazyvim(force=settings.lazyvim_force)
@@ -231,11 +237,20 @@ def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
 
 
 def _setup_lazyvim(*, force: bool = False) -> None:
-    path = Path.home().joinpath(".config", "nvim", "lua", "config", "lazy.lua")
+    home = Path.home()
+    path = home.joinpath(".config", "nvim", "lua", "config", "lazy.lua")
     if path.exists() and not force:
         _LOGGER.info("'lazyvim' is already set up")
         return
-    _LOGGER.info("'lazyvim' is already set up")
+    _LOGGER.info("Setting up 'lazyvim'...")
+    for tail in [
+        Path(".config", "nvim"),
+        Path(".local", "share"),
+        Path(".local", "state"),
+        Path(".cache", "nvim"),
+    ]:
+        path = home.joinpath(tail)
+        _LOGGER.info("Removing %r...", str(path))
 
 
 def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> None:
@@ -253,9 +268,7 @@ def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> Non
         path_to = _PATH_LOCAL_BIN.joinpath("neovim", stem)
         _copytree_logged(path_from, path_to)
     path_from = _PATH_LOCAL_BIN.joinpath("nvim")
-    if path_from.exists():
-        _LOGGER.info("Removing %r...", str(path_from))
-        path_from.unlink(missing_ok=True)
+    _unlink_logged(path_from)
     path_to = _PATH_LOCAL_BIN.joinpath("neovim", stem, "bin", "nvim")
     path_from.symlink_to(path_to)
 
@@ -269,12 +282,11 @@ def _setup_proxmox_apt() -> None:
 
 
 def _setup_proxmox_apt_remove(name: str, /) -> bool:
-    file = Path("/etc", "apt", "sources.list.d", f"{name}.sources")
-    if file.exists():
-        _LOGGER.info("Removing %r...", str(file))
-        file.unlink()
+    path = Path("/etc", "apt", "sources.list.d", f"{name}.sources")
+    if path.exists():
+        _unlink_logged(path)
         return True
-    _LOGGER.info("%r is already removed", str(file))
+    _LOGGER.info("%r is already removed", str(path))
     return False
 
 
@@ -338,9 +350,7 @@ def _append_to_rc(line: str, /) -> None:
 
 
 def _copyfile_logged(path_from: Path, path_to: Path, /) -> None:
-    if path_to.exists():
-        _LOGGER.info("Removing %r...", str(path_to))
-        path_to.unlink(missing_ok=True)
+    _unlink_logged(path_to)
     _LOGGER.info("Copying %r -> %r...", str(path_from), str(path_to))
     copyfile(path_from, path_to)
 
@@ -367,6 +377,12 @@ def _prepend_sudo_if_not_root(cmd: list[str], /) -> list[str]:
 
 def _is_root() -> bool:
     return geteuid() == 0
+
+
+def _unlink_logged(path: Path, /) -> None:
+    if path.exists():
+        _LOGGER.info("Removing %r...", str(path))
+        path.unlink(missing_ok=True)
 
 
 def _update_apt() -> None:
