@@ -25,8 +25,6 @@ _JUST_VERSION = "1.42.4"
 _NEOVIM_VERSION = "0.11.4"
 _STARSHIP_VERSION = "1.23.0"
 _UV_VERSION = "0.8.22"
-_PATH_LOCAL_BIN = Path.home().joinpath(".local", "bin")
-_PATH_LOCAL_BIN.mkdir(parents=True, exist_ok=True)
 basicConfig(
     format="{asctime} | {message}", datefmt="%Y-%m-%d %H:%M:%S", style="{", level="INFO"
 )
@@ -191,7 +189,7 @@ def _setup_age(*, force: bool = False, version: str = _AGE_VERSION) -> None:
         (dir_from,) = temp_dir.iterdir()
         for name in ["age", "age-keygen"]:
             path_from = dir_from.joinpath(name)
-            path_to = _PATH_LOCAL_BIN.joinpath(name)
+            path_to = _local_bin().joinpath(name)
             _copyfile_logged(path_from, path_to, executable=True)
 
 
@@ -229,7 +227,7 @@ def _setup_delta(*, force: bool = False, version: str = _DELTA_VERSION) -> None:
     ):
         (dir_from,) = temp_dir.iterdir()
         path_from = dir_from.joinpath("delta")
-        path_to = _PATH_LOCAL_BIN.joinpath("delta")
+        path_to = _local_bin().joinpath("delta")
         _copyfile_logged(path_from, path_to, executable=True)
 
 
@@ -240,7 +238,7 @@ def _setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> Non
     _LOGGER.info("Setting up 'direnv'...")
     url = _github_url("direnv", "direnv", f"v{version}", "direnv.linux-amd64")
     with _yield_download(url) as temp_file:
-        path_to = _PATH_LOCAL_BIN.joinpath("direnv")
+        path_to = _local_bin().joinpath("direnv")
         _copyfile_logged(temp_file, path_to, executable=True)
     _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
 
@@ -278,7 +276,7 @@ def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
         _yield_tar_gz_contents(temp_file) as temp_dir,
     ):
         path_from = temp_dir.joinpath("just")
-        path_to = _PATH_LOCAL_BIN.joinpath("just")
+        path_to = _local_bin().joinpath("just")
         _copyfile_logged(path_from, path_to, executable=True)
 
 
@@ -319,11 +317,11 @@ def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> Non
         _yield_tar_gz_contents(temp_file) as temp_dir,
     ):
         (path_from,) = temp_dir.iterdir()
-        path_to = _PATH_LOCAL_BIN.joinpath("neovim", stem)
+        path_to = _local_bin().joinpath("neovim", stem)
         _copytree_logged(path_from, path_to)
-    path_from = _PATH_LOCAL_BIN.joinpath("nvim")
+    path_from = _local_bin().joinpath("nvim")
     _unlink_logged(path_from)
-    path_to = _PATH_LOCAL_BIN.joinpath("neovim", stem, "bin", "nvim")
+    path_to = _local_bin().joinpath("neovim", stem, "bin", "nvim")
     path_from.symlink_to(path_to)
 
 
@@ -376,7 +374,7 @@ def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) ->
         _yield_tar_gz_contents(temp_file) as temp_dir,
     ):
         (path_from,) = temp_dir.iterdir()
-        path_to = _PATH_LOCAL_BIN.joinpath("starship")
+        path_to = _local_bin().joinpath("starship")
         _copyfile_logged(path_from, path_to, executable=True)
     _append_to_rc(f"""eval "$(starship init {Shell.get().name})" """)
 
@@ -393,7 +391,7 @@ def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
         (dir_from,) = temp_dir.iterdir()
         for name in ["uv", "uvx"]:
             path_from = dir_from.joinpath(name)
-            path_to = _PATH_LOCAL_BIN.joinpath(name)
+            path_to = _local_bin().joinpath(name)
             _copyfile_logged(path_from, path_to, executable=True)
 
 
@@ -429,6 +427,7 @@ def _copyfile_logged(
 ) -> None:
     _unlink_logged(path_to)
     _LOGGER.info("Copying %r -> %r...", str(path_from), str(path_to))
+    path_to.parent.mkdir(parents=True, exist_ok=True)
     copyfile(path_from, path_to)
     if executable:
         _set_executable(path_to)
@@ -438,6 +437,7 @@ def _copytree_logged(path_from: Path, path_to: Path, /) -> None:
     if path_to.exists():
         _LOGGER.info("Removing %r...", str(path_to))
         rmtree(path_to)
+    path_to.parent.mkdir(parents=True, exist_ok=True)
     _LOGGER.info("Copying %r -> %r...", str(path_from), str(path_to))
     copytree(path_from, path_to)
 
@@ -448,6 +448,10 @@ def _github_url(owner: str, repo: str, version: str, filename: str, /) -> str:
 
 def _has_command(cmd: str, /) -> bool:
     return which(cmd) is not None
+
+
+def _local_bin() -> Path:
+    return Path.home().joinpath(".local", "bin")
 
 
 def _prepend_sudo_if_not_root(cmd: list[str], /) -> list[str]:
