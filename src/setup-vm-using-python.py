@@ -8,11 +8,10 @@ from enum import Enum, auto
 from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
-from re import search
 from shutil import move, which
 from subprocess import check_call
 from tempfile import TemporaryDirectory
-from typing import TextIO
+from typing import assert_never
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
@@ -32,6 +31,8 @@ basicConfig(
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class Settings:
     aliases: bool = False
+    editing_mode: bool = False
+    ##
     bottom: bool = False
     bottom_version: str = _BOTTOM_VERSION
     delta: bool = False
@@ -65,6 +66,8 @@ def main(settings: Settings, /) -> None:
     _LOGGER.info("Setting up VM...")
     if settings.aliases:
         _setup_aliases()
+    if settings.editing_mode:
+        _setup_editing_mode()
     if settings.bottom:
         _setup_bottom(version=settings.bottom_version)
     if settings.delta:
@@ -72,31 +75,14 @@ def main(settings: Settings, /) -> None:
 
 
 def _setup_aliases() -> None:
-    _LOGGER.info("Setting up aliases...")
-    path = Shell.get().path_rc
-
-    def append(file: TextIO, /) -> None:
-        file.write("""
-
-# aliases
-alias ~='cd "${HOME}"'
-alias ..='cd ..'
-alias ...='cd ../..'
-alias ....='cd ../../..'
-alias l='ls -al'
-""")
-
-    try:
-        lines = path.read_text().splitlines()
-    except FileNotFoundError:
-        _LOGGER.info("Writing to %r...", str(path))
-        with path.open(mode="w") as fh:
-            append(fh)
-    else:
-        if not any(search("# aliases", line) for line in lines):
-            _LOGGER.info("Appending to %r...", str(path))
-            with path.open(mode="a") as fh:
-                append(fh)
+    for line in [
+        """alias ~='cd "${HOME}"'""",
+        """alias ..='cd ..'""",
+        """alias ...='cd ../..'""",
+        """alias ....='cd ../../..'""",
+        """alias l='ls -al'""",
+    ]:
+        _append_to_rc(line)
 
 
 def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
@@ -132,7 +118,36 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
         move(path_from, path_to)
 
 
+def _setup_editing_mode() -> None:
+    _LOGGER.info("Setting up editing mode...")
+    match Shell.get():
+        case Shell.bash:
+            line = "set -o vi"
+        case Shell.zsh:
+            line = "bindkey -v"
+        case never:
+            assert_never(never)
+    _append_to_rc(line)
+
+
 # utilities
+
+
+def _append_to_rc(line: str, /) -> None:
+    path = Shell.get().path_rc
+    try:
+        lines = path.read_text().splitlines()
+    except FileNotFoundError:
+        _LOGGER.info("Writing %r to %r...", line, str(path))
+        with path.open(mode="w") as fh:
+            fh.write(f"{line}\n")
+    else:
+        if any(line_i == line for line_i in lines):
+            _LOGGER.info("%r already in %r", line, str(path))
+        else:
+            _LOGGER.info("Appending %r to %r...", line, str(path))
+            with path.open(mode="a") as fh:
+                fh.write(f"{line}\n")
 
 
 def _github_url(owner: str, repo: str, version: str, filename: str, /) -> str:
@@ -168,6 +183,12 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
         "-a", "--aliases", action="store_true", help="Add aliases (default: disabled)"
+    )
+    parser.add_argument(
+        "-e",
+        "--editing-mode",
+        action="store_true",
+        help="Setup editing mode (default: disabled)",
     )
     parser.add_argument(
         "-b",
