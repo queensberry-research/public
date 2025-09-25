@@ -8,9 +8,7 @@ skip-magic-trailing-comma = true
 [lint]
 explicit-preview-rules = true
 fixable = ["ALL"]
-ignore = [
-  "D",
-]
+ignore = ["D"]
 preview = true
 select = ["ALL"]
 
