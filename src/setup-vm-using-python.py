@@ -77,6 +77,8 @@ def main(settings: Settings, /) -> None:
         _setup_direnv(version=settings.direnv_version)
     if settings.proxmox_apt:
         _setup_proxmox_apt()
+    if settings.git:  # after apt
+        _setup_git()
 
 
 def _setup_aliases() -> None:
@@ -125,15 +127,15 @@ def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
 
 
 def _setup_direnv(*, version: str = _DIRENV_VERSION) -> None:
-    if _has_command("direnv") and 0:
+    if _has_command("direnv"):
         _LOGGER.info("'direnv' is already set up")
-    else:
-        _LOGGER.info("Setting up 'direnv'...")
-        url = _github_url("direnv", "direnv", f"v{version}", "direnv.linux-amd64")
-        with _yield_download(url) as temp_file:
-            path_to = _PATH_LOCAL_BIN.joinpath("direnv")
-            move(temp_file, path_to)
-        _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
+        return
+    _LOGGER.info("Setting up 'direnv'...")
+    url = _github_url("direnv", "direnv", f"v{version}", "direnv.linux-amd64")
+    with _yield_download(url) as temp_file:
+        path_to = _PATH_LOCAL_BIN.joinpath("direnv")
+        move(temp_file, path_to)
+    _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
 
 
 def _setup_editing_mode() -> None:
@@ -152,14 +154,21 @@ def _setup_env_vars() -> None:
     _append_to_rc('''export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"''')
 
 
+def _setup_git() -> None:
+    if _has_command("git"):
+        _LOGGER.info("'git' is already set up")
+        return
+    _update_apt()
+    _LOGGER.info("Installing 'git'...")
+    check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", "git"]))
+
+
 def _setup_proxmox_apt() -> None:
     any_removed = any(
         _setup_proxmox_apt_remove(name) for name in ["ceph", "pve-enterprise"]
     )
     if any_removed:
-        _LOGGER.info("Updating 'apt'...")
-        cmd = ["apt", "update"]
-        check_call(_prepend_sudo_if_not_root(cmd))
+        _update_apt()
 
 
 def _setup_proxmox_apt_remove(name: str, /) -> bool:
@@ -208,6 +217,12 @@ def _is_root() -> bool:
     return geteuid() == 0
 
 
+def _update_apt() -> None:
+    _LOGGER.info("Updating 'apt'...")
+    cmd = ["apt", "update"]
+    check_call(_prepend_sudo_if_not_root(cmd))
+
+
 @contextmanager
 def _yield_download(url: str, /) -> Iterator[Path]:
     filename = Path(urlparse(url).path).name
@@ -253,6 +268,9 @@ if __name__ == "__main__":
         "--direnv-version",
         default=_DIRENV_VERSION,
         help="'direnv' version (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-g", "--git", action="store_true", help="Install 'git' (default: %(default)s)"
     )
     parser.add_argument("--proxmox-apt", action="store_true", help="Setup proxmox apt")
     settings = Settings(**vars(parser.parse_args()))
