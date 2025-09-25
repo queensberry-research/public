@@ -39,6 +39,7 @@ class Settings:
     direnv_version: str = _DIRENV_VERSION
     git: bool = False
     proxmox_apt: bool = False
+    vim: bool = False
 
 
 class Shell(Enum):
@@ -69,16 +70,18 @@ def main(settings: Settings, /) -> None:
     _setup_aliases()
     _setup_editing_mode()
     _setup_env_vars()
+    if settings.proxmox_apt:
+        _setup_proxmox_apt()
     if settings.bottom:
         _setup_bottom(version=settings.bottom_version)
     if settings.delta:
         _setup_delta(version=settings.delta_version)
     if settings.direnv:
         _setup_direnv(version=settings.direnv_version)
-    if settings.proxmox_apt:
-        _setup_proxmox_apt()
-    if settings.git:  # after apt
+    if settings.git:
         _setup_git()
+    if settings.vim:
+        _setup_vim()
 
 
 def _setup_aliases() -> None:
@@ -181,6 +184,15 @@ def _setup_proxmox_apt_remove(name: str, /) -> bool:
     return False
 
 
+def _setup_vim() -> None:
+    if _has_command("git"):
+        _LOGGER.info("'git' is already set up")
+        return
+    _update_apt()
+    _LOGGER.info("Installing 'vim'...")
+    check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", "vim"]))
+
+
 # utilities
 
 
@@ -276,6 +288,9 @@ if __name__ == "__main__":
         "--proxmox-apt",
         action="store_true",
         help="Setup proxmox apt (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-v", "--vim", action="store_true", help="Install 'vim' (default: %(default)s)"
     )
     settings = Settings(**vars(parser.parse_args()))
     main(settings)
