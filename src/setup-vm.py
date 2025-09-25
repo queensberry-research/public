@@ -316,6 +316,7 @@ def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) ->
         (path_from,) = temp_dir.iterdir()
         path_to = _PATH_LOCAL_BIN.joinpath("starship")
         _copyfile_logged(path_from, path_to)
+        _set_executable(path_to)
 
 
 def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
