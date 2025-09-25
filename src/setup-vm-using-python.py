@@ -1,4 +1,5 @@
 #!/usr/bin/env python3.13
+
 import tarfile
 from argparse import ArgumentParser
 from collections.abc import Iterator
@@ -19,6 +20,7 @@ _LOGGER = getLogger(__name__)
 _BOTTOM_VERSION = "0.11.1"
 _DELTA_VERSION = "0.18.2"
 _DIRENV_VERSION = "2.37.1"
+_STARSHIP_VERSION = "1.23.0"
 _JUST_VERSION = "1.42.4"
 _PATH_LOCAL_BIN = Path.home().joinpath(".local", "bin")
 _PATH_LOCAL_BIN.mkdir(parents=True, exist_ok=True)
@@ -47,6 +49,9 @@ class Settings:
     just_force: bool = False
     just_version: str = _JUST_VERSION
     proxmox_apt: bool = False
+    starship: bool = False
+    starship_force: bool = False
+    starship_version: str = _STARSHIP_VERSION
     vim: bool = False
     vim_force: bool = False
 
@@ -350,6 +355,22 @@ if __name__ == "__main__":
         "--proxmox-apt",
         action="store_true",
         help="Setup proxmox apt (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-s",
+        "--starship",
+        action="store_true",
+        help="Install 'starship' (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--starship-force",
+        action="store_true",
+        help="Force install 'starship' (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--starship-version",
+        default=_STARSHIP_VERSION,
+        help="'starship' version (default: %(default)s)",
     )
     parser.add_argument(
         "-v", "--vim", action="store_true", help="Install 'vim' (default: %(default)s)"
