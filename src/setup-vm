@@ -9,6 +9,7 @@ main() {
 	setup_delta
 	setup_editing_mode
 	setup_just
+	setup_uv
 
 	# apt
 	setup_apt
@@ -23,6 +24,7 @@ main() {
 	setup_neovim
 	setup_lazyvim        # after git & neovim
 	setup_neovim_plugins # after lazyvim
+
 }
 
 get_shell_rc() {
@@ -155,6 +157,7 @@ setup_env_vars() {
 # env vars
 export EDITOR='nvim'
 export PATH="${HOME}/bin${PATH:+:${PATH}}"
+export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"
 EOF
 	fi
 }
@@ -252,4 +255,12 @@ EOF
 	fi
 }
 
+setup_uv() {
+	if command -v uv >/dev/null 2>&1; then
+		echo_date "'uv' already set up"
+	else
+		echo_date "Setting up 'uv'..."
+		curl -LsSf https://astral.sh/uv/install.sh | sh
+	fi
+}
 main "$@"
