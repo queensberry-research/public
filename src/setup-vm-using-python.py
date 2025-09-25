@@ -8,8 +8,8 @@ from enum import Enum, auto
 from logging import basicConfig, getLogger
 from os import environ, geteuid
 from pathlib import Path
-from shutil import copyfile, which
-from subprocess import check_call
+from shutil import copyfile, copytree, rmtree, which
+from subprocess import check_call, check_output
 from tempfile import TemporaryDirectory
 from typing import assert_never
 from urllib.parse import urlparse
@@ -20,6 +20,7 @@ _BOTTOM_VERSION = "0.11.1"
 _DELTA_VERSION = "0.18.2"
 _DIRENV_VERSION = "2.37.1"
 _JUST_VERSION = "1.42.4"
+_NEOVIM_VERSION = "0.11.4"
 _STARSHIP_VERSION = "1.23.0"
 _UV_VERSION = "0.8.22"
 _PATH_LOCAL_BIN = Path.home().joinpath(".local", "bin")
@@ -34,27 +35,40 @@ basicConfig(
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class Settings:
+    # bottom
     bottom: bool = False
     bottom_force: bool = False
     bottom_version: str = _BOTTOM_VERSION
+    # delta
     delta: bool = False
     delta_force: bool = False
     delta_version: str = _DELTA_VERSION
+    # direnv
     direnv: bool = False
     direnv_force: bool = False
     direnv_version: str = _DIRENV_VERSION
+    # git
     git: bool = False
     git_force: bool = False
+    # just
     just: bool = False
     just_force: bool = False
     just_version: str = _JUST_VERSION
+    # neovim
+    neovim: bool = False
+    neovim_force: bool = False
+    neovim_version: str = _NEOVIM_VERSION
+    # proxmox
     proxmox_apt: bool = False
+    # starship
     starship: bool = False
     starship_force: bool = False
     starship_version: str = _STARSHIP_VERSION
+    # uv
     uv: bool = False
     uv_force: bool = False
     uv_version: str = _UV_VERSION
+    # vim
     vim: bool = False
     vim_force: bool = False
 
@@ -103,6 +117,8 @@ def main(settings: Settings, /) -> None:
         _setup_git(force=settings.git_force)
     if settings.just:
         _setup_just(force=settings.just_force)
+    if settings.neovim:
+        _setup_neovim(force=settings.neovim_force, version=settings.neovim_version)
     if settings.starship:
         _setup_starship(
             force=settings.starship_force, version=settings.starship_version
@@ -209,6 +225,37 @@ def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
         path_from = temp_dir.joinpath("just")
         path_to = _PATH_LOCAL_BIN.joinpath("just")
         copyfile(path_from, path_to)
+
+
+def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> None:
+    if _has_command("neovim") and not force:
+        _LOGGER.info("'neovim' is already set up")
+        return
+    stem = "nvim-linux-x86_64"
+    path_to = _PATH_LOCAL_BIN.joinpath("neovim", stem)
+    if path_to.exists():
+        _LOGGER.info("Removing %r...", str(path_to))
+        # rmtree(path_
+    url = _github_url("neovim", "neovim", f"v{version}", f"{stem}.tar.gz")
+    with (
+        _yield_download(url) as temp_file,
+        _yield_tar_gz_contents(temp_file) as temp_dir,
+    ):
+        (path_from,) = temp_dir.iterdir()
+        _LOGGER.info("Copying %r -> %r...", str(path_from), str(path_to))
+        copytree(path_from, path_to)
+        # assert 0, check_output(
+        #     f"ls -al {temp_dir}/nvim-linux-x86_64", shell=True, text=True
+        # )
+        # assert 0, check_output(f"ls -al {temp_dir}", shell=True, text=True)
+        # path_to = _PATH_LOCAL_BIN.joinpath("neovim")
+        # copyfile(path_from, path_to)
+
+    path_from = _PATH_LOCAL_BIN
+
+    # path_to = _PATH_LOCAL_BIN.joinpath("nvim")
+    # path_to.unlink()
+    # if path_to.exists()
 
 
 def _setup_proxmox_apt() -> None:
@@ -398,6 +445,23 @@ if __name__ == "__main__":
         "--just-version",
         default=_JUST_VERSION,
         help="'just' version (default: %(default)s)",
+    )
+    # neovim
+    parser.add_argument(
+        "-n",
+        "--neovim",
+        action="store_true",
+        help="Install 'neovim' (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--neovim-force",
+        action="store_true",
+        help="Force install 'neovim' (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--neovim-version",
+        default=_NEOVIM_VERSION,
+        help="'neovim' version (default: %(default)s)",
     )
     # proxmox
     parser.add_argument(
