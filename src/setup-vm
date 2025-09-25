@@ -44,7 +44,10 @@ get_shell_name() {
 
 setup_aliases() {
 	path=$(get_shell_rc) || return 1
-	if ! grep -q '# aliases' "${path}"; then
+	if grep -q '# aliases' "${path}"; then
+		echo_date 'Aliases already setup'
+	else
+		echo_date 'Setting up aliases...'
 		cat <<'EOF' >>"${path}"
 
 # aliases
@@ -58,6 +61,7 @@ EOF
 }
 
 setup_apt() {
+	echo_date "Checking 'apt' sources..."
 	dir_='/etc/apt/sources.list.d/'
 	for filename in 'ceph.sources' 'pve-enterprise.sources'; do
 		path="${dir_}/${filename}"
@@ -69,7 +73,10 @@ setup_apt() {
 }
 
 setup_bottom() {
-	if ! command -v btm >/dev/null 2>&1; then
+	if command -v btm >/dev/null 2>&1; then
+		echo_date "'bottom' already set up..."
+	else
+		echo_date "Setting up 'bottom'..."
 		temp_dir=$(mktemp -d)
 		trap 'rm -rf "${temp_dir}"' EXIT
 		cd "${temp_dir}" || exit 1
@@ -85,7 +92,10 @@ setup_bottom() {
 }
 
 setup_delta() {
-	if ! command -v delta >/dev/null 2>&1; then
+	if command -v delta >/dev/null 2>&1; then
+		echo_date "'delta' already set up"
+	else
+		echo_date "Setting up 'delta'..."
 		temp_dir=$(mktemp -d) || return 1
 		trap 'rm -rf "${temp_dir}"' EXIT
 		cd "${temp_dir}" || return 1
@@ -102,7 +112,10 @@ setup_delta() {
 
 setup_editing_mode() {
 	path=$(get_shell_rc) || return 1
-	if ! grep -q '# editing mode' "${path}"; then
+	if grep -q '# editing mode' "${path}"; then
+		echo_date "Editing mode already set up"
+	else
+		echo_date "Setting up editing mode..."
 		case "${SHELL}" in
 		*/bash) cmd='set -o vi' ;;
 		*/zsh) cmd='bindkey -v' ;;
@@ -117,11 +130,12 @@ EOF
 }
 
 setup_direnv() {
-	if ! command -v direnv >/dev/null 2>&1; then
+	if command -v direnv >/dev/null 2>&1; then
+		echo_date "'direnv' already set up"
+	else
+		echo_date "Setting up 'direnv'..."
 		curl -sfL https://direnv.net/install.sh | bash # must be bash
-	fi
-	path=$(get_shell_rc) || return 1
-	if ! grep -q '# direnv' "${path}"; then
+		path=$(get_shell_rc) || return 1
 		cat <<EOF >>"${path}"
 
 # direnv
@@ -132,7 +146,10 @@ EOF
 
 setup_env_vars() {
 	path=$(get_shell_rc) || return 1
-	if ! grep -q '# env vars' "${path}"; then
+	if grep -q '# env vars' "${path}"; then
+		echo_date "Env vars already set up"
+	else
+		echo_date "Setting up env vars..."
 		cat <<'EOF' >>"${path}"
 
 # env vars
@@ -143,7 +160,10 @@ EOF
 }
 
 setup_git() {
-	if ! command -v git >/dev/null 2>&1; then
+	if command -v git >/dev/null 2>&1; then
+		echo_date "'git' already set up"
+	else
+		echo_date "Setting up 'git'..."
 		if [ "$(whoami)" = 'root' ]; then
 			apt install -y git
 		else
@@ -153,29 +173,35 @@ setup_git() {
 }
 
 setup_just() {
-	if ! command -v just >/dev/null 2>&1; then
+	if command -v just >/dev/null 2>&1; then
+		echo_date "'just' already set up"
+	else
+		echo_date "Setting up 'just'..."
 		curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | sh -s -- --to "${HOME}/bin"
 	fi
 }
 
 setup_neovim() {
-	temp_dir=$(mktemp -d) || return 1
-	trap 'rm -rf "${temp_dir}"' EXIT
-	cd "${temp_dir}" || return 1
-	version='0.11.4'
-	filename='nvim-linux-x86_64'
-	tar_gz="${filename}.tar.gz"
-	url="https://github.com/neovim/neovim/releases/download/v${version}/${tar_gz}"
-	curl -LO "${url}"
-	tar xzvf "${tar_gz}"
-	mkdir -p "${HOME}/bin"
-	cp -r "${filename}" "${HOME}/bin/${filename}"
-	(
-		cd "${HOME}"/bin || exit 1
-		ln -s "${filename}/bin/nvim" .
-	)
-	path=$(get_shell_rc) || return 1
-	if ! grep -q '# neovim' "${path}"; then
+	if command -v nvim >/dev/null 2>&1; then
+		echo_date "'neovim' already set up"
+	else
+		echo_date "Setting up 'neovim'..."
+		temp_dir=$(mktemp -d) || return 1
+		trap 'rm -rf "${temp_dir}"' EXIT
+		cd "${temp_dir}" || return 1
+		version='0.11.4'
+		filename='nvim-linux-x86_64'
+		tar_gz="${filename}.tar.gz"
+		url="https://github.com/neovim/neovim/releases/download/v${version}/${tar_gz}"
+		curl -LO "${url}"
+		tar xzvf "${tar_gz}"
+		mkdir -p "${HOME}/bin"
+		cp -r "${filename}" "${HOME}/bin/${filename}"
+		(
+			cd "${HOME}"/bin || exit 1
+			ln -s "${filename}/bin/nvim" .
+		)
+		path=$(get_shell_rc) || return 1
 		cat <<'EOF' >>"${path}"
 
 # neovim
@@ -185,17 +211,26 @@ EOF
 }
 
 setup_lazyvim() {
-	rm -rf "${HOME}"/.config/nvim/
-	rm -rf "${HOME}"/.local/share/
-	rm -rf "${HOME}"/.local/state/
-	rm -rf "${HOME}"/.cache/nvim/
-	command -v git >/dev/null 2>&1 || setup_git
-	git clone https://github.com/LazyVim/starter "${HOME}"/.config/nvim
+	path="${HOME}/.config/nvim/lua/config/lazy.lua"
+	if [ -f "${path}" ]; then
+		echo_date "'lazyvim' already set up"
+	else
+		echo_date "Setting up 'lazyvim'..."
+		rm -rf "${HOME}"/.config/nvim/
+		rm -rf "${HOME}"/.local/share/
+		rm -rf "${HOME}"/.local/state/
+		rm -rf "${HOME}"/.cache/nvim/
+		command -v git >/dev/null 2>&1 || setup_git
+		git clone https://github.com/LazyVim/starter "${HOME}"/.config/nvim
+	fi
 }
 
 setup_neovim_plugins() {
 	path="${HOME}"/.config/nvim/lua/plugins/auto-save.lua
-	if [ ! -f "${path}" ]; then
+	if [ -f "${path}" ]; then
+		echo_date "Neovim plugins already setup"
+	else
+		echo_date "Setting up neovim plugins..."
 		cat <<'EOF' >>"${path}"
 return { "pocco81/auto-save.nvim" }
 EOF
@@ -203,9 +238,12 @@ EOF
 }
 
 setup_starship() {
-	curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir "${HOME}"/bin
-	path=$(get_shell_rc) || return 1
-	if ! grep -q 'starship init' "${path}"; then
+	if command -v starship >/dev/null 2>&1; then
+		echo_date "'starship' already set up"
+	else
+		echo_date "Setting up 'starship'..."
+		curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir "${HOME}"/bin
+		path=$(get_shell_rc) || return 1
 		cat <<EOF >>"${path}"
 
 # starship
