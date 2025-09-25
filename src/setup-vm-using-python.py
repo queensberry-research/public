@@ -1,17 +1,27 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.13
+from argparse import ArgumentParser
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class Settings:
-    resolv_nameservers: list[str]
-    resolv_search: str
-    truenas_version: str
-    truenas_vmid: int
-    truenas_memory: int
-    truenas_cores: int
-    truenas_lvm_size: int
+    aliases: bool = False
 
 
-def main() -> None:
+def main(settings: Settings, /) -> None:
     pass
+
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--alias",
+        dest="alias",
+        action="store_true",
+        help="Add aliases (default: disabled)",
+    )
+    args = parser.parse_args()
+    cfg = Settings(
+        aliases=args.alias,
+    )
+    main(cfg)
