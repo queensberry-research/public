@@ -14,9 +14,11 @@ from urllib.request import urlopen
 
 _LOGGER = getLogger(__name__)
 _BOTTOM_VERSION = "0.11.1"
+_DELTA_VERSION = "0.18.2"
 basicConfig(
     format="{asctime} | {message}", datefmt="%Y-%m-%d %H:%M:%S", style="{", level="INFO"
 )
+
 
 # classes
 
@@ -57,6 +59,8 @@ def main(settings: Settings, /) -> None:
         _setup_aliases()
     if settings.bottom:
         _setup_bottom(version=settings.bottom_version)
+    if settings.delta:
+        _setup_delta(version=settings.delta_version)
 
 
 def _setup_aliases() -> None:
@@ -92,9 +96,24 @@ def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
         _LOGGER.info("'bottom' is already set up")
         return
     filename = f"bottom_{version}-1_amd64.deb"
-    url = (
-        f"https://github.com/ClementTsang/bottom/releases/download/{version}/{filename}"
-    )
+    url = _github_url("ClementTsang", "bottom", version, filename)
+    with TemporaryDirectory() as temp_dir:
+        temp_file = Path(temp_dir, filename)
+        with urlopen(url) as response, temp_file.open(mode="wb") as fh:  # noqa: S310
+            fh.write(response.read())
+        cmd = ["dpkg", "-i", str(temp_file)]
+        if not _is_root():
+            cmd = ["sudo", *cmd]
+        check_call(cmd)  # noqa: S603
+
+
+def _setup_delta(*, version: str = _DELTA_VERSION) -> None:
+    if _has_command("delta"):
+        _LOGGER.info("'delta' is already set up")
+        return
+    stem = f"delta-{version}-x64_64-unknown-linux-gnu"
+    filename = f"{stem}.tar.gz"
+    url = _github_url("dandavison", "delta", version, filename)
     with TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir, filename)
         with urlopen(url) as response, temp_file.open(mode="wb") as fh:  # noqa: S310
@@ -108,6 +127,10 @@ def _setup_bottom(*, version: str = _BOTTOM_VERSION) -> None:
 # utilities
 
 
+def _github_url(owner: str, repo: str, version: str, filename: str, /) -> str:
+    return f"https://github.com/{owner}/{repo}/releases/download/{version}/{filename}"
+
+
 def _has_command(cmd: str, /) -> bool:
     return which(cmd) is not None
 
@@ -119,23 +142,29 @@ def _is_root() -> bool:
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
-        "-a",
-        "--aliases",
-        dest="aliases",
-        action="store_true",
-        help="Add aliases (default: disabled)",
+        "-a", "--aliases", action="store_true", help="Add aliases (default: disabled)"
     )
     parser.add_argument(
         "-b",
         "--bottom",
-        dest="bottom",
         action="store_true",
-        help="Install bottom (default: %(default)s)",
+        help="Install 'bottom' (default: %(default)s)",
     )
     parser.add_argument(
         "--bottom-version",
         default=_BOTTOM_VERSION,
-        help="Bottom version (default: %(default)s)",
+        help="'bottom' version (default: %(default)s)",
+    )
+    parser.add_argument(
+        "-d",
+        "--delta",
+        action="store_true",
+        help="Install 'delta' (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--delta-version",
+        default=_DELTA_VERSION,
+        help="'delta' version (default: %(default)s)",
     )
     args = parser.parse_args()
     settings = Settings(aliases=args.aliases, bottom=args.bottom)
