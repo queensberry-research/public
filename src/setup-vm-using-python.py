@@ -176,7 +176,7 @@ def _setup_git() -> None:
 
 
 def _setup_just(*, version: str = _JUST_VERSION) -> None:
-    if _has_command("just") and 0:
+    if _has_command("just"):
         _LOGGER.info("'just' is already set up")
         return
     url = _github_url(
