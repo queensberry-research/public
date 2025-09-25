@@ -54,6 +54,9 @@ class Settings:
     just: bool = False
     just_force: bool = False
     just_version: str = _JUST_VERSION
+    # lazyvim
+    lazyvim: bool = False
+    lazyvim_force: bool = False
     # neovim
     neovim: bool = False
     neovim_force: bool = False
@@ -75,6 +78,8 @@ class Settings:
     def __post_init__(self) -> None:
         if self.git or self.vim:
             self.proxmox_apt = True
+        if self.lazyvim:
+            self.neovim = True
 
 
 class Shell(Enum):
@@ -107,26 +112,28 @@ def main(settings: Settings, /) -> None:
     _setup_env_vars()
     if settings.proxmox_apt:
         _setup_proxmox_apt()
+    if settings.git:  # after proxmox_apt
+        _setup_git(force=settings.git_force)
+    if settings.vim:  # after proxmox_apt
+        _setup_vim(force=settings.vim_force)
+    if settings.neovim:
+        _setup_neovim(force=settings.neovim_force, version=settings.neovim_version)
+    if settings.lazyvim:  # after neovim
+        _setup_lazyvim(force=settings.lazyvim_force)
     if settings.bottom:
         _setup_bottom(force=settings.bottom_force, version=settings.bottom_version)
     if settings.delta:
         _setup_delta(force=settings.delta_force, version=settings.delta_version)
     if settings.direnv:
         _setup_direnv(force=settings.direnv_force, version=settings.direnv_version)
-    if settings.git:
-        _setup_git(force=settings.git_force)
     if settings.just:
         _setup_just(force=settings.just_force)
-    if settings.neovim:
-        _setup_neovim(force=settings.neovim_force, version=settings.neovim_version)
     if settings.starship:
         _setup_starship(
             force=settings.starship_force, version=settings.starship_version
         )
     if settings.uv:
         _setup_uv(force=settings.uv_force, version=settings.uv_version)
-    if settings.vim:
-        _setup_vim(force=settings.vim_force)
 
 
 def _setup_aliases() -> None:
@@ -203,18 +210,14 @@ def _setup_env_vars() -> None:
 
 
 def _setup_git(*, force: bool = False) -> None:
-    if _has_command("git") and not force:
-        _LOGGER.info("'git' is already set up")
-        return
-    _update_apt()
-    _LOGGER.info("Installing 'git'...")
-    check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", "git"]))
+    _setup_via_apt("git", force=force)
 
 
 def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
     if _has_command("just") and not force:
         _LOGGER.info("'just' is already set up")
         return
+    _LOGGER.info("Setting up 'just'...")
     url = _github_url(
         "casey", "just", version, f"just-{version}-x86_64-unknown-linux-musl.tar.gz"
     )
@@ -227,10 +230,19 @@ def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
         _copyfile_logged(path_from, path_to)
 
 
+def _setup_lazyvim(*, force: bool = False) -> None:
+    path = Path.home().joinpath(".config", "nvim", "lua", "config", "lazy.lua")
+    if path.exists() and not force:
+        _LOGGER.info("'lazyvim' is already set up")
+        return
+    _LOGGER.info("'lazyvim' is already set up")
+
+
 def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> None:
     if _has_command("nvim") and not force:
         _LOGGER.info("'neovim' is already set up")
         return
+    _LOGGER.info("Setting up 'neovim'...")
     stem = "nvim-linux-x86_64"
     url = _github_url("neovim", "neovim", f"v{version}", f"{stem}.tar.gz")
     with (
@@ -302,12 +314,7 @@ def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
 
 
 def _setup_vim(*, force: bool = False) -> None:
-    if _has_command("git") and not force:
-        _LOGGER.info("'git' is already set up")
-        return
-    _update_apt()
-    _LOGGER.info("Installing 'vim'...")
-    check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", "vim"]))
+    _setup_via_apt("vim", force=force)
 
 
 # utilities
@@ -366,6 +373,15 @@ def _update_apt() -> None:
     _LOGGER.info("Updating 'apt'...")
     cmd = ["apt", "update"]
     check_call(_prepend_sudo_if_not_root(cmd))
+
+
+def _setup_via_apt(cmd: str, /, *, force: bool = False) -> None:
+    if _has_command(cmd) and not force:
+        _LOGGER.info("%r is already set up", cmd)
+        return
+    _LOGGER.info("Setting up %r...", str(cmd))
+    _update_apt()
+    check_call(_prepend_sudo_if_not_root(["apt", "install", "-y", cmd]))
 
 
 @contextmanager
@@ -451,6 +467,18 @@ if __name__ == "__main__":
         "--just-version",
         default=_JUST_VERSION,
         help="'just' version (default: %(default)s)",
+    )
+    # lazyvim
+    parser.add_argument(
+        "-l",
+        "--lazyvim",
+        action="store_true",
+        help="Install 'lazyvim' (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--lazyvim-force",
+        action="store_true",
+        help="Force install 'lazyvim' (default: %(default)s)",
     )
     # neovim
     parser.add_argument(
