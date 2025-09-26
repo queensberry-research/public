@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.13
+#!/usr/bin/env python3.11
 import tarfile
 from argparse import ArgumentParser
 from collections.abc import Iterator
@@ -33,7 +33,7 @@ basicConfig(
 # classes
 
 
-@dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
+@dataclass(order=True, unsafe_hash=True, kw_only=True)
 class Settings:
     # age
     age: bool = False
