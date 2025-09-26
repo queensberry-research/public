@@ -1,15 +1,21 @@
-#!/usr/bin/env python3.13
+#!/usr/bin/env python3.11
+from __future__ import annotations
+
 import reprlib
-from argparse import ArgumentParser
-from collections.abc import Iterator
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import basicConfig, getLogger
 from pathlib import Path
 from subprocess import check_call
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 from urllib.request import urlopen
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 _LOGGER = getLogger(__name__)
 basicConfig(
@@ -21,14 +27,23 @@ basicConfig(
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
-class Settings:
+class _Settings:
     paths: list[Path]
+
+    @classmethod
+    def parse(cls) -> _Settings:
+        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        parser.add_argument(
+            "paths", type=Path, nargs="+", help="Files to encrypt", metavar="PATHS"
+        )
+        return _Settings(**vars(parser.parse_args()))
 
 
 # main
 
 
-def main(settings: Settings, /) -> None:
+def main() -> None:
+    settings = _Settings.parse()
     paths = settings.paths
     if len(paths) == 0:
         _LOGGER.info("No files to encrypt; exiting...")
@@ -71,7 +86,4 @@ def _yield_download(url: str, /) -> Iterator[Path]:
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("paths", type=Path, nargs="+", help="Files to encrypt")
-    settings = Settings(**vars(parser.parse_args()))
-    main(settings)
+    main()

@@ -651,8 +651,8 @@ def _yield_download(url: str, /) -> Iterator[Path]:
 
 @contextmanager
 def _yield_tar_gz_contents(path: Path, /) -> Iterator[Path]:
-    with tarfile.open(path, "r:gz") as tf, TemporaryDirectory() as temp_dir:
-        _ = tf.extractall(path=temp_dir, filter="data")
+    with tarfile.open(path, mode="r:gz") as tf, TemporaryDirectory() as temp_dir:
+        _ = tf.extractall(path=temp_dir)
         yield Path(temp_dir)
 
 
