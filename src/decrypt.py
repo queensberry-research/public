@@ -1,4 +1,6 @@
-#!/usr/bin/env python3.13
+#!/usr/bin/env python3.11
+from __future__ import annotations
+
 import reprlib
 from argparse import ArgumentParser
 from dataclasses import dataclass

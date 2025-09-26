@@ -1,4 +1,4 @@
-target-version = "py313"
+target-version = "py311"
 unsafe-fixes = true
 
 [format]
@@ -20,4 +20,5 @@ preview = true
 select = ["ALL"]
 
 [lint.isort]
+required-imports = ["from __future__ import annotations"]
 split-on-trailing-comma = false
