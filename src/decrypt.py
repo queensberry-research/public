@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import reprlib
-from argparse import ArgumentParser
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from dataclasses import dataclass
 from logging import basicConfig, getLogger
 from pathlib import Path
@@ -18,14 +18,23 @@ basicConfig(
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
-class Settings:
+class _Settings:
     paths: list[Path]
+
+    @classmethod
+    def parse(cls) -> _Settings:
+        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        parser.add_argument(
+            "paths", type=Path, nargs="+", help="Files to decrypt", metavar="PATHS"
+        )
+        return _Settings(**vars(parser.parse_args()))
 
 
 # main
 
 
-def main(settings: Settings, /) -> None:
+def main() -> None:
+    settings = _Settings.parse()
     paths = settings.paths
     if len(paths) == 0:
         _LOGGER.info("No files to decrypt; exiting...")
@@ -56,7 +65,4 @@ def main(settings: Settings, /) -> None:
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("paths", type=Path, nargs="+", help="Files to encrypt")
-    settings = Settings(**vars(parser.parse_args()))
-    main(settings)
+    main()
