@@ -34,9 +34,9 @@ def main(settings: Settings, /) -> None:
         _LOGGER.info("No files to encrypt; exiting...")
         return
     _LOGGER.info(
-        "Encrypting %d path%s: %s",
+        "Encrypting %d file%s: %s",
         len(paths),
-        "s" if len(paths) >= 1 else "",
+        "s" if len(paths) >= 2 else "",
         reprlib.repr(list(map(str, paths))),
     )
     url = "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt"
@@ -58,8 +58,8 @@ def main(settings: Settings, /) -> None:
 
 
 # utilities
-#
-#
+
+
 @contextmanager
 def _yield_download(url: str, /) -> Iterator[Path]:
     filename = Path(urlparse(url).path).name

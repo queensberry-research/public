@@ -13,6 +13,7 @@ ignore = [
   "C901",  # complex-structure
   "COM812",  # missing-trailing-comma
   "PLR0912",  # too-many-branches
+  "PLR2004",  # magic-value-comparison
   "S",
 ]
 preview = true
