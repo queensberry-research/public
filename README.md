@@ -2,12 +2,6 @@
 
 ## Scripts
 
-### `backup-truenas`
-
-```console
-curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/backup-truenas | sh
-```
-
 ### `generate-deploy-key`
 
 ```console
