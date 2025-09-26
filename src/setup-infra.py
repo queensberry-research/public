@@ -402,7 +402,6 @@ def _setup_editing_mode() -> None:
 
 
 def _setup_env_vars() -> None:
-    _append_to_rc("""export EDITOR='nvim'""")
     _append_to_rc('''export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"''')
 
 
@@ -470,6 +469,8 @@ def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> Non
     _unlink_logged(path_from)
     path_to = _local_bin().joinpath("neovim", stem, "bin", "nvim")
     path_from.symlink_to(path_to)
+    _append_to_rc("""export EDITOR='nvim'""")
+    _append_to_rc("""alias n='nvim'""")
 
 
 def _setup_proxmox_apt() -> None:
