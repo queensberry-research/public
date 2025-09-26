@@ -1,8 +1,8 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.13
 from __future__ import annotations
 
 import reprlib
-from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from argparse import ArgumentParser
 from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import basicConfig, getLogger
@@ -15,7 +15,6 @@ from urllib.request import urlopen
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
 
 _LOGGER = getLogger(__name__)
 basicConfig(

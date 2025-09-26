@@ -1,8 +1,8 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.13
 from __future__ import annotations
 
 import tarfile
-from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from argparse import ArgumentParser
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
