@@ -1,7 +1,8 @@
 #!/usr/bin/env python3.11
+from __future__ import annotations
+
 import tarfile
-from argparse import ArgumentParser
-from collections.abc import Iterator
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
@@ -12,9 +13,12 @@ from shutil import copyfile, copytree, rmtree, which
 from stat import S_IRUSR, S_IWUSR, S_IXUSR
 from subprocess import check_call
 from tempfile import TemporaryDirectory
-from typing import assert_never
+from typing import TYPE_CHECKING, assert_never
 from urllib.parse import urlparse
 from urllib.request import urlopen
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _LOGGER = getLogger(__name__)
 _AGE_VERSION = "1.2.1"
@@ -34,7 +38,7 @@ basicConfig(
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
-class Settings:
+class _Settings:
     # age
     age: bool = False
     age_force: bool = False
@@ -72,7 +76,7 @@ class Settings:
     proxmox_apt: bool = False
     # SSH keys
     ssh_keys: bool = False
-    ssh_keys_mode: "SSHKeysMode"
+    ssh_keys_mode: SSHKeysMode
     # starship
     starship: bool = False
     starship_force: bool = False
@@ -97,6 +101,148 @@ class Settings:
     def proxmox_apt_use(self) -> bool:
         return self.proxmox_apt or self.git_use or self.vim
 
+    @classmethod
+    def parse(cls) -> _Settings:
+        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        # age
+        parser.add_argument("-a", "--age", action="store_true", help="Install 'age'")
+        parser.add_argument(
+            "--age-force", action="store_true", help="Force install 'age'"
+        )
+        parser.add_argument(
+            "--age-version",
+            default=_AGE_VERSION,
+            type=str,
+            help="'age' version",
+            metavar="STR",
+        )
+        # bottom
+        parser.add_argument(
+            "-b", "--bottom", action="store_true", help="Install 'bottom'"
+        )
+        parser.add_argument(
+            "--bottom-force", action="store_true", help="Force install 'bottom'"
+        )
+        parser.add_argument(
+            "--bottom-version",
+            default=_BOTTOM_VERSION,
+            type=str,
+            help="'bottom' version",
+            metavar="STR",
+        )
+        # curl
+        parser.add_argument("-c", "--curl", action="store_true", help="Install 'curl'")
+        parser.add_argument(
+            "--curl-force", action="store_true", help="Force install 'curl'"
+        )
+        # delta
+        parser.add_argument("--delta", action="store_true", help="Install 'delta'")
+        parser.add_argument(
+            "--delta-force", action="store_true", help="Force install 'delta'"
+        )
+        parser.add_argument(
+            "--delta-version",
+            default=_DELTA_VERSION,
+            type=str,
+            help="'delta' version",
+            metavar="STR",
+        )
+        # direnv
+        parser.add_argument("--direnv", action="store_true", help="Install 'direnv'")
+        parser.add_argument(
+            "--direnv-force", action="store_true", help="Force install 'direnv'"
+        )
+        parser.add_argument(
+            "--direnv-version",
+            default=_DIRENV_VERSION,
+            type=str,
+            help="'direnv' version",
+            metavar="STR",
+        )
+        # git
+        parser.add_argument("-g", "--git", action="store_true", help="Install 'git'")
+        parser.add_argument(
+            "--git-force", action="store_true", help="Force install 'git'"
+        )
+        # just
+        parser.add_argument("-j", "--just", action="store_true", help="Install 'just'")
+        parser.add_argument(
+            "--just-force", action="store_true", help="Force install 'just'"
+        )
+        parser.add_argument(
+            "--just-version",
+            default=_JUST_VERSION,
+            type=str,
+            help="'just' version",
+            metavar="STR",
+        )
+        # lazyvim
+        parser.add_argument(
+            "-l", "--lazyvim", action="store_true", help="Install 'lazyvim'"
+        )
+        parser.add_argument(
+            "--lazyvim-force", action="store_true", help="Force install 'lazyvim'"
+        )
+        # neovim
+        parser.add_argument(
+            "-n", "--neovim", action="store_true", help="Install 'neovim'"
+        )
+        parser.add_argument(
+            "--neovim-force", action="store_true", help="Force install 'neovim'"
+        )
+        parser.add_argument(
+            "--neovim-version",
+            default=_NEOVIM_VERSION,
+            type=str,
+            help="'neovim' version",
+            metavar="STR",
+        )
+        # proxmox
+        parser.add_argument(
+            "--proxmox-apt", action="store_true", help="Setup proxmox apt"
+        )
+        # SSH keys
+        parser.add_argument("--ssh-keys", action="store_true", help="Add SSH keys")
+        parser.add_argument(
+            "--ssh-keys-mode",
+            type=SSHKeysMode,
+            choices=list(SSHKeysMode),
+            default=SSHKeysMode.overwrite,
+            help="How to handle SSH keys",
+        )
+        # starship
+        parser.add_argument(
+            "-s", "--starship", action="store_true", help="Install 'starship'"
+        )
+        parser.add_argument(
+            "--starship-force", action="store_true", help="Force install 'starship'"
+        )
+        parser.add_argument(
+            "--starship-version",
+            default=_STARSHIP_VERSION,
+            type=str,
+            help="'starship' version",
+            metavar="STR",
+        )
+        # uv
+        parser.add_argument("-u", "--uv", action="store_true", help="Install 'uv'")
+        parser.add_argument(
+            "--uv-force", action="store_true", help="Force install 'uv'"
+        )
+        parser.add_argument(
+            "--uv-version",
+            default=_UV_VERSION,
+            type=str,
+            help="'uv' version",
+            metavar="STR",
+        )
+        # vim
+        parser.add_argument("-v", "--vim", action="store_true", help="Install 'vim'")
+        parser.add_argument(
+            "--vim-force", action="store_true", help="Force install 'vim'"
+        )
+        return _Settings(**vars(parser.parse_args()))
+
 
 class SSHKeysMode(StrEnum):
     overwrite = "overwrite"
@@ -108,7 +254,7 @@ class Shell(StrEnum):
     zsh = "zsh"
 
     @classmethod
-    def get(cls) -> "Shell":
+    def get(cls) -> Shell:
         match Path(environ["SHELL"]).name:
             case "bash":
                 return Shell.bash
@@ -126,7 +272,8 @@ class Shell(StrEnum):
 # main
 
 
-def main(settings: Settings, /) -> None:
+def main() -> None:
+    settings = _Settings.parse()
     _LOGGER.info("Setting up VM...")
     _setup_aliases()
     _setup_editing_mode()
@@ -510,187 +657,4 @@ def _yield_tar_gz_contents(path: Path, /) -> Iterator[Path]:
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    # age
-    parser.add_argument(
-        "-a", "--age", action="store_true", help="Install 'age' (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--age-force",
-        action="store_true",
-        help="Force install 'age' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--age-version",
-        default=_AGE_VERSION,
-        help="'age' version (default: %(default)s)",
-    )
-    # bottom
-    parser.add_argument(
-        "-b",
-        "--bottom",
-        action="store_true",
-        help="Install 'bottom' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--bottom-force",
-        action="store_true",
-        help="Force install 'bottom' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--bottom-version",
-        default=_BOTTOM_VERSION,
-        help="'bottom' version (default: %(default)s)",
-    )
-    # curl
-    parser.add_argument(
-        "-c",
-        "--curl",
-        action="store_true",
-        help="Install 'curl' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--curl-force",
-        action="store_true",
-        help="Force install 'curl' (default: %(default)s)",
-    )
-    # delta
-    parser.add_argument(
-        "--delta", action="store_true", help="Install 'delta' (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--delta-force",
-        action="store_true",
-        help="Force install 'delta' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--delta-version",
-        default=_DELTA_VERSION,
-        help="'delta' version (default: %(default)s)",
-    )
-    # direnv
-    parser.add_argument(
-        "--direnv", action="store_true", help="Install 'direnv' (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--direnv-force",
-        action="store_true",
-        help="Force install 'direnv' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--direnv-version",
-        default=_DIRENV_VERSION,
-        help="'direnv' version (default: %(default)s)",
-    )
-    # git
-    parser.add_argument(
-        "-g", "--git", action="store_true", help="Install 'git' (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--git-force",
-        action="store_true",
-        help="Force install 'git' (default: %(default)s)",
-    )
-    # just
-    parser.add_argument(
-        "-j",
-        "--just",
-        action="store_true",
-        help="Install 'just' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--just-force",
-        action="store_true",
-        help="Force install 'just' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--just-version",
-        default=_JUST_VERSION,
-        help="'just' version (default: %(default)s)",
-    )
-    # lazyvim
-    parser.add_argument(
-        "-l",
-        "--lazyvim",
-        action="store_true",
-        help="Install 'lazyvim' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--lazyvim-force",
-        action="store_true",
-        help="Force install 'lazyvim' (default: %(default)s)",
-    )
-    # neovim
-    parser.add_argument(
-        "-n",
-        "--neovim",
-        action="store_true",
-        help="Install 'neovim' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--neovim-force",
-        action="store_true",
-        help="Force install 'neovim' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--neovim-version",
-        default=_NEOVIM_VERSION,
-        help="'neovim' version (default: %(default)s)",
-    )
-    # proxmox
-    parser.add_argument(
-        "--proxmox-apt",
-        action="store_true",
-        help="Setup proxmox apt (default: %(default)s)",
-    )
-    # SSH keys
-    parser.add_argument(
-        "--ssh-keys", action="store_true", help="Add SSH keys (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--ssh-keys-mode",
-        type=SSHKeysMode,
-        choices=list(SSHKeysMode),
-        default=SSHKeysMode.overwrite,
-        help="How to handle SSH keys (default: %(default)s)",
-    )
-    # starship
-    parser.add_argument(
-        "-s",
-        "--starship",
-        action="store_true",
-        help="Install 'starship' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--starship-force",
-        action="store_true",
-        help="Force install 'starship' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--starship-version",
-        default=_STARSHIP_VERSION,
-        help="'starship' version (default: %(default)s)",
-    )
-    # uv
-    parser.add_argument(
-        "-u", "--uv", action="store_true", help="Install 'uv' (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--uv-force",
-        action="store_true",
-        help="Force install 'uv' (default: %(default)s)",
-    )
-    parser.add_argument(
-        "--uv-version", default=_UV_VERSION, help="'uv' version (default: %(default)s)"
-    )
-    # vim
-    parser.add_argument(
-        "-v", "--vim", action="store_true", help="Install 'vim' (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--vim-force",
-        action="store_true",
-        help="Force install 'vim' (default: %(default)s)",
-    )
-    settings = Settings(**vars(parser.parse_args()))
-    main(settings)
+    main()
