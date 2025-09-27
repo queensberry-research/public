@@ -322,7 +322,7 @@ def _setup_aliases() -> None:
         """alias gd='git diff'""",
         """alias gl='git log --oneline'""",
         """alias gp='git pull --all --prune'""",
-        """alias gpw='watch -n5 ''git pull --all --prune || git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)'''""",
+        """alias gpw='watch -n2 ''git pull --all --prune || git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)'''""",
         """alias gs='git status'""",
         """alias l='ls -al --color=auto'""",
         """alias zshrc='$EDITOR "${HOME}/.zshrc'""",
