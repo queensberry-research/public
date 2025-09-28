@@ -269,68 +269,10 @@ class Shell(StrEnum):
         return Path.home().joinpath(f".{self.name}rc")
 
 
-# main
+# library - main
 
 
-def main() -> None:
-    settings = _Settings.parse()
-    _LOGGER.info("Setting up VM...")
-    _setup_aliases()
-    _setup_editing_mode()
-    _setup_env_vars()
-    if settings.proxmox_apt_use:
-        _setup_proxmox_apt()
-    if settings.git_use:  # after proxmox_apt
-        _setup_git(force=settings.git_force)
-    if settings.vim:  # after proxmox_apt
-        _setup_vim(force=settings.vim_force)
-    if settings.neovim_use:
-        _setup_neovim(force=settings.neovim_force, version=settings.neovim_version)
-    if settings.lazyvim:  # after neovim
-        _setup_lazyvim(force=settings.lazyvim_force)
-    if settings.age:
-        _setup_age(force=settings.age_force, version=settings.age_version)
-    if settings.bottom:
-        _setup_bottom(force=settings.bottom_force, version=settings.bottom_version)
-    if settings.curl:
-        _setup_curl(force=settings.curl_force)
-    if settings.delta:
-        _setup_delta(force=settings.delta_force, version=settings.delta_version)
-    if settings.direnv:
-        _setup_direnv(force=settings.direnv_force, version=settings.direnv_version)
-    if settings.just:
-        _setup_just(force=settings.just_force)
-    if settings.ssh_keys:
-        _setup_ssh_keys(mode=settings.ssh_keys_mode)
-    if settings.starship:
-        _setup_starship(
-            force=settings.starship_force, version=settings.starship_version
-        )
-    if settings.uv:
-        _setup_uv(force=settings.uv_force, version=settings.uv_version)
-
-
-def _setup_aliases() -> None:
-    for line in [
-        """alias ~='cd "${HOME}"'""",
-        """alias ..='cd ..'""",
-        """alias ...='cd ../..'""",
-        """alias ....='cd ../../..'""",
-        """alias bashrc='$EDITOR "${HOME}/.bashrc'""",
-        """alias gb='git branch --all --verbose'""",
-        """alias gc='git checkout'""",
-        """alias gd='git diff'""",
-        """alias gl='git log --oneline'""",
-        """alias gp='git pull --all --prune'""",
-        """alias gpw='watch -n2 ''git pull --all --prune || git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)'''""",
-        """alias gs='git status'""",
-        """alias l='ls -al --color=auto'""",
-        """alias zshrc='$EDITOR "${HOME}/.zshrc'""",
-    ]:
-        _append_to_rc(line)
-
-
-def _setup_age(*, force: bool = False, version: str = _AGE_VERSION) -> None:
+def setup_age(*, force: bool = False, version: str = _AGE_VERSION) -> None:
     if _has_command("age") and not force:
         _LOGGER.info("'age' is already set up")
         return
@@ -349,7 +291,7 @@ def _setup_age(*, force: bool = False, version: str = _AGE_VERSION) -> None:
             _copyfile_logged(path_from, path_to, executable=True)
 
 
-def _setup_bottom(*, force: bool = False, version: str = _BOTTOM_VERSION) -> None:
+def setup_bottom(*, force: bool = False, version: str = _BOTTOM_VERSION) -> None:
     if _has_command("btm") and not force:
         _LOGGER.info("'bottom' is already set up")
         return
@@ -362,11 +304,11 @@ def _setup_bottom(*, force: bool = False, version: str = _BOTTOM_VERSION) -> Non
         check_call(_prepend_sudo_if_not_root(cmd))
 
 
-def _setup_curl(*, force: bool = False) -> None:
+def setup_curl(*, force: bool = False) -> None:
     _setup_via_apt("curl", force=force)
 
 
-def _setup_delta(*, force: bool = False, version: str = _DELTA_VERSION) -> None:
+def setup_delta(*, force: bool = False, version: str = _DELTA_VERSION) -> None:
     if _has_command("delta") and not force:
         _LOGGER.info("'delta' is already set up")
         return
@@ -387,7 +329,7 @@ def _setup_delta(*, force: bool = False, version: str = _DELTA_VERSION) -> None:
         _copyfile_logged(path_from, path_to, executable=True)
 
 
-def _setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> None:
+def setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> None:
     if _has_command("direnv") and not force:
         _LOGGER.info("'direnv' is already set up")
         return
@@ -399,26 +341,11 @@ def _setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> Non
     _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
 
 
-def _setup_editing_mode() -> None:
-    match Shell.get():
-        case Shell.bash:
-            line = "set -o vi"
-        case Shell.zsh:
-            line = "bindkey -v"
-        case never:
-            assert_never(never)
-    _append_to_rc(line)
-
-
-def _setup_env_vars() -> None:
-    _append_to_rc('''export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"''')
-
-
-def _setup_git(*, force: bool = False) -> None:
+def setup_git(*, force: bool = False) -> None:
     _setup_via_apt("git", force=force)
 
 
-def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
+def setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
     if _has_command("just") and not force:
         _LOGGER.info("'just' is already set up")
         return
@@ -435,7 +362,7 @@ def _setup_just(*, force: bool = False, version: str = _JUST_VERSION) -> None:
         _copyfile_logged(path_from, path_to, executable=True)
 
 
-def _setup_lazyvim(*, force: bool = False) -> None:
+def setup_lazyvim(*, force: bool = False) -> None:
     home = Path.home()
     nvim = home.joinpath(".config", "nvim")
     lua = nvim.joinpath("lua")
@@ -460,7 +387,7 @@ return { "pocco81/auto-save.nvim }
 """)
 
 
-def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> None:
+def setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> None:
     if _has_command("nvim") and not force:
         _LOGGER.info("'neovim' is already set up")
         return
@@ -482,7 +409,7 @@ def _setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> Non
     _append_to_rc("""alias n='nvim'""")
 
 
-def _setup_proxmox_apt() -> None:
+def setup_proxmox_apt() -> None:
     any_removed = any(
         _setup_proxmox_apt_remove(name) for name in ["ceph", "pve-enterprise"]
     )
@@ -499,7 +426,37 @@ def _setup_proxmox_apt_remove(name: str, /) -> bool:
     return False
 
 
-def _setup_ssh_keys(*, mode: SSHKeysMode) -> None:
+def setup_rc() -> None:
+    _LOGGER.info("Setting up %r...", Shell.get().path_rc.name)
+    for line in [
+        """alias ~='cd "${HOME}"'""",
+        """alias ..='cd ..'""",
+        """alias ...='cd ../..'""",
+        """alias ....='cd ../../..'""",
+        """alias bashrc='$EDITOR "${HOME}/.bashrc'""",
+        """alias gb='git branch --all --verbose'""",
+        """alias gc='git checkout'""",
+        """alias gd='git diff'""",
+        """alias gl='git log --oneline'""",
+        """alias gp='git pull --all --prune'""",
+        """alias gpw='watch -n2 ''git pull --all --prune || git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)'''""",
+        """alias gs='git status'""",
+        """alias l='ls -al --color=auto'""",
+        """alias zshrc='$EDITOR "${HOME}/.zshrc'""",
+    ]:
+        _append_to_rc(line)
+    match Shell.get():
+        case Shell.bash:
+            line = "set -o vi"
+        case Shell.zsh:
+            line = "bindkey -v"
+        case never:
+            assert_never(never)
+    _append_to_rc(line)
+    _append_to_rc('''export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"''')
+
+
+def setup_ssh_keys(*, mode: SSHKeysMode) -> None:
     _LOGGER.info("Setting up SSH keys...")
     url = "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt"
     path = Path.home().joinpath(".ssh", "authorized_keys")
@@ -515,7 +472,7 @@ def _setup_ssh_keys(*, mode: SSHKeysMode) -> None:
     path.chmod(S_IRUSR | S_IWUSR)
 
 
-def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
+def setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
     if _has_command("starship") and not force:
         _LOGGER.info("'starship' is already set up")
         return
@@ -536,7 +493,7 @@ def _setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) ->
     _append_to_rc(f"""eval "$(starship init {Shell.get().name})" """)
 
 
-def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
+def setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
     if _has_command("uv") and not force:
         _LOGGER.info("'uv' is already set up")
         return
@@ -552,11 +509,11 @@ def _setup_uv(*, force: bool = False, version: str = _UV_VERSION) -> None:
             _copyfile_logged(path_from, path_to, executable=True)
 
 
-def _setup_vim(*, force: bool = False) -> None:
+def setup_vim(*, force: bool = False) -> None:
     _setup_via_apt("vim", force=force)
 
 
-# utilities
+# library - utilities
 
 
 def _append_to_file(line: str, path: Path, /) -> None:
@@ -664,6 +621,61 @@ def _yield_tar_gz_contents(path: Path, /) -> Iterator[Path]:
     with tarfile.open(path, mode="r:gz") as tf, TemporaryDirectory() as temp_dir:
         _ = tf.extractall(path=temp_dir)
         yield Path(temp_dir)
+
+
+__all__ = [
+    "setup_age",
+    "setup_bottom",
+    "setup_curl",
+    "setup_direnv",
+    "setup_git",
+    "setup_just",
+    "setup_lazyvim",
+    "setup_neovim",
+    "setup_proxmox_apt",
+    "setup_rc",
+    "setup_ssh_keys",
+    "setup_starship",
+    "setup_uv",
+    "setup_vim",
+]
+
+
+# script
+
+
+def main() -> None:
+    settings = _Settings.parse()
+    _LOGGER.info("Setting up infra...")
+    setup_rc()
+    if settings.proxmox_apt_use:
+        setup_proxmox_apt()
+    if settings.git_use:  # after proxmox_apt
+        setup_git(force=settings.git_force)
+    if settings.vim:  # after proxmox_apt
+        setup_vim(force=settings.vim_force)
+    if settings.neovim_use:
+        setup_neovim(force=settings.neovim_force, version=settings.neovim_version)
+    if settings.lazyvim:  # after neovim
+        setup_lazyvim(force=settings.lazyvim_force)
+    if settings.age:
+        setup_age(force=settings.age_force, version=settings.age_version)
+    if settings.bottom:
+        setup_bottom(force=settings.bottom_force, version=settings.bottom_version)
+    if settings.curl:
+        setup_curl(force=settings.curl_force)
+    if settings.delta:
+        setup_delta(force=settings.delta_force, version=settings.delta_version)
+    if settings.direnv:
+        setup_direnv(force=settings.direnv_force, version=settings.direnv_version)
+    if settings.just:
+        setup_just(force=settings.just_force)
+    if settings.ssh_keys:
+        setup_ssh_keys(mode=settings.ssh_keys_mode)
+    if settings.starship:
+        setup_starship(force=settings.starship_force, version=settings.starship_version)
+    if settings.uv:
+        setup_uv(force=settings.uv_force, version=settings.uv_version)
 
 
 if __name__ == "__main__":
