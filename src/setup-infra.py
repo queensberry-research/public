@@ -359,6 +359,20 @@ def setup_docker(*, force: bool = False) -> None:
         "runc",
     ]:
         check_call(["apt-get", "remove", pkg])
+    for cmd in [
+        ["apt-get", "update"],
+        ["apt-get", "install", "ca-certificates", "curl"],
+        ["install", "-m", "0755", "-d", "/etc/apt/keyrings"],
+        [
+            "curl",
+            "-fsSL",
+            "https://download.docker.com/linux/debian/gpg",
+            "-o",
+            "/etc/apt/keyrings/docker.asc",
+        ],
+        ["chmod", "a+r", "/etc/apt/keyrings/docker.asc"],
+    ]:
+        check_call(cmd)
 
 
 def setup_git(*, force: bool = False) -> None:
