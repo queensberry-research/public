@@ -163,6 +163,13 @@ class _Settings:
             help="'direnv' version",
             metavar="STR",
         )
+        # docker
+        parser.add_argument(
+            "-a", "--docker", action="store_true", help="Install 'docker'"
+        )
+        parser.add_argument(
+            "--docker-force", action="store_true", help="Force install 'docker'"
+        )
         # git
         parser.add_argument("-g", "--git", action="store_true", help="Install 'git'")
         parser.add_argument(
