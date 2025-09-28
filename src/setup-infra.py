@@ -214,10 +214,12 @@ class _Settings:
         )
         # proxmox
         parser.add_argument(
-            "--proxmox-apt", action="store_true", help="Setup proxmox apt"
+            "-pa", "--proxmox-apt", action="store_true", help="Setup proxmox apt"
         )
         # SSH keys
-        parser.add_argument("--ssh-keys", action="store_true", help="Add SSH keys")
+        parser.add_argument(
+            "-sk", "--ssh-keys", action="store_true", help="Add SSH keys"
+        )
         parser.add_argument(
             "--ssh-keys-mode",
             type=SSHKeysMode,
@@ -227,7 +229,7 @@ class _Settings:
         )
         # starship
         parser.add_argument(
-            "-s", "--starship", action="store_true", help="Install 'starship'"
+            "-st", "--starship", action="store_true", help="Install 'starship'"
         )
         parser.add_argument(
             "--starship-force", action="store_true", help="Force install 'starship'"
