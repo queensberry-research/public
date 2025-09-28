@@ -59,6 +59,9 @@ class _Settings:
     direnv: bool = False
     direnv_force: bool = False
     direnv_version: str = _DIRENV_VERSION
+    # docker
+    docker: bool = False
+    docker_force: bool = False
     # git
     git: bool = False
     git_force: bool = False
@@ -340,6 +343,22 @@ def setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> None
         path_to = _local_bin().joinpath("direnv")
         _copyfile_logged(temp_file, path_to, executable=True)
     _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
+
+
+def setup_docker(*, force: bool = False) -> None:
+    if _has_command("docker") and not force:
+        _LOGGER.info("'docker' is already set up")
+        return
+    _LOGGER.info("Setting up 'docker'...")
+    for pkg in [
+        "docker.io",
+        "docker-doc",
+        "docker-compose",
+        "podman-docker",
+        "containerd",
+        "runc",
+    ]:
+        check_call(["apt-get", "remove", pkg])
 
 
 def setup_git(*, force: bool = False) -> None:
@@ -669,6 +688,8 @@ def main() -> None:
         setup_delta(force=settings.delta_force, version=settings.delta_version)
     if settings.direnv:
         setup_direnv(force=settings.direnv_force, version=settings.direnv_version)
+    if settings.docker:
+        setup_docker(force=settings.docker_force)
     if settings.just:
         setup_just(force=settings.just_force)
     if settings.ssh_keys:
