@@ -140,7 +140,9 @@ class _Settings:
             "--curl-force", action="store_true", help="Force install 'curl'"
         )
         # delta
-        parser.add_argument("--delta", action="store_true", help="Install 'delta'")
+        parser.add_argument(
+            "-de", "--delta", action="store_true", help="Install 'delta'"
+        )
         parser.add_argument(
             "--delta-force", action="store_true", help="Force install 'delta'"
         )
@@ -152,7 +154,9 @@ class _Settings:
             metavar="STR",
         )
         # direnv
-        parser.add_argument("--direnv", action="store_true", help="Install 'direnv'")
+        parser.add_argument(
+            "-di", "--direnv", action="store_true", help="Install 'direnv'"
+        )
         parser.add_argument(
             "--direnv-force", action="store_true", help="Force install 'direnv'"
         )
@@ -165,7 +169,7 @@ class _Settings:
         )
         # docker
         parser.add_argument(
-            "-a", "--docker", action="store_true", help="Install 'docker'"
+            "-do", "--docker", action="store_true", help="Install 'docker'"
         )
         parser.add_argument(
             "--docker-force", action="store_true", help="Force install 'docker'"
