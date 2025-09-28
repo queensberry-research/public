@@ -20,6 +20,7 @@ from urllib.request import urlopen
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+
 _LOGGER = getLogger(__name__)
 _AGE_VERSION = "1.2.1"
 _BOTTOM_VERSION = "0.11.1"
