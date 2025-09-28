@@ -59,6 +59,9 @@ class _Settings:
     direnv: bool = False
     direnv_force: bool = False
     direnv_version: str = _DIRENV_VERSION
+    # docker
+    docker: bool = False
+    docker_force: bool = False
     # git
     git: bool = False
     git_force: bool = False
@@ -137,7 +140,9 @@ class _Settings:
             "--curl-force", action="store_true", help="Force install 'curl'"
         )
         # delta
-        parser.add_argument("--delta", action="store_true", help="Install 'delta'")
+        parser.add_argument(
+            "-de", "--delta", action="store_true", help="Install 'delta'"
+        )
         parser.add_argument(
             "--delta-force", action="store_true", help="Force install 'delta'"
         )
@@ -149,7 +154,9 @@ class _Settings:
             metavar="STR",
         )
         # direnv
-        parser.add_argument("--direnv", action="store_true", help="Install 'direnv'")
+        parser.add_argument(
+            "-di", "--direnv", action="store_true", help="Install 'direnv'"
+        )
         parser.add_argument(
             "--direnv-force", action="store_true", help="Force install 'direnv'"
         )
@@ -159,6 +166,13 @@ class _Settings:
             type=str,
             help="'direnv' version",
             metavar="STR",
+        )
+        # docker
+        parser.add_argument(
+            "-do", "--docker", action="store_true", help="Install 'docker'"
+        )
+        parser.add_argument(
+            "--docker-force", action="store_true", help="Force install 'docker'"
         )
         # git
         parser.add_argument("-g", "--git", action="store_true", help="Install 'git'")
@@ -200,10 +214,12 @@ class _Settings:
         )
         # proxmox
         parser.add_argument(
-            "--proxmox-apt", action="store_true", help="Setup proxmox apt"
+            "-pa", "--proxmox-apt", action="store_true", help="Setup proxmox apt"
         )
         # SSH keys
-        parser.add_argument("--ssh-keys", action="store_true", help="Add SSH keys")
+        parser.add_argument(
+            "-sk", "--ssh-keys", action="store_true", help="Add SSH keys"
+        )
         parser.add_argument(
             "--ssh-keys-mode",
             type=SSHKeysMode,
@@ -213,7 +229,7 @@ class _Settings:
         )
         # starship
         parser.add_argument(
-            "-s", "--starship", action="store_true", help="Install 'starship'"
+            "-st", "--starship", action="store_true", help="Install 'starship'"
         )
         parser.add_argument(
             "--starship-force", action="store_true", help="Force install 'starship'"
@@ -342,6 +358,35 @@ def setup_direnv(*, force: bool = False, version: str = _DIRENV_VERSION) -> None
     _append_to_rc(f"""eval "$(direnv hook {Shell.get().name})" """)
 
 
+def setup_docker(*, force: bool = False) -> None:
+    if _has_command("docker") and not force:
+        _LOGGER.info("'docker' is already set up")
+        return
+    _LOGGER.info("Setting up 'docker'...")
+    for pkg in [
+        "docker.io",
+        "docker-doc",
+        "docker-compose",
+        "podman-docker",
+        "containerd",
+        "runc",
+    ]:
+        check_call(["apt-get", "remove", pkg])
+    for cmd in [
+        "apt-get update",
+        "apt-get -y install ca-certificates curl",
+        "install -m 0755 -d /etc/apt/keyrings",
+        "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
+        "chmod a+r /etc/apt/keyrings/docker.asc",
+        """echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian trixie stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null""",
+        # """echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null""",
+        "apt-get update",
+        "apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
+        "usermod -aG docker $USER",
+    ]:
+        check_call(cmd, shell=True)
+
+
 def setup_git(*, force: bool = False) -> None:
     _setup_via_apt("git", force=force)
 
@@ -406,7 +451,6 @@ def setup_neovim(*, force: bool = False, version: str = _NEOVIM_VERSION) -> None
     _unlink_logged(path_from)
     path_to = _local_bin().joinpath("neovim", stem, "bin", "nvim")
     path_from.symlink_to(path_to)
-    _append_to_rc("""export EDITOR='nvim'""")
     _append_to_rc("""alias n='nvim'""")
 
 
@@ -434,18 +478,20 @@ def setup_rc() -> None:
         """alias ..='cd ..'""",
         """alias ...='cd ../..'""",
         """alias ....='cd ../../..'""",
-        """alias bashrc='$EDITOR "${HOME}/.bashrc'""",
+        """alias bashrc='$EDITOR "${HOME}/.bashrc"'""",
         """alias gb='git branch --all --verbose'""",
         """alias gc='git checkout'""",
         """alias gd='git diff'""",
         """alias gl='git log --oneline'""",
         """alias gp='git pull --all --prune'""",
-        """alias gpw='watch -n2 ''git pull --all --prune || git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)'''""",
+        """alias gpw='watch -n2 "git pull --all --prune || git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)"'""",
         """alias gs='git status'""",
         """alias l='ls -al --color=auto'""",
-        """alias zshrc='$EDITOR "${HOME}/.zshrc'""",
+        """alias zshrc='$EDITOR "${HOME}/.zshrc"'""",
     ]:
         _append_to_rc(line)
+    _append_to_rc("""export EDITOR=$(command -v nvim || command -v vim || echo vi)""")
+    _append_to_rc('''export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"''')
     match Shell.get():
         case Shell.bash:
             line = "set -o vi"
@@ -454,7 +500,6 @@ def setup_rc() -> None:
         case never:
             assert_never(never)
     _append_to_rc(line)
-    _append_to_rc('''export PATH="${HOME}/.local/bin${PATH:+:${PATH}}"''')
 
 
 def setup_ssh_keys(*, mode: SSHKeysMode) -> None:
@@ -669,6 +714,8 @@ def main() -> None:
         setup_delta(force=settings.delta_force, version=settings.delta_version)
     if settings.direnv:
         setup_direnv(force=settings.direnv_force, version=settings.direnv_version)
+    if settings.docker:
+        setup_docker(force=settings.docker_force)
     if settings.just:
         setup_just(force=settings.just_force)
     if settings.ssh_keys:
