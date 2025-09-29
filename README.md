@@ -23,5 +23,5 @@ curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/he
 ### `setup-infra`
 
 ```console
-wget -qO- https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-infra.py | python3.11 -
+wget -qO- https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-infra.py | python3 -
 ```
