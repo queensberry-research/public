@@ -60,8 +60,8 @@ def main() -> None:
 
     _LOGGER.info("Generating SSH key pair...")
     private = _get_private_key(settings.key_name)
-    _generate_key(private)
-    public = private.with_name(f"{private.name}.pub")
+    public = _get_public_key(settings.key_name)
+    _generate_key(private, public)
     lines = [
         "Your public key is:",
         f"\t{public.read_text()}",
@@ -80,12 +80,19 @@ def _get_private_key(key_name: str, /) -> Path:
     return Path.home().joinpath(".ssh", name)
 
 
-def _generate_key(path: Path, /) -> None:
+def _get_public_key(key_name: str, /) -> Path:
+    private = _get_private_key(key_name)
+    return private.with_name(f"{private.name}.pub")
+
+
+def _generate_key(private: Path, public: Path, /) -> None:
+    private.unlink(missing_ok=True)
+    public.unlink(missing_ok=True)
     comment = f"{getuser()}@{gethostname()}"
     check_call([
         "ssh-keygen",
         "-f",
-        str(path),
+        str(private),
         "-N",
         "''",
         "-t",
