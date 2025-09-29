@@ -62,7 +62,14 @@ def main() -> None:
     private = _get_private_key(settings.key_name)
     _generate_key(private)
     public = private.with_name(f"{private.name}.pub")
-    _LOGGER.info("Your public key is:\n\t%s", public.read_text())
+    lines = [
+        "Your public key is:",
+        f"\t{public.read_text()}",
+        "Add at either:",
+        f"\tGitHub: https://github.com/{settings.repo_name}/infra/settings/keys",
+        "\tGitLab: ?",
+    ]
+    _LOGGER.info("\n".join(lines))
     _append_to_config(settings.key_name, settings.host_name)
     _wait_for_user()
     _clone_repo(settings.key_name, settings.repo_name)
