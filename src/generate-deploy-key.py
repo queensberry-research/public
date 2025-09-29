@@ -57,7 +57,6 @@ class _Settings:
 
 def main() -> None:
     settings = _Settings.parse()
-
     _LOGGER.info("Generating SSH key pair...")
     private = _get_private_key(settings.key_name)
     public = _get_public_key(settings.key_name)
@@ -73,6 +72,7 @@ def main() -> None:
     _append_to_config(settings.key_name, settings.host_name)
     _wait_for_user()
     _clone_repo(settings.key_name, settings.repo_name)
+    _LOGGER.info("Finished generating deploy key")
 
 
 def _get_private_key(key_name: str, /) -> Path:
