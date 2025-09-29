@@ -89,7 +89,7 @@ def _generate_key(private: Path, public: Path, /) -> None:
     private.unlink(missing_ok=True)
     public.unlink(missing_ok=True)
     comment = f"{getuser()}@{gethostname()}"
-    check_call(["ssh-keygen", f"-f={path}", "-t=ed25519", f"-C={comment}", "-N=''"])
+    check_call(["ssh-keygen", f"-f={private}", "-t=ed25519", f"-C={comment}", "-N=''"])
 
 
 def _append_to_config(key_name: str, host_name: str, /) -> None:
