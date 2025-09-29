@@ -66,7 +66,7 @@ def main() -> None:
         "Your public key is:",
         f"\t{public.read_text()}",
         "Add at either:",
-        f"\tGitHub: https://github.com/{settings.repo_name}/infra/settings/keys",
+        f"\tGitHub: https://github.com/{settings.repo_name}/infra/settings/keys/new",
         "\tGitLab: ?",
     ]
     _LOGGER.info("\n".join(lines))
@@ -102,7 +102,7 @@ def _append_to_config(key_name: str, host_name: str, /) -> None:
 
 
 Host {key_name}
-    HostName ${host_name}
+    HostName {host_name}
     User git
     IdentityFile {path_key}
     IdentitiesOnly yes
