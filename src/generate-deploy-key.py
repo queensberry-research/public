@@ -27,8 +27,8 @@ class _Settings:
     repo_name: str
 
     def __post_init__(self) -> None:
-        if not search(r"^\w+/\w+$", self.repo_name):
-            msg = "'--repo-name' must be of the form 'org/repo'"
+        if not search(r"^[\w\-]+/[\w\-]+$", self.repo_name):
+            msg = "'REPO_NAME' must be of the form 'org/repo'"
             raise ValueError(msg)
 
     @classmethod
