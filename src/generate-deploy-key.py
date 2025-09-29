@@ -35,30 +35,19 @@ class _Settings:
     def parse(cls) -> _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         parser.add_argument(
-            "-k",
-            "--key",
-            type=str,
-            required=True,
-            help="Name of the deploy key",
-            metavar="STR",
-            dest="key_name",
+            "key_name", type=str, help="Name of the deploy key", metavar="KEY_NAME"
         )
         parser.add_argument(
-            "-h",
+            "repo_name", type=str, help="Name of the repo to clone", metavar="REPO_NAME"
+        )
+        parser.add_argument(
+            "-hn",
             "--host",
             default="github.com",
             type=str,
             help="Name of the host",
             metavar="STR",
             dest="host_name",
-        )
-        parser.add_argument(
-            "-r",
-            "--repo",
-            type=str,
-            required=True,
-            help="Name of the repo to clone",
-            metavar="STR",
         )
         return _Settings(**vars(parser.parse_args()))
 
