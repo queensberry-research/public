@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from getpass import getuser
 from logging import basicConfig, getLogger
 from pathlib import Path
+from re import search
 from socket import gethostname
 from subprocess import check_call
 from time import sleep
@@ -24,6 +25,11 @@ class _Settings:
     key_name: str
     host_name: str
     repo_name: str
+
+    def __post_init__(self) -> None:
+        if not search(r"^\w+/\w+$", self.repo_name):
+            msg = "'--repo-name' must be of the form 'org/repo'"
+            raise ValueError(msg)
 
     @classmethod
     def parse(cls) -> _Settings:
