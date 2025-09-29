@@ -541,7 +541,7 @@ def setup_ssh_keys(*, mode: SSHKeysMode) -> None:
     path.chmod(S_IRUSR | S_IWUSR)
 
 
-def setup_sops(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
+def setup_sops(*, force: bool = False, version: str = _SOPS_VERSION) -> None:
     if _has_command("sops") and not force:
         _LOGGER.info("'sops' is already set up")
         return
@@ -554,9 +554,8 @@ def setup_sops(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None
         _yield_tar_gz_contents(temp_file) as temp_dir,
     ):
         (path_from,) = temp_dir.iterdir()
-        path_to = _local_bin().joinpath("starship")
+        path_to = _local_bin().joinpath("sops")
         _copyfile_logged(path_from, path_to, executable=True)
-    _append_to_rc(f"""eval "$(starship init {Shell.get().name})" """)
 
 
 def setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
