@@ -29,6 +29,7 @@ _DIRENV_VERSION = "2.37.1"
 _JUST_VERSION = "1.42.4"
 _NEOVIM_VERSION = "0.11.4"
 _STARSHIP_VERSION = "1.23.0"
+_SOPS_VERSION = "3.11.0"
 _UV_VERSION = "0.8.22"
 basicConfig(
     format="{asctime} | {message}", datefmt="%Y-%m-%d %H:%M:%S", style="{", level="INFO"
@@ -81,6 +82,10 @@ class _Settings:
     # SSH keys
     ssh_keys: bool = False
     ssh_keys_mode: SSHKeysMode
+    # sops
+    sops: bool = False
+    sops_force: bool = False
+    sops_version: str = _SOPS_VERSION
     # starship
     starship: bool = False
     starship_force: bool = False
@@ -92,6 +97,10 @@ class _Settings:
     # vim
     vim: bool = False
     vim_force: bool = False
+
+    @property
+    def sops_use(self) -> bool:
+        return self.sops or self.age
 
     @property
     def git_use(self) -> bool:
@@ -226,6 +235,18 @@ class _Settings:
             choices=list(SSHKeysMode),
             default=SSHKeysMode.overwrite,
             help="How to handle SSH keys",
+        )
+        # sops
+        parser.add_argument("-so", "--sops", action="store_true", help="Install 'sops'")
+        parser.add_argument(
+            "--sops-force", action="store_true", help="Force install 'sops'"
+        )
+        parser.add_argument(
+            "--sops-version",
+            default=_SOPS_VERSION,
+            type=str,
+            help="'sops' version",
+            metavar="STR",
         )
         # starship
         parser.add_argument(
@@ -478,6 +499,8 @@ def setup_rc() -> None:
         """alias ...='cd ../..'""",
         """alias ....='cd ../../..'""",
         """alias bashrc='$EDITOR "${HOME}/.bashrc"'""",
+        """alias cdh='__pwd=$(pwd) && echo 'hi' && cd / && cd "${__pwd}"'""",
+        """alias cdr='cd "$(git rev-parse --show-toplevel)"'""",
         """alias gb='git branch --all --verbose'""",
         """alias gc='git checkout'""",
         """alias gd='git diff'""",
@@ -516,6 +539,24 @@ def setup_ssh_keys(*, mode: SSHKeysMode) -> None:
             case never:
                 assert_never(never)
     path.chmod(S_IRUSR | S_IWUSR)
+
+
+def setup_sops(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
+    if _has_command("sops") and not force:
+        _LOGGER.info("'sops' is already set up")
+        return
+    _LOGGER.info("Setting up 'sops'...")
+    url = _github_url(
+        "starship", "starship", f"v{version}", f"sops-v{version}.linux.amd64"
+    )
+    with (
+        _yield_download(url) as temp_file,
+        _yield_tar_gz_contents(temp_file) as temp_dir,
+    ):
+        (path_from,) = temp_dir.iterdir()
+        path_to = _local_bin().joinpath("starship")
+        _copyfile_logged(path_from, path_to, executable=True)
+    _append_to_rc(f"""eval "$(starship init {Shell.get().name})" """)
 
 
 def setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
@@ -680,6 +721,7 @@ __all__ = [
     "setup_neovim",
     "setup_proxmox_apt",
     "setup_rc",
+    "setup_sops",
     "setup_ssh_keys",
     "setup_starship",
     "setup_uv",
@@ -706,6 +748,8 @@ def main() -> None:
         setup_lazyvim(force=settings.lazyvim_force)
     if settings.age:
         setup_age(force=settings.age_force, version=settings.age_version)
+    if settings.sops_use:
+        setup_sops(force=settings.sops_force, version=settings.sops_version)
     if settings.bottom:
         setup_bottom(force=settings.bottom_force, version=settings.bottom_version)
     if settings.curl:
