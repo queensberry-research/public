@@ -2,10 +2,10 @@
 
 ## Scripts
 
-### `generate-deploy-key`
+### `generate-deploy-key.py`
 
 ```console
-curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/generate-deploy-key | bash -s -- KEY_NAME HOST_NAME
+_file=$(mktemp) && wget -qO "$_file" https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/generate-deploy-key.py && python3 "$_file"
 ```
 
 ### `reboot-proxmox`
@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/he
 curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-venv | sh
 ```
 
-### `setup-infra`
+### `setup-infra.py`
 
 ```console
 wget -qO- https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/setup-infra.py | python3 -
