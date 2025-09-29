@@ -66,7 +66,7 @@ def main() -> None:
         "Your public key is:",
         f"\t{public.read_text()}",
         "Add at either:",
-        f"\tGitHub: https://github.com/{settings.repo_name}/infra/settings/keys/new",
+        f"\tGitHub: https://github.com/{settings.repo_name}/settings/keys/new",
         "\tGitLab: ?",
     ]
     _LOGGER.info("\n".join(lines))
