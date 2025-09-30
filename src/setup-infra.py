@@ -547,13 +547,9 @@ def setup_sops(*, force: bool = False, version: str = _SOPS_VERSION) -> None:
         return
     _LOGGER.info("Setting up 'sops'...")
     url = _github_url("getsops", "sops", f"v{version}", f"sops-v{version}.linux.amd64")
-    with (
-        _yield_download(url) as temp_file,
-        _yield_tar_gz_contents(temp_file) as temp_dir,
-    ):
-        (path_from,) = temp_dir.iterdir()
+    with _yield_download(url) as temp_file:
         path_to = _local_bin().joinpath("sops")
-        _copyfile_logged(path_from, path_to, executable=True)
+        _copyfile_logged(temp_file, path_to, executable=True)
 
 
 def setup_starship(*, force: bool = False, version: str = _STARSHIP_VERSION) -> None:
