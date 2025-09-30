@@ -546,9 +546,7 @@ def setup_sops(*, force: bool = False, version: str = _SOPS_VERSION) -> None:
         _LOGGER.info("'sops' is already set up")
         return
     _LOGGER.info("Setting up 'sops'...")
-    url = _github_url(
-        "starship", "starship", f"v{version}", f"sops-v{version}.linux.amd64"
-    )
+    url = _github_url("getsops", "sops", f"v{version}", f"sops-v{version}.linux.amd64")
     with (
         _yield_download(url) as temp_file,
         _yield_tar_gz_contents(temp_file) as temp_dir,
