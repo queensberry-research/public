@@ -499,7 +499,7 @@ def setup_rc() -> None:
         """alias ...='cd ../..'""",
         """alias ....='cd ../../..'""",
         """alias bashrc='$EDITOR "${HOME}/.bashrc"'""",
-        """alias cdh='__pwd=$(pwd) && echo 'hi' && cd / && cd "${__pwd}"'""",
+        """alias cdh='__pwd=$(pwd) && cd / && cd "${__pwd}"'""",
         """alias cdr='cd "$(git rev-parse --show-toplevel)"'""",
         """alias gb='git branch --all --verbose'""",
         """alias gc='git checkout'""",
