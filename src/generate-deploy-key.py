@@ -89,17 +89,7 @@ def _generate_key(private: Path, public: Path, /) -> None:
     private.unlink(missing_ok=True)
     public.unlink(missing_ok=True)
     comment = f"{getuser()}@{gethostname()}"
-    check_call([
-        "ssh-keygen",
-        "-f",
-        str(private),
-        "-t",
-        "ed25519",
-        "-C",
-        comment,
-        "-N",
-        "",
-    ])
+    check_call(f"ssh-keygen -f {private} -t ed25519 -C {comment} -N ''", shell=True)
 
 
 def _append_to_config(key_name: str, host_name: str, /) -> None:
@@ -127,13 +117,11 @@ def _wait_for_user() -> None:
 
 def _clone_repo(key_name: str, repo_name: str, /) -> None:
     _LOGGER.info("Using %r to clone %r...", key_name, repo_name)
-    check_call(["apt", "install", "-y", "git"])
-    check_call([
-        "git",
-        "clone",
-        "--recurse-submodules",
-        f"git@{key_name}:{repo_name}.git",
-    ])
+    check_call("apt install -y git", shell=True)
+    check_call("ssh-keyscan github.com >> ~/.ssh/known_hosts", shell=True)
+    check_call(
+        f"git clone --recurse-submodules git@{key_name}:{repo_name}.git", shell=True
+    )
 
 
 if __name__ == "__main__":
