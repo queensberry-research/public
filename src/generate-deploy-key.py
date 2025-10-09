@@ -127,6 +127,7 @@ def _wait_for_user() -> None:
 
 def _clone_repo(key_name: str, repo_name: str, /) -> None:
     _LOGGER.info("Using %r to clone %r...", key_name, repo_name)
+    check_call(["apt", "install", "-y", "git"])
     check_call([
         "git",
         "clone",
