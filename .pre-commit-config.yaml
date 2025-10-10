@@ -1,33 +1,22 @@
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
-  # fixers
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.2
-    hooks:
-      - id: ruff-check
-        args: [--fix]
-      - id: ruff-format
   - repo: https://github.com/dycw/pre-commit-hooks
     rev: 0.13.8
     hooks:
-      - id: format-requirements
-      - id: replace-sequence-str
-      - id: run-bump-my-version
-        args: [--mode=bumpversion]
+      - id: check-submodules-updated
+        args: [--run-every=PT5M]
+      - id: mirror-files
+        args: [git/.gitignore, .gitignore, --run-every=PT5M]
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck
   - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
     rev: v2.15.0
     hooks:
       - id: pretty-format-toml
         args: [--autofix, --trailing-commas]
-  - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.12.0-2
-    hooks:
-      - id: shfmt
-  # linters
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.11.0.1
-    hooks:
-      - id: shellcheck
-  # fixers/linters
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
@@ -43,3 +32,14 @@ repos:
       - id: pretty-format-json
         args: [--autofix]
       - id: trailing-whitespace
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.12.0-2
+    hooks:
+      - id: shfmt
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: npx prettier --write
+        language: system
+        types_or: [markdown, yaml]
