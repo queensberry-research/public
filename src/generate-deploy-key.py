@@ -117,7 +117,7 @@ def _wait_for_user() -> None:
 
 def _clone_repo(key_name: str, repo_name: str, /) -> None:
     _LOGGER.info("Using %r to clone %r...", key_name, repo_name)
-    check_call("apt install -y git", shell=True)
+    check_call("sudo apt install -y git", shell=True)
     check_call("ssh-keyscan github.com >> ~/.ssh/known_hosts", shell=True)
     check_call(
         f"git clone --recurse-submodules git@{key_name}:{repo_name}.git", shell=True
