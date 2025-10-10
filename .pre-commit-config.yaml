@@ -7,14 +7,7 @@ repos:
       - id: check-submodules-updated
         args: [--run-every=PT5M]
       - id: mirror-files
-        args:
-          [
-            repo/git/.gitignore,
-            .gitignore,
-            repo/pyright/base.json,
-            pyrightconfig.json,
-            --run-every=PT5M,
-          ]
+        args: [repo/git/.gitignore, .gitignore, --run-every=PT5M]
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.11.0
     hooks:

@@ -1,3 +1,0 @@
-include:
-  - project: qrt/common
-    file: gitlab/main.yml
