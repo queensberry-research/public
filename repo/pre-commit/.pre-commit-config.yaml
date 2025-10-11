@@ -7,7 +7,15 @@ repos:
       - id: check-submodules-updated
         args: [--run-every=PT5M]
       - id: mirror-files
-        args: [git/.gitignore, .gitignore, --run-every=PT5M]
+        args: [
+            submodules/public/repo/gitlab/.gitlab-ci.yml
+            .gitlab-ci.yml,
+            submodules/public/repo/git/.gitignore,
+            .gitignore,
+            submodules/public/repo/git/.gitmodules,
+            .gitmodules,
+            --run-every=PT5M,
+          ]
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.11.0
     hooks:
