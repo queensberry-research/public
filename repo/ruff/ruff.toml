@@ -73,4 +73,5 @@ extend-immutable-calls = ["typing.cast"]
 ban-relative-imports = "all"
 
 [lint.isort]
+required-imports = ["from __future__ import annotations"]
 split-on-trailing-comma = false
