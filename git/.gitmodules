@@ -1,3 +1,0 @@
-[submodule "submodules/common"]
-	path = submodules/common
-	url = ssh://git@gitlab/qrt/common.git
