@@ -1,4 +1,1 @@
-{
-  "enableReachabilityAnalysis": false,
-  "pythonVersion": "3.11"
-}
+repo/pyright/base.json

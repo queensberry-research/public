@@ -1,0 +1,126 @@
+default:
+  interruptible: true
+
+stages:
+  - main
+  - publish
+
+variables:
+  GIT_CLEAN_FLAGS: -ffdx -e .venv/
+  GIT_DEPTH: 1
+  GIT_SUBMODULE_DEPTH: 1
+  GIT_SUBMODULE_FORCE_HTTPS: "true"
+  GIT_SUBMODULE_STRATEGY: recursive
+
+.pr-only:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"
+  stage: main
+
+.pr-or-sched:
+  rules:
+    - if: '($CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master") || $CI_PIPELINE_SOURCE == "schedule"'
+  stage: main
+
+.publish:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "master"
+  stage: publish
+
+.redis:
+  services:
+    - name: redis:latest
+
+.uv:
+  cache:
+    - key:
+        files:
+          - uv.lock
+      paths:
+        - $UV_CACHE_DIR
+  image:
+    name: ghcr.io/queensberry-research/docker:0.1.0
+    docker:
+      platform: linux/amd64
+  variables:
+    UV_CACHE_DIR: .uv-cache
+    UV_LINK_MODE: copy
+  after_script:
+    - uv cache prune --ci
+
+.uv-build:
+  script:
+    - uv build --wheel
+
+.uv-run-pytest:
+  script:
+    - if [ -n "${DEBUG_PYTEST}" ]; then echo "Sleeping for ${DEBUG_PYTEST}..." && sleep "${DEBUG_PYTEST}"; fi
+    - uv run pytest -n=auto
+
+.uv-sync:
+  before_script:
+    - uv sync --all-extras
+
+# ---- main -------------------------------------------------------------------
+
+check-version-bumped:
+  extends:
+    - .pr-only
+  image: ghcr.io/cicirello/pyaction:latest
+  script:
+    - curl -fsSL https://raw.githubusercontent.com/dycw/remote-scripts/refs/heads/master/scripts/check-version-bumped | sh -s
+
+ruff:
+  extends:
+    - .pr-or-sched
+    - .uv
+    - .uv-sync
+  script:
+    - if [ -n "${DEBUG_RUFF}" ]; then echo "Sleeping for ${DEBUG_RUFF}..." && sleep "${DEBUG_RUFF}"; fi
+    - uv run ruff check .
+    - uv run ruff format --check .
+
+pyright:
+  extends:
+    - .pr-or-sched
+    - .uv
+    - .uv-sync
+  script:
+    - if [ -n "${DEBUG_PYRIGHT}" ]; then echo "Sleeping for ${DEBUG_PYRIGHT}..." && sleep "${DEBUG_PYRIGHT}"; fi
+    - uv run pyright
+
+pytest-highest:
+  extends:
+    - .pr-or-sched
+    - .redis
+    - .uv
+    - .uv-sync
+  script:
+    - !reference [.uv-run-pytest, script]
+
+pytest-lowest-direct:
+  extends:
+    - .pr-or-sched
+    - .redis
+    - .uv
+  before_script:
+    - uv sync --all-extras  --resolution=lowest-direct
+  script:
+    - !reference [.uv-run-pytest, script]
+
+build:
+  extends:
+    - .pr-or-sched
+    - .uv
+  script:
+    - if [ -n "${DEBUG_BUILD}" ]; then echo "Sleeping for ${DEBUG_BUILD}..." && sleep "${DEBUG_BUILD}"; fi
+    - !reference [.uv-build, script]
+
+publish:
+  extends:
+    - .publish
+    - .uv
+  script:
+    - if [ -n "${DEBUG_PUBLISH}" ]; then echo "Sleeping for ${DEBUG_PUBLISH}..." && sleep "${DEBUG_PUBLISH}"; fi
+    - !reference [.uv-build, script]
+    - uv publish

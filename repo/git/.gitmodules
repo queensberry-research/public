@@ -1,0 +1,3 @@
+[submodule "submodules/public"]
+	path = submodules/public
+	url = https://github.com/queensberry-research/public.git
