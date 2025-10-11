@@ -6,8 +6,12 @@ repos:
     hooks:
       - id: check-submodules-updated
         args: [--run-every=PT5M]
+      - id: check-version-bumped
       - id: mirror-files
         args: [repo/git/.gitignore, .gitignore, --run-every=PT5M]
+      - id: replace-sequence-str
+      - id: run-bump-my-version
+        args: [--mode=bumpversion]
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.11.0
     hooks:
