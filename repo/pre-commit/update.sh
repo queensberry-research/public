@@ -1,8 +1,12 @@
 #!/usr/bin/env sh
 
 root=$(git rev-parse --show-toplevel)
-cp "$root"/.pre-commit-config.yaml "$root"/.root.pre-commit-config.yaml
-mv "$root"/pre-commit/.pre-commit-config.yaml "$root"/.pre-commit-config.yaml
+filename='.pre-commit-config.yaml'
+root_config="$root/$filename"
+backup_config="$root/$filename.backup"
+repo_config="$root/repo/pre-commit/$filename"
+cp "$root_config" "$backup_config"
+mv "$repo_config" "$root_config"
 pre-commit autoupdate
-mv "$root"/.pre-commit-config.yaml "$root"/pre-commit/.pre-commit-config.yaml
-mv "$root"/.root.pre-commit-config.yaml "$root"/.pre-commit-config.yaml
+mv "$root_config" "$repo_config"
+mv "$backup_config" "$root_config"
