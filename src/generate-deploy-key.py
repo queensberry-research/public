@@ -34,13 +34,13 @@ class _Settings:
     @classmethod
     def parse(cls) -> _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-        parser.add_argument(
+        _ = parser.add_argument(
             "key_name", type=str, help="Name of the deploy key", metavar="KEY_NAME"
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "repo_name", type=str, help="Name of the repo to clone", metavar="REPO_NAME"
         )
-        parser.add_argument(
+        _ = parser.add_argument(
             "-hn",
             "--host",
             default="github.com",
@@ -89,7 +89,7 @@ def _generate_key(private: Path, public: Path, /) -> None:
     private.unlink(missing_ok=True)
     public.unlink(missing_ok=True)
     comment = f"{getuser()}@{gethostname()}"
-    check_call(f"ssh-keygen -f {private} -t ed25519 -C {comment} -N ''", shell=True)
+    _ = check_call(f"ssh-keygen -f {private} -t ed25519 -C {comment} -N ''", shell=True)
 
 
 def _append_to_config(key_name: str, host_name: str, /) -> None:
@@ -117,9 +117,9 @@ def _wait_for_user() -> None:
 
 def _clone_repo(key_name: str, repo_name: str, /) -> None:
     _LOGGER.info("Using %r to clone %r...", key_name, repo_name)
-    check_call("sudo apt install -y git", shell=True)
-    check_call("ssh-keyscan github.com >> ~/.ssh/known_hosts", shell=True)
-    check_call(
+    _ = check_call("sudo apt install -y git", shell=True)
+    _ = check_call("ssh-keyscan github.com >> ~/.ssh/known_hosts", shell=True)
+    _ = check_call(
         f"git clone --recurse-submodules git@{key_name}:{repo_name}.git", shell=True
     )
 
