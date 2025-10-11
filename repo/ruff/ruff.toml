@@ -63,8 +63,6 @@ select = [
   "S101",  # assert
   "SLF001",  # private-member-access
 ]
-"alembic/env.py" = ["INP001"]  # implicit-namespace-package
-"alembic/versions/*.py" = ["INP001"]  # implicit-namespace-package
 "notebooks/*.py" = ["INP001"]  # implicit-namespace-package
 "src/dts/data/static.py" = ["RUF001"]  # ambiguous-unicode-character-string
 
