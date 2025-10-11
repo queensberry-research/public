@@ -12,17 +12,8 @@ ignore = [
   "ANN401",  # any-type
   "ASYNC109",  # async-function-with-timeout
   "C901",  # complex-structure
-  "CPY001",  # missing-copyright-notice
-  "D100",  # undocumented-public-module
-  "D101",  # undocumented-public-class
-  "D102",  # undocumented-public-method
-  "D103",  # undocumented-public-function
-  "D104",  # undocumented-public-package
-  "D105",  # undocumented-magic-method
-  "D106",  # undocumented-public-nested-class
-  "D107",  # undocumented-public-init
-  "D203",  # one-blank-line-before-class
-  "D213",  # multi-line-summary-second-line
+  "CPY",  # flake8-copyright
+  "D",  # pydocstyle
   "E501",  # line-too-long
   "PD",  # pandas-vet
   "PERF203",  # try-except-in-loop
@@ -41,9 +32,6 @@ ignore = [
   "S602",  # subprocess-popen-with-shell-equals-true
   "S603",  # subprocess-without-shell-equals-true
   "S607",  # start-process-with-partial-path
-  "TC001",  # typing-only-first-party-import
-  "TC002",  # typing-only-third-party-import
-  "TC003",  # typing-only-standard-library-import
   # preview
   "S101",  # assert
   # formatter
