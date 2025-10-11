@@ -1,4 +1,4 @@
-target-version = "py314"
+target-version = "py313"
 unsafe-fixes = true
 
 [format]

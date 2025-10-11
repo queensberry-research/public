@@ -39,7 +39,7 @@ variables:
       paths:
         - $UV_CACHE_DIR
   image:
-    name: ghcr.io/queensberry-research/docker:0.2.0
+    name: ghcr.io/queensberry-research/docker:0.3.0
     docker:
       platform: linux/amd64
   variables:
