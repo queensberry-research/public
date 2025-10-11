@@ -1,11 +1,24 @@
 default_install_hook_types: [pre-commit, pre-push]
 
 repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.0
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.9.2
+    hooks:
+      - id: uv-lock
+        args: [--upgrade]
   - repo: https://github.com/dycw/pre-commit-hooks
-    rev: 0.13.8
+    rev: 0.13.10
     hooks:
       - id: check-submodules-updated
         args: [--run-every=PT5M]
+      - id: check-version-bumped
+      - id: format-requirements
       - id: mirror-files
         args: [
             submodules/public/repo/gitlab/.gitlab-ci.yml
@@ -16,6 +29,11 @@ repos:
             .gitmodules,
             --run-every=PT5M,
           ]
+      - id: replace-sequence-str
+      - id: run-bump-my-version
+        args: [--mode=bumpversion]
+      - id: tag-commits
+        args: [--run-every=PT5M, --max-age=P1Y, --mode=bumpversion]
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.11.0
     hooks:

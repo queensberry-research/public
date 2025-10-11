@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 
+pre-commit autoupdate
+
 root=$(git rev-parse --show-toplevel)
 filename='.pre-commit-config.yaml'
 root_config="$root/$filename"
