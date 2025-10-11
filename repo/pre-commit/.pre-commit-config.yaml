@@ -20,8 +20,9 @@ repos:
       - id: check-version-bumped
       - id: format-requirements
       - id: mirror-files
-        args: [
-            submodules/public/repo/gitlab/.gitlab-ci.yml
+        args:
+          [
+            submodules/public/repo/gitlab/.gitlab-ci.yml,
             .gitlab-ci.yml,
             submodules/public/repo/git/.gitignore,
             .gitignore,
