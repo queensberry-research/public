@@ -90,7 +90,6 @@ asyncio_mode = "auto"
 collect_imported_tests = false
 filterwarnings = ["error"]
 minversion = "8.0"
-testpaths = ["src/tests"]
 xfail_strict = true
 
 # ruff
