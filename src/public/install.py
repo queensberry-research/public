@@ -25,7 +25,6 @@ _REPO_ROOT = Path(__file__).parent.parent.parent
 _MODULE_PATH = ".".join(
     Path(__file__).relative_to(_REPO_ROOT.joinpath("src")).with_suffix("").parts
 )
-_PYTHON_CMD = f"python3 -m {_MODULE_PATH}"
 
 
 # classes
@@ -111,8 +110,8 @@ class _Settings:
         _ = subparsers.add_parser(cmd, help="Basic installation")
         return _Settings(**vars(parser.parse_args()))
 
-    def to_python_cmd(self, cmd: _Command, /) -> str:
-        parts: list[str] = [_PYTHON_CMD, cmd]
+    def to_cmd(self, cmd: _Command, /) -> str:
+        parts: list[str] = [cmd]
         if self.age_secret_key is not None:
             parts.extend([self._flag_age_secret_key, str(self.age_secret_key)])
         if self.bashrc is not None:
@@ -162,14 +161,9 @@ def _initial_install(settings: _Settings, /) -> None:
     if which("git") is None:
         _LOGGER.info("Installing 'git'...")
         _ = check_call("apt -y update && apt install -y git", shell=True)
-    with TemporaryDirectory() as _temp_dir:
-        temp_dir = Path(_temp_dir)
-        _LOGGER.info("Cloning repo...")
-        url = "https://github.com/queensberry-research/public.git"
-        _ = check_call(f"git clone {url} {temp_dir}", shell=True)
-        cmd = settings.to_python_cmd("basic")
-        _LOGGER.info("Running %r in %r...", cmd, str(temp_dir))
-        _ = check_call(cmd, shell=True, cwd=temp_dir)
+    _clone_repo_and_run(
+        "https://github.com/queensberry-research/public.git", settings.to_cmd("basic")
+    )
 
 
 def _basic_install(settings: _Settings, /) -> None:
@@ -238,6 +232,16 @@ def _basic_install(settings: _Settings, /) -> None:
 # utilities
 
 
+def _clone_repo_and_run(url: str, cmd: str, /) -> None:
+    with TemporaryDirectory() as _temp_dir:
+        temp_dir = Path(_temp_dir)
+        _LOGGER.info("Cloning %r...", url)
+        _ = check_call(f"git clone {url} {temp_dir}", shell=True)
+        full_cmd = f"python3 -m {cmd}"
+        _LOGGER.info("Running %r in %r...", full_cmd, str(temp_dir))
+        _ = check_call(full_cmd, shell=True, cwd=temp_dir)
+
+
 def _log_fail[**P](func: Callable[P, None], /) -> Callable[P, None]:
     @wraps(func)
     def wrapped(*args: P.args, **kwargs: P.kwargs) -> None:
@@ -245,7 +249,7 @@ def _log_fail[**P](func: Callable[P, None], /) -> Callable[P, None]:
             func(*args, **kwargs)
         except Exception as error:
             _LOGGER.exception(
-                "Encounter %r whilst running %r", type(error).__name__, func.__name__
+                "Encountered %r whilst running %r", type(error).__name__, func.__name__
             )
 
     return wrapped
