@@ -2,22 +2,19 @@ from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from dataclasses import dataclass
-from functools import wraps
 from logging import basicConfig, getLogger
 from pathlib import Path
 from shutil import which
 from subprocess import check_call
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, ClassVar, Literal, assert_never
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from typing import ClassVar, Literal, assert_never, cast
+from urllib.parse import urlparse
 
 ###############################################################################
 # NOTE: the top-level may only contain standard library imports
 ###############################################################################
 
-type _Command = Literal["init", "basic"]
+type _Command = Literal["init", "post"]
 type PathLike = Path | str
 
 _LOGGER = getLogger(__name__)
@@ -42,6 +39,7 @@ class _Settings:
     nvim_dir: Path | None
     skip_update_submodules: bool = False
     starship_toml: Path | None
+    extra: list[str]
 
     _flag_age_secret_key: ClassVar[str] = "--age-secret-key"  # noqa: S105
     _flag_bashrc: ClassVar[str] = "--bashrc"
@@ -50,67 +48,82 @@ class _Settings:
     _flag_dev: ClassVar[str] = "--dev"
     _flag_docker: ClassVar[str] = "--docker"
     _flag_nvim_dir: ClassVar[str] = "--nvim-dir"
-    _flag_skip_submodule_updates: ClassVar[str] = "--skip-update-submodules"
+    _flag_skip_update_submodules: ClassVar[str] = "--skip-update-submodules"
     _flag_starship_toml: ClassVar[str] = "--starship-toml"
 
     @classmethod
     def parse(cls) -> _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-        _ = parser.add_argument(
-            cls._flag_age_secret_key,
-            type=cls._to_path,
-            help="Path to the `age` secret key",
-            metavar="PATH",
-        )
-        _ = parser.add_argument(
-            cls._flag_bashrc,
-            type=cls._to_path,
-            help="Path to the `.bashrc`",
-            metavar="PATH",
-        )
-        _ = parser.add_argument(
-            cls._flag_deploy_key,
-            type=cls._to_path,
-            help="Path to the deploy key",
-            metavar="PATH",
-        )
-        _ = parser.add_argument(
-            cls._flag_direnv_toml,
-            type=cls._to_path,
-            help="Path to the `direnv.toml`",
-            metavar="PATH",
-        )
-        _ = parser.add_argument(
-            cls._flag_dev, action="store_true", help="Install development dependencies"
-        )
-        _ = parser.add_argument(
-            cls._flag_docker, action="store_true", help="Install 'docker'"
-        )
-        _ = parser.add_argument(
-            cls._flag_nvim_dir,
-            type=cls._to_path,
-            help="Path to the `nvim` directory",
-            metavar="PATH",
-        )
-        _ = parser.add_argument(
-            cls._flag_skip_submodule_updates,
-            action="store_true",
-            help="Skip updating of the submodules",
-        )
-        _ = parser.add_argument(
-            cls._flag_starship_toml,
-            type=cls._to_path,
-            help="Path to the `starship.toml`",
-            metavar="PATH",
-        )
         subparsers = parser.add_subparsers(dest="command", required=True)
         cmd: _Command = "init"
-        _ = subparsers.add_parser(cmd, help="Initial installation")
-        cmd: _Command = "basic"
-        _ = subparsers.add_parser(cmd, help="Basic installation")
-        return _Settings(**vars(parser.parse_args()))
+        init = subparsers.add_parser(cmd, help="Initial installation")
+        cmd: _Command = "post"
+        post = subparsers.add_parser(cmd, help="Post installation")
+        for p in [init, post]:
+            _ = p.add_argument(
+                cls._flag_age_secret_key,
+                type=cls._to_path,
+                help="Path to the `age` secret key",
+                metavar="PATH",
+            )
+            _ = p.add_argument(
+                cls._flag_bashrc,
+                type=cls._to_path,
+                help="Path to the `.bashrc`",
+                metavar="PATH",
+            )
+            _ = p.add_argument(
+                cls._flag_deploy_key,
+                type=cls._to_path,
+                help="Path to the deploy key",
+                metavar="PATH",
+            )
+            _ = p.add_argument(
+                cls._flag_direnv_toml,
+                type=cls._to_path,
+                help="Path to the `direnv.toml`",
+                metavar="PATH",
+            )
+            _ = p.add_argument(
+                cls._flag_dev,
+                action="store_true",
+                help="Install development dependencies",
+            )
+            _ = p.add_argument(
+                cls._flag_docker, action="store_true", help="Install 'docker'"
+            )
+            _ = p.add_argument(
+                cls._flag_nvim_dir,
+                type=cls._to_path,
+                help="Path to the `nvim` directory",
+                metavar="PATH",
+            )
+            _ = p.add_argument(
+                cls._flag_skip_update_submodules,
+                action="store_true",
+                help="Skip updating of the submodules",
+            )
+            _ = p.add_argument(
+                cls._flag_starship_toml,
+                type=cls._to_path,
+                help="Path to the `starship.toml`",
+                metavar="PATH",
+            )
+        namespace, extra = parser.parse_known_args()
+        match cast("_Command", namespace.command):
+            case "init":
+                namespace2, extra2 = init.parse_known_args(extra)
+            case "post":
+                namespace2, extra2 = post.parse_known_args(extra)
+            case never:
+                assert_never(never)
 
-    def to_cmd(self, cmd: _Command, /) -> str:
+        kwargs = vars(namespace2) | vars(namespace)
+        return _Settings(**kwargs, extra=extra2)
+
+    @property
+    def post_cmd(self) -> str:
+        cmd: _Command = "post"
         parts: list[str] = [cmd]
         if self.age_secret_key is not None:
             parts.extend([self._flag_age_secret_key, str(self.age_secret_key)])
@@ -125,7 +138,7 @@ class _Settings:
         if self.docker:
             parts.append(self._flag_docker)
         if self.skip_update_submodules:
-            parts.append(self._flag_skip_submodule_updates)
+            parts.append(self._flag_skip_update_submodules)
         return " ".join(parts)
 
     @classmethod
@@ -147,8 +160,8 @@ def _main() -> None:
     match settings.command:
         case "init":
             _initial_install(settings)
-        case "basic":
-            _basic_install(settings)
+        case "post":
+            _post_install(settings)
         case never:
             assert_never(never)
 
@@ -158,18 +171,17 @@ def _initial_install(settings: _Settings, /) -> None:
     # this installer may only contain standard library imports
     ###########################################################################
     _LOGGER.info("Initial installation...")
-    if which("git") is None:
-        _LOGGER.info("Installing 'git'...")
-        _ = check_call("apt -y update && apt install -y git", shell=True)
+    assert 0, settings
     _clone_repo_and_run(
-        "https://github.com/queensberry-research/public.git", settings.to_cmd("basic")
+        "https://github.com/queensberry-research/public.git", settings.post_cmd
     )
 
 
-def _basic_install(settings: _Settings, /) -> None:
+def _post_install(settings: _Settings, /) -> None:
     ###########################################################################
-    # this installer may only contain standard library & 'installer' imports
+    # this installer may only contain standard library & `public` imports
     ###########################################################################
+    from public.constants import HOME
     from public.lib import (
         install_age,
         install_bottom,
@@ -195,64 +207,93 @@ def _basic_install(settings: _Settings, /) -> None:
     )
     from public.utilities import update_submodules
 
-    _LOGGER.info("Basic installation...")
+    _LOGGER.info("Public installation...")
     if not settings.skip_update_submodules:
-        _log_fail(update_submodules)()
-    _log_fail(setup_ssh_keys)(
+        update_submodules()
+    setup_ssh_keys(
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt"
         # TODO: change to ssh/keys.txt
     )
-    _log_fail(setup_bashrc)(bashrc=settings.bashrc)
-    _log_fail(_setup_proxmox_sources)()
-    _log_fail(_setup_ssh_config)(deploy_key=settings.deploy_key)
-    _log_fail(setup_sshd)(permit_root_login=True)
-    # _log_fail(_setup_subnet_env_var)() # TODO :
-    _log_fail(install_age)()
-    _log_fail(install_curl)()
-    _log_fail(install_direnv)(direnv_toml=settings.direnv_toml)
-    _log_fail(install_jq)()
-    _log_fail(install_uv)()  # after curl
-    _log_fail(install_yq)()  # after curl, jq
-    _log_fail(install_sops)(age_secret_key=settings.age_secret_key)  # after curl, jq
+    setup_bashrc(bashrc=settings.bashrc)
+    _setup_proxmox_sources()
+    _setup_ssh_config(deploy_key=settings.deploy_key)
+    setup_sshd(permit_root_login=True)
+    # _setup_subnet_env_var() # TODO :
+    install_age()
+    install_curl()
+    install_direnv(direnv_toml=settings.direnv_toml)
+    install_jq()
+    install_uv()  # after curl
+    install_yq()  # after curl, jq
+    install_sops(age_secret_key=settings.age_secret_key)  # after curl, jq
     if settings.docker:
-        _log_fail(install_docker)()
+        install_docker()
     if settings.dev:
-        _log_fail(install_bottom)()  # after curl, jq
-        _log_fail(install_delta)()
-        _log_fail(install_fd)()
-        _log_fail(install_fzf)()
-        _log_fail(install_just)()
-        _log_fail(install_neovim)(nvim_dir=settings.nvim_dir)
-        _log_fail(install_ripgrep)()
-        _log_fail(install_starship)(starship_toml=settings.starship_toml)
-        _log_fail(install_tmux)()
-        _log_fail(install_vim)()
+        install_bottom()  # after curl, jq
+        install_delta()
+        install_fd()
+        install_fzf()
+        install_just()
+        install_neovim(nvim_dir=settings.nvim_dir)
+        install_ripgrep()
+        install_starship(starship_toml=settings.starship_toml)
+        install_tmux()
+        install_vim()
+    if settings.deploy_key is not None:
+        _clone_repo_and_run(
+            "https://github.com/queensberry-research/infra-mirror.git",
+            settings.post_cmd("post"),
+            target=HOME / "infra",
+        )
+
+
+# def _private_install(settings: _Settings, /) -> None:
+#     ###########################################################################
+#     # this installer may only contain standard library & `public` imports
+#     ###########################################################################
+#     from public.constants import HOME
+#     from public.utilities import update_submodules
+#
+#     _LOGGER.info("Private installation...")
+#     if settings.deploy_key is None:
+#         msg = "For the private installation, 'deploy_key' must be given"
+#         raise RuntimeError(msg)
+#     path = HOME / "infra"
+#     if path.exists():
+#         if not settings.skip_update_submodules:
+#             update_submodules()
+#     else:
+#         _setup_ssh_config(deploy_key=settings.deploy_key)
+#         _clone_repo_and_run(
+#             "https://github.com/queensberry-research/public.git",
+#             settings.to_cmd("private"),
+#         )
 
 
 # utilities
 
 
-def _clone_repo_and_run(url: str, cmd: str, /) -> None:
-    with TemporaryDirectory() as _temp_dir:
-        temp_dir = Path(_temp_dir)
-        _LOGGER.info("Cloning %r...", url)
-        _ = check_call(f"git clone {url} {temp_dir}", shell=True)
-        full_cmd = f"python3 -m {cmd}"
-        _LOGGER.info("Running %r in %r...", full_cmd, str(temp_dir))
-        _ = check_call(full_cmd, shell=True, cwd=temp_dir)
+def _clone_repo_and_run(
+    url: str, cmd: str, /, *, target: PathLike | None = None
+) -> None:
+    if which("git") is None:
+        _LOGGER.info("Installing 'git'...")
+        _ = check_call("apt -y update && apt install -y git", shell=True)
+    if target is None:
+        with TemporaryDirectory() as temp_dir:
+            repo_name = Path(urlparse(url).path).stem
+            target = Path(temp_dir, repo_name)
+            _clone_repo_and_run_core(url, target, cmd)
+    else:
+        _clone_repo_and_run_core(url, target, cmd)
 
 
-def _log_fail[**P](func: Callable[P, None], /) -> Callable[P, None]:
-    @wraps(func)
-    def wrapped(*args: P.args, **kwargs: P.kwargs) -> None:
-        try:
-            func(*args, **kwargs)
-        except Exception as error:
-            _LOGGER.exception(
-                "Encountered %r whilst running %r", type(error).__name__, func.__name__
-            )
-
-    return wrapped
+def _clone_repo_and_run_core(url: str, target: PathLike, cmd: str, /) -> None:
+    _LOGGER.info("Cloning %r...", url)
+    _ = check_call(f"git clone {url} {target}", shell=True)
+    full_cmd = f"python3 -m {cmd}"
+    _LOGGER.info("Running %r in %r...", full_cmd, str(target))
+    _ = check_call(full_cmd, shell=True, cwd=target)
 
 
 def _setup_proxmox_sources() -> None:
