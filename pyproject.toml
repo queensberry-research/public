@@ -20,7 +20,7 @@ dependencies = []
 name = "public"
 readme = "README.md"
 requires-python = ">= 3.13"
-version = "0.4.30"
+version = "0.4.31"
 
 # coverage
 [tool.coverage]
