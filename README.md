@@ -5,7 +5,7 @@
 ### `install.py`
 
 ```console
-_file=$(mktemp) && wget -qO "$_file" https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py && python3 "$_file" init
+_file=$(mktemp) && wget -qO "$_file" https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/public/install.py && python3 "$_file" init
 ```
 
 ### `generate-deploy-key.py`
