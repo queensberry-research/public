@@ -9,7 +9,6 @@ from shutil import which
 from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import Literal, assert_never, cast
-from urllib.parse import urlparse
 
 ###############################################################################
 # NOTE: the top-level may only contain standard library imports
@@ -195,18 +194,21 @@ def _initial_install(settings: _Settings, /) -> None:
     # this installer may only contain standard library imports
     ###########################################################################
     _LOGGER.info("Initial installation...")
-    _ensure_cloned_and_run(
-        "https://github.com/queensberry-research/public.git",
-        settings.post_cmd,
-        branch=settings.branch,
-        src=True,
-    )
+    with TemporaryDirectory() as temp_dir:
+        target = Path(temp_dir, "public")
+        _clone_repo(
+            "https://github.com/queensberry-research/public.git",
+            target,
+            branch=settings.branch,
+        )
+        _run_in_repo(settings.post_cmd, target, src=True)
 
 
 def _post_install(settings: _Settings, /) -> None:
     ###########################################################################
     # this installer may only contain standard library & `public` imports
     ###########################################################################
+    from public.constants import HOME
     from public.lib import (
         install_age,
         install_bottom,
@@ -263,52 +265,24 @@ def _post_install(settings: _Settings, /) -> None:
         install_tmux()
         install_vim()
     if settings.infra_mirror:
-        _setup_infra_mirror(deploy_key=settings.deploy_key)
+        _setup_infra_mirror(deploy_key=settings.deploy_key, branch=settings.branch)
+    if settings.infra_cmd is not None:
+        _run_in_repo(settings.infra_cmd, HOME / "infra")
 
 
 # utilities
 
 
-def _clone_repo_and_run(
-    url: str,
-    target: PathLike,
-    cmd: str,
-    /,
-    *,
-    branch: str | None = None,
-    src: bool = False,
-) -> None:
-    target = Path(target)
-    _LOGGER.info("Cloning %r to %r...", url, str(target))
-    _ = check_call(f"git clone --recurse-submodules {url} {target}", shell=True)
-    if branch is not None:
-        _ = check_call(f"git checkout {branch}", shell=True, cwd=target)
-    _run_in_repo(cmd, target, src=src)
-
-
-def _ensure_cloned_and_run(
-    url: str,
-    cmd: str,
-    /,
-    *,
-    target: PathLike | None = None,
-    branch: str | None = None,
-    src: bool = False,
-) -> None:
+def _clone_repo(url: str, target: PathLike, /, *, branch: str | None = None) -> None:
     if which("git") is None:
         _LOGGER.info("Installing 'git'...")
         _ = check_call("apt -y update && apt install -y git", shell=True)
-    if target is None:
-        with TemporaryDirectory() as temp_dir:
-            repo_name = Path(urlparse(url).path).stem
-            target = Path(temp_dir, repo_name)
-            _clone_repo_and_run(url, target, cmd, branch=branch, src=src)
-    else:
-        target = Path(target)
-        if target.exists():
-            _run_in_repo(cmd, target, src=src)
-        else:
-            _clone_repo_and_run(url, target, cmd, branch=branch, src=src)
+    target = Path(target)
+    if not target.exists():
+        _LOGGER.info("Cloning %r to %r...", url, str(target))
+        _ = check_call(f"git clone --recurse-submodules {url} {target}", shell=True)
+        if branch is not None:
+            _ = check_call(f"git checkout {branch}", shell=True, cwd=target)
 
 
 def _run_in_repo(cmd: str, target: PathLike, /, *, src: bool = False) -> None:
@@ -340,7 +314,9 @@ def _setup_proxmox_sources() -> None:
         apt_update()
 
 
-def _setup_infra_mirror(*, deploy_key: PathLike | None = None) -> None:
+def _setup_infra_mirror(
+    *, deploy_key: PathLike | None = None, branch: str | None = None
+) -> None:
     from public.constants import HOME
     from public.lib import setup_ssh_config
 
@@ -348,16 +324,14 @@ def _setup_infra_mirror(*, deploy_key: PathLike | None = None) -> None:
     if path.exists():
         return
     if deploy_key is None:
-        msg = f"{_Settings._flag_deploy_key}"
-        raise RuntimeError(msg)
-        setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
-    if (settings.deploy_key is not None) and settings.infra_cmd:
-        _ensure_cloned_and_run(
-            "https://github.com/queensberry-research/infra-mirror.git",
-            f"{settings.infra_cmd} {settings.extra}",
-            branch=settings.branch,
-            target=HOME / "infra",
+        msg = (
+            f"{_FLAG_DEPLOY_KEY!r} must be given since {_FLAG_INFRA_MIRROR!r} was given"
         )
+        raise RuntimeError(msg)
+    setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
+    _clone_repo(
+        "https://github.com/queensberry-research/infra-mirror.git", path, branch=branch
+    )
 
 
 def _setup_ssh_config(*, deploy_key: PathLike | None = None) -> None:
