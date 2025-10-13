@@ -296,7 +296,7 @@ def _run_in_repo(cmd: str, target: PathLike, /, *, src: bool = False) -> None:
 
 
 def _setup_proxmox_sources() -> None:
-    from .more_constants import ETC
+    from .constants import ETC
     from .utilities import apt_update, rm
 
     sources = ETC / "apt/sources.list.d"
