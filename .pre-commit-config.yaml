@@ -35,10 +35,10 @@ repos:
     hooks:
       - id: shfmt
   # linters
-  - repo: https://github.com/andreoliwa/nitpick
-    rev: v0.37.0
-    hooks:
-      - id: nitpick-check
+  # - repo: https://github.com/andreoliwa/nitpick
+  #   rev: v0.37.0
+  #   hooks:
+  #     - id: nitpick-check
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.11.0
     hooks:

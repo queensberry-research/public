@@ -20,11 +20,7 @@ dependencies = []
 name = "public"
 readme = "README.md"
 requires-python = ">= 3.13"
-version = "0.4.6"
-
-# bump-my-version
-[tool.bumpversion]
-allow_dirty = true
+version = "0.4.7"
 
 # coverage
 [tool.coverage]
