@@ -1,0 +1,3 @@
+[submodule "src/public/installer"]
+	path = src/public/installer
+	url = https://github.com/dycw/installer.git
