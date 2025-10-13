@@ -14,10 +14,14 @@ from typing import Literal, assert_never, cast
 # NOTE: the top-level may only contain standard library imports
 ###############################################################################
 
+
 type _Command = Literal["init", "post"]
 type PathLike = Path | str
 
+
 _LOGGER = getLogger(__name__)
+_INIT_CMD: _Command = "init"
+_POST_CMD: _Command = "post"
 _FLAG_AGE_SECRET_KEY = "--age-secret-key"  # noqa: S105
 _FLAG_BASHRC = "--bashrc"
 _FLAG_BRANCH = "--branch"
@@ -30,6 +34,7 @@ _FLAG_NVIM_DIR = "--nvim-dir"
 _FLAG_SKIP_DEV = "--skip-dev"
 _FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 _FLAG_STARSHIP_TOML = "--starship-toml"
+
 
 # classes
 
@@ -55,11 +60,9 @@ class _Settings:
     def parse(cls) -> _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         subparsers = parser.add_subparsers(dest="command", required=True)
-        cmd: _Command = "init"
-        init = subparsers.add_parser(cmd, help="Initial installation")
-        cmd: _Command = "post"
-        post = subparsers.add_parser(cmd, help="Post installation")
-        for p in [init, post]:
+        init_parser = subparsers.add_parser(_INIT_CMD, help="Initial installation")
+        post_parser = subparsers.add_parser(_POST_CMD, help="Post installation")
+        for p in [init_parser, post_parser]:
             _ = p.add_argument(
                 _FLAG_AGE_SECRET_KEY,
                 type=cls._to_path,
@@ -126,20 +129,17 @@ class _Settings:
         namespace, extra = parser.parse_known_args()
         match cast("_Command", namespace.command):
             case "init":
-                namespace2, extra2 = init.parse_known_args(extra)
+                namespace2, extra2 = init_parser.parse_known_args(extra)
             case "post":
-                namespace2, extra2 = post.parse_known_args(extra)
+                namespace2, extra2 = post_parser.parse_known_args(extra)
             case never:
                 assert_never(never)
-
         kwargs = vars(namespace2) | vars(namespace)
         return _Settings(**kwargs, extra=extra2)
 
     @property
     def post_cmd(self) -> str:
-        parts: list[str] = ["public.install"]
-        cmd: _Command = "post"
-        parts.append(cmd)
+        parts: list[str] = ["public.install", _POST_CMD]
         if self.age_secret_key is not None:
             parts.extend([_FLAG_AGE_SECRET_KEY, str(self.age_secret_key)])
         if self.bashrc is not None:
@@ -341,6 +341,61 @@ def _setup_ssh_config(*, deploy_key: PathLike | None = None) -> None:
 
     if deploy_key is not None:
         setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
+
+
+# remote
+
+
+def curl_public_installer(
+    *,
+    age_secret_key: PathLike | None = None,
+    bashrc: PathLike | None = None,
+    branch: str | None = None,
+    deploy_key: PathLike | None = None,
+    direnv_toml: PathLike | None = None,
+    docker: bool = False,
+    infra_cmd: str | None = None,
+    infra_mirror: bool = False,
+    nvim_dir: PathLike | None = None,
+    skip_dev: bool = False,
+    skip_update_submodules: bool = False,
+    starship_toml: PathLike | None = None,
+) -> None:
+    from .utilities import apt_install, run_commands
+
+    apt_install("curl")
+    parts: list[str] = ["python3", "-", _INIT_CMD]
+    if age_secret_key is not None:
+        parts.extend([_FLAG_AGE_SECRET_KEY, str(age_secret_key)])
+    if bashrc is not None:
+        parts.extend([_FLAG_BASHRC, str(bashrc)])
+    if branch is not None:
+        parts.extend([_FLAG_BRANCH, str(branch)])
+    if deploy_key is not None:
+        parts.extend([_FLAG_DEPLOY_KEY, str(deploy_key)])
+    if direnv_toml is not None:
+        parts.extend([_FLAG_DIRENV_TOML, str(direnv_toml)])
+    if docker:
+        parts.append(_FLAG_DOCKER)
+    if infra_cmd is not None:
+        parts.extend([_FLAG_INFRA_CMD, infra_cmd])
+    if infra_mirror:
+        parts.append(_FLAG_INFRA_MIRROR)
+    if nvim_dir:
+        parts.extend([_FLAG_NVIM_DIR, str(nvim_dir)])
+    if skip_dev:
+        parts.append(_FLAG_SKIP_DEV)
+    if skip_update_submodules:
+        parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
+    if starship_toml:
+        parts.extend([_FLAG_STARSHIP_TOML, str(starship_toml)])
+    cmd = " ".join(parts)
+    run_commands(
+        f"curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | {cmd}"
+    )
+
+
+__all__ = ["curl_public_installer"]
 
 
 if __name__ == "__main__":
