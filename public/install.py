@@ -247,7 +247,7 @@ def _post_install(settings: _Settings, /) -> None:
 
 def _clone_repo(url: str, target: PathLike, /) -> None:
     _LOGGER.info("Cloning %r...", url)
-    _ = check_call(f"git clone {url} {target}", shell=True)
+    _ = check_call(f"git clone --recurse-submodules {url} {target}", shell=True)
 
 
 def _clone_repo_and_run_core(url: str, target: PathLike, cmd: str, /) -> None:
