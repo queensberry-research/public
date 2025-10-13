@@ -36,6 +36,7 @@ class _Settings:
     direnv_toml: Path | None
     dev: bool = False
     docker: bool = False
+    infra_cmd: bool = False
     nvim_dir: Path | None
     skip_update_submodules: bool = False
     starship_toml: Path | None
@@ -47,6 +48,7 @@ class _Settings:
     _flag_direnv_toml: ClassVar[str] = "--direnv-toml"
     _flag_dev: ClassVar[str] = "--dev"
     _flag_docker: ClassVar[str] = "--docker"
+    _flag_infra_cmd: ClassVar[str] = "--infra-cmd"
     _flag_nvim_dir: ClassVar[str] = "--nvim-dir"
     _flag_skip_update_submodules: ClassVar[str] = "--skip-update-submodules"
     _flag_starship_toml: ClassVar[str] = "--starship-toml"
@@ -124,7 +126,7 @@ class _Settings:
     @property
     def post_cmd(self) -> str:
         cmd: _Command = "post"
-        parts: list[str] = [cmd]
+        parts: list[str] = [_MODULE_PATH, cmd]
         if self.age_secret_key is not None:
             parts.extend([self._flag_age_secret_key, str(self.age_secret_key)])
         if self.bashrc is not None:
@@ -171,7 +173,6 @@ def _initial_install(settings: _Settings, /) -> None:
     # this installer may only contain standard library imports
     ###########################################################################
     _LOGGER.info("Initial installation...")
-    assert 0, settings
     _clone_repo_and_run(
         "https://github.com/queensberry-research/public.git", settings.post_cmd
     )
@@ -207,18 +208,16 @@ def _post_install(settings: _Settings, /) -> None:
     )
     from public.utilities import update_submodules
 
-    _LOGGER.info("Public installation...")
+    _LOGGER.info("Post installation...")
     if not settings.skip_update_submodules:
         update_submodules()
     setup_ssh_keys(
-        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt"
-        # TODO: change to ssh/keys.txt
+        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/ssh/keys.txt"
     )
     setup_bashrc(bashrc=settings.bashrc)
     _setup_proxmox_sources()
     _setup_ssh_config(deploy_key=settings.deploy_key)
     setup_sshd(permit_root_login=True)
-    # _setup_subnet_env_var() # TODO :
     install_age()
     install_curl()
     install_direnv(direnv_toml=settings.direnv_toml)
@@ -239,35 +238,12 @@ def _post_install(settings: _Settings, /) -> None:
         install_starship(starship_toml=settings.starship_toml)
         install_tmux()
         install_vim()
-    if settings.deploy_key is not None:
+    if (settings.deploy_key is not None) and settings.infra_cmd:
         _clone_repo_and_run(
             "https://github.com/queensberry-research/infra-mirror.git",
-            settings.post_cmd("post"),
+            f"{settings.infra_cmd} {settings.extra}",
             target=HOME / "infra",
         )
-
-
-# def _private_install(settings: _Settings, /) -> None:
-#     ###########################################################################
-#     # this installer may only contain standard library & `public` imports
-#     ###########################################################################
-#     from public.constants import HOME
-#     from public.utilities import update_submodules
-#
-#     _LOGGER.info("Private installation...")
-#     if settings.deploy_key is None:
-#         msg = "For the private installation, 'deploy_key' must be given"
-#         raise RuntimeError(msg)
-#     path = HOME / "infra"
-#     if path.exists():
-#         if not settings.skip_update_submodules:
-#             update_submodules()
-#     else:
-#         _setup_ssh_config(deploy_key=settings.deploy_key)
-#         _clone_repo_and_run(
-#             "https://github.com/queensberry-research/public.git",
-#             settings.to_cmd("private"),
-#         )
 
 
 # utilities
