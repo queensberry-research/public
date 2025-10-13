@@ -195,6 +195,7 @@ def _basic_install(settings: _Settings, /) -> None:
         install_uv,
         install_vim,
         install_yq,
+        setup_bashrc,
         setup_ssh_keys,
         setup_sshd,
     )
@@ -207,11 +208,11 @@ def _basic_install(settings: _Settings, /) -> None:
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt"
         # TODO: change to ssh/keys.txt
     )
+    _log_fail(setup_bashrc)(bashrc=settings.bashrc)
     _log_fail(_setup_proxmox_sources)()
     _log_fail(_setup_ssh_config)(deploy_key=settings.deploy_key)
     _log_fail(setup_sshd)(permit_root_login=True)
     # _log_fail(_setup_subnet_env_var)() # TODO :
-    _log_fail(_setup_bashrc)(bashrc=settings.bashrc)
     _log_fail(install_age)()
     _log_fail(install_curl)()
     _log_fail(install_direnv)(direnv_toml=settings.direnv_toml)
@@ -269,37 +270,11 @@ def _setup_proxmox_sources() -> None:
         apt_update()
 
 
-def _setup_bashrc(*, bashrc: PathLike | None = None) -> None:
-    from public.constants import HOME
-    from public.utilities import symlink_if_given
-
-    symlink_if_given(HOME / ".bashrc", bashrc)
-
-
 def _setup_ssh_config(*, deploy_key: PathLike | None = None) -> None:
-    from public.constants import SSH
+    from public.lib import setup_ssh_config
 
-    if deploy_key is None:
-        return
-    path = SSH / "config"
-    expected = f"""\
-Host github-infra-mirror
-    User git
-    HostName github.com
-    IdentityFile {deploy_key}
-"""
-
-    def run() -> None:
-        _LOGGER.info("Writing %r...", str(path))
-        _ = path.write_text(expected)
-
-    try:
-        actual = path.read_text()
-    except FileNotFoundError:
-        run()
-    else:
-        if actual != expected:
-            run()
+    if deploy_key is not None:
+        setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
 
 
 if __name__ == "__main__":
