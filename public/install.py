@@ -3,7 +3,6 @@ from __future__ import annotations
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from dataclasses import dataclass
 from logging import basicConfig, getLogger
-from os import environ
 from pathlib import Path
 from shutil import which
 from subprocess import check_call
@@ -171,9 +170,7 @@ def _initial_install(settings: _Settings, /) -> None:
     ###########################################################################
     _LOGGER.info("Initial installation...")
     _ensure_cloned_and_run(
-        "https://github.com/queensberry-research/public.git",
-        settings.post_cmd,
-        src=True,
+        "https://github.com/queensberry-research/public.git", settings.post_cmd
     )
 
 
@@ -253,15 +250,13 @@ def _clone_repo(url: str, target: PathLike, /) -> None:
     _ = check_call(f"git clone {url} {target}", shell=True)
 
 
-def _clone_repo_and_run_core(
-    url: str, target: PathLike, cmd: str, /, *, src: bool = False
-) -> None:
+def _clone_repo_and_run_core(url: str, target: PathLike, cmd: str, /) -> None:
     _clone_repo(url, target)
-    _run_in_repo(cmd, target, src=src)
+    _run_in_repo(cmd, target)
 
 
 def _ensure_cloned_and_run(
-    url: str, cmd: str, /, *, target: PathLike | None = None, src: bool = False
+    url: str, cmd: str, /, *, target: PathLike | None = None
 ) -> None:
     if which("git") is None:
         _LOGGER.info("Installing 'git'...")
@@ -270,23 +265,20 @@ def _ensure_cloned_and_run(
         with TemporaryDirectory() as temp_dir:
             repo_name = Path(urlparse(url).path).stem
             target = Path(temp_dir, repo_name)
-            _clone_repo_and_run_core(url, target, cmd, src=src)
+            _clone_repo_and_run_core(url, target, cmd)
     else:
         target = Path(target)
         if target.exists():
-            _run_in_repo(cmd, target, src=src)
+            _run_in_repo(cmd, target)
         else:
-            _clone_repo_and_run_core(url, target, cmd, src=src)
+            _clone_repo_and_run_core(url, target, cmd)
 
 
-def _run_in_repo(cmd: str, target: PathLike, /, *, src: bool = False) -> None:
+def _run_in_repo(cmd: str, target: PathLike, /) -> None:
     full_cmd = f"python3 -m {cmd}"
     target = Path(target)
     _LOGGER.info("Running %r in %r...", full_cmd, str(target))
-    env = dict(environ)
-    if src:
-        env["PYTHONPATH"] = "src"
-    _ = check_call(full_cmd, shell=True, cwd=target, env=env)
+    _ = check_call(full_cmd, shell=True, cwd=target)
 
 
 def _setup_proxmox_sources() -> None:

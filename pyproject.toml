@@ -20,7 +20,7 @@ dependencies = []
 name = "public"
 readme = "README.md"
 requires-python = ">= 3.13"
-version = "0.4.12"
+version = "0.4.13"
 
 # coverage
 [tool.coverage]
@@ -90,12 +90,10 @@ asyncio_mode = "auto"
 collect_imported_tests = false
 filterwarnings = ["error"]
 minversion = "8.0"
-testpaths = ["src/tests"]
 xfail_strict = true
 
 # ruff
 [tool.ruff]
-src = ["src"]
 target-version = "py313"
 unsafe-fixes = true
 
@@ -152,7 +150,7 @@ select = [
 ]
 
 [tool.ruff.lint.extend-per-file-ignores]
-"src/tests/**/*.py" = [
+"tests/**/*.py" = [
   "S101",  # assert-used
 ]
 
