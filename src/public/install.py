@@ -8,7 +8,7 @@ from pathlib import Path
 from shutil import which
 from subprocess import check_call
 from tempfile import TemporaryDirectory
-from typing import ClassVar, Literal, assert_never, cast
+from typing import Literal, assert_never, cast
 from urllib.parse import urlparse
 
 ###############################################################################
@@ -19,6 +19,18 @@ type _Command = Literal["init", "post"]
 type PathLike = Path | str
 
 _LOGGER = getLogger(__name__)
+_FLAG_AGE_SECRET_KEY = "--age-secret-key"  # noqa: S105
+_FLAG_BASHRC = "--bashrc"
+_FLAG_BRANCH = "--branch"
+_FLAG_DEPLOY_KEY = "--deploy-key"
+_FLAG_DIRENV_TOML = "--direnv-toml"
+_FLAG_DEV = "--dev"
+_FLAG_DOCKER = "--docker"
+_FLAG_INFRA_CMD = "--infra-cmd"
+_FLAG_INFRA_MIRROR = "--infra-mirror"
+_FLAG_NVIM_DIR = "--nvim-dir"
+_FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
+_FLAG_STARSHIP_TOML = "--starship-toml"
 
 # classes
 
@@ -33,23 +45,12 @@ class _Settings:
     direnv_toml: Path | None
     dev: bool = False
     docker: bool = False
-    infra_cmd: bool = False
+    infra_cmd: str | None
+    infra_mirror: bool = False
     nvim_dir: Path | None
     skip_update_submodules: bool = False
     starship_toml: Path | None
     extra: list[str]
-
-    _flag_age_secret_key: ClassVar[str] = "--age-secret-key"  # noqa: S105
-    _flag_bashrc: ClassVar[str] = "--bashrc"
-    _flag_branch: ClassVar[str] = "--branch"
-    _flag_deploy_key: ClassVar[str] = "--deploy-key"
-    _flag_direnv_toml: ClassVar[str] = "--direnv-toml"
-    _flag_dev: ClassVar[str] = "--dev"
-    _flag_docker: ClassVar[str] = "--docker"
-    _flag_infra_cmd: ClassVar[str] = "--infra-cmd"
-    _flag_nvim_dir: ClassVar[str] = "--nvim-dir"
-    _flag_skip_update_submodules: ClassVar[str] = "--skip-update-submodules"
-    _flag_starship_toml: ClassVar[str] = "--starship-toml"
 
     @classmethod
     def parse(cls) -> _Settings:
@@ -61,53 +62,62 @@ class _Settings:
         post = subparsers.add_parser(cmd, help="Post installation")
         for p in [init, post]:
             _ = p.add_argument(
-                cls._flag_age_secret_key,
+                _FLAG_AGE_SECRET_KEY,
                 type=cls._to_path,
                 help="Path to the `age` secret key",
                 metavar="PATH",
             )
             _ = p.add_argument(
-                cls._flag_bashrc,
+                _FLAG_BASHRC,
                 type=cls._to_path,
                 help="Path to the `.bashrc`",
                 metavar="PATH",
             )
             _ = p.add_argument(
-                cls._flag_branch, type=str, help="Branch to use", metavar="BRANCH"
+                _FLAG_BRANCH, type=str, help="Branch to use", metavar="BRANCH"
             )
             _ = p.add_argument(
-                cls._flag_deploy_key,
+                _FLAG_DEPLOY_KEY,
                 type=cls._to_path,
                 help="Path to the deploy key",
                 metavar="PATH",
             )
             _ = p.add_argument(
-                cls._flag_direnv_toml,
+                _FLAG_DIRENV_TOML,
                 type=cls._to_path,
                 help="Path to the `direnv.toml`",
                 metavar="PATH",
             )
             _ = p.add_argument(
-                cls._flag_dev,
+                _FLAG_DEV, action="store_true", help="Install development dependencies"
+            )
+            _ = p.add_argument(
+                _FLAG_DOCKER, action="store_true", help="Install 'docker'"
+            )
+            _ = p.add_argument(
+                _FLAG_INFRA_CMD,
+                type=str,
+                help="Command to run under the `infra` repo",
+                metavar="COMMAND",
+            )
+            _ = p.add_argument(
+                _FLAG_INFRA_MIRROR,
                 action="store_true",
-                help="Install development dependencies",
+                help="Clone the `infra-mirror` repo",
             )
             _ = p.add_argument(
-                cls._flag_docker, action="store_true", help="Install 'docker'"
-            )
-            _ = p.add_argument(
-                cls._flag_nvim_dir,
+                _FLAG_NVIM_DIR,
                 type=cls._to_path,
                 help="Path to the `nvim` directory",
                 metavar="PATH",
             )
             _ = p.add_argument(
-                cls._flag_skip_update_submodules,
+                _FLAG_SKIP_UPDATE_SUBMODULES,
                 action="store_true",
                 help="Skip updating of the submodules",
             )
             _ = p.add_argument(
-                cls._flag_starship_toml,
+                _FLAG_STARSHIP_TOML,
                 type=cls._to_path,
                 help="Path to the `starship.toml`",
                 metavar="PATH",
@@ -130,21 +140,29 @@ class _Settings:
         cmd: _Command = "post"
         parts.append(cmd)
         if self.age_secret_key is not None:
-            parts.extend([self._flag_age_secret_key, str(self.age_secret_key)])
+            parts.extend([_FLAG_AGE_SECRET_KEY, str(self.age_secret_key)])
         if self.bashrc is not None:
-            parts.extend([self._flag_bashrc, str(self.bashrc)])
+            parts.extend([_FLAG_BASHRC, str(self.bashrc)])
         if self.branch is not None:
-            parts.extend([self._flag_branch, str(self.branch)])
+            parts.extend([_FLAG_BRANCH, str(self.branch)])
         if self.deploy_key is not None:
-            parts.extend([self._flag_deploy_key, str(self.deploy_key)])
+            parts.extend([_FLAG_DEPLOY_KEY, str(self.deploy_key)])
         if self.direnv_toml is not None:
-            parts.extend([self._flag_direnv_toml, str(self.direnv_toml)])
+            parts.extend([_FLAG_DIRENV_TOML, str(self.direnv_toml)])
         if self.dev:
-            parts.append(self._flag_dev)
+            parts.append(_FLAG_DEV)
         if self.docker:
-            parts.append(self._flag_docker)
+            parts.append(_FLAG_DOCKER)
+        if self.infra_cmd is not None:
+            parts.extend([_FLAG_INFRA_CMD, self.infra_cmd])
+        if self.infra_mirror:
+            parts.append(_FLAG_INFRA_MIRROR)
+        if self.nvim_dir:
+            parts.extend([_FLAG_NVIM_DIR, str(self.nvim_dir)])
         if self.skip_update_submodules:
-            parts.append(self._flag_skip_update_submodules)
+            parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
+        if self.starship_toml:
+            parts.extend([_FLAG_STARSHIP_TOML, str(self.starship_toml)])
         return " ".join(parts)
 
     @classmethod
@@ -189,7 +207,6 @@ def _post_install(settings: _Settings, /) -> None:
     ###########################################################################
     # this installer may only contain standard library & `public` imports
     ###########################################################################
-    from public.constants import HOME
     from public.lib import (
         install_age,
         install_bottom,
@@ -245,19 +262,14 @@ def _post_install(settings: _Settings, /) -> None:
         install_starship(starship_toml=settings.starship_toml)
         install_tmux()
         install_vim()
-    if (settings.deploy_key is not None) and settings.infra_cmd:
-        _ensure_cloned_and_run(
-            "https://github.com/queensberry-research/infra-mirror.git",
-            f"{settings.infra_cmd} {settings.extra}",
-            branch=settings.branch,
-            target=HOME / "infra",
-        )
+    if settings.infra_mirror:
+        _setup_infra_mirror(deploy_key=settings.deploy_key)
 
 
 # utilities
 
 
-def _clone_repo_and_run_core(
+def _clone_repo_and_run(
     url: str,
     target: PathLike,
     cmd: str,
@@ -290,13 +302,13 @@ def _ensure_cloned_and_run(
         with TemporaryDirectory() as temp_dir:
             repo_name = Path(urlparse(url).path).stem
             target = Path(temp_dir, repo_name)
-            _clone_repo_and_run_core(url, target, cmd, branch=branch, src=src)
+            _clone_repo_and_run(url, target, cmd, branch=branch, src=src)
     else:
         target = Path(target)
         if target.exists():
             _run_in_repo(cmd, target, src=src)
         else:
-            _clone_repo_and_run_core(url, target, cmd, branch=branch, src=src)
+            _clone_repo_and_run(url, target, cmd, branch=branch, src=src)
 
 
 def _run_in_repo(cmd: str, target: PathLike, /, *, src: bool = False) -> None:
@@ -326,6 +338,26 @@ def _setup_proxmox_sources() -> None:
     removed = list(map(func, ["ceph", "pve-enterprise"]))  # run both
     if any(removed):
         apt_update()
+
+
+def _setup_infra_mirror(*, deploy_key: PathLike | None = None) -> None:
+    from public.constants import HOME
+    from public.lib import setup_ssh_config
+
+    path = HOME / "infra"
+    if path.exists():
+        return
+    if deploy_key is None:
+        msg = f"{_Settings._flag_deploy_key}"
+        raise RuntimeError(msg)
+        setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
+    if (settings.deploy_key is not None) and settings.infra_cmd:
+        _ensure_cloned_and_run(
+            "https://github.com/queensberry-research/infra-mirror.git",
+            f"{settings.infra_cmd} {settings.extra}",
+            branch=settings.branch,
+            target=HOME / "infra",
+        )
 
 
 def _setup_ssh_config(*, deploy_key: PathLike | None = None) -> None:
