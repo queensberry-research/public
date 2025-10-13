@@ -23,11 +23,11 @@ _FLAG_BASHRC = "--bashrc"
 _FLAG_BRANCH = "--branch"
 _FLAG_DEPLOY_KEY = "--deploy-key"
 _FLAG_DIRENV_TOML = "--direnv-toml"
-_FLAG_DEV = "--dev"
 _FLAG_DOCKER = "--docker"
 _FLAG_INFRA_CMD = "--infra-cmd"
 _FLAG_INFRA_MIRROR = "--infra-mirror"
 _FLAG_NVIM_DIR = "--nvim-dir"
+_FLAG_SKIP_DEV = "--skip-dev"
 _FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 _FLAG_STARSHIP_TOML = "--starship-toml"
 
@@ -42,11 +42,11 @@ class _Settings:
     branch: str | None
     deploy_key: Path | None
     direnv_toml: Path | None
-    dev: bool = False
     docker: bool = False
     infra_cmd: str | None
     infra_mirror: bool = False
     nvim_dir: Path | None
+    skip_dev: bool = False
     skip_update_submodules: bool = False
     starship_toml: Path | None
     extra: list[str]
@@ -88,9 +88,6 @@ class _Settings:
                 metavar="PATH",
             )
             _ = p.add_argument(
-                _FLAG_DEV, action="store_true", help="Install development dependencies"
-            )
-            _ = p.add_argument(
                 _FLAG_DOCKER, action="store_true", help="Install 'docker'"
             )
             _ = p.add_argument(
@@ -109,6 +106,11 @@ class _Settings:
                 type=cls._to_path,
                 help="Path to the `nvim` directory",
                 metavar="PATH",
+            )
+            _ = p.add_argument(
+                _FLAG_SKIP_DEV,
+                action="store_true",
+                help="Skip development dependencies",
             )
             _ = p.add_argument(
                 _FLAG_SKIP_UPDATE_SUBMODULES,
@@ -148,8 +150,6 @@ class _Settings:
             parts.extend([_FLAG_DEPLOY_KEY, str(self.deploy_key)])
         if self.direnv_toml is not None:
             parts.extend([_FLAG_DIRENV_TOML, str(self.direnv_toml)])
-        if self.dev:
-            parts.append(_FLAG_DEV)
         if self.docker:
             parts.append(_FLAG_DOCKER)
         if self.infra_cmd is not None:
@@ -158,6 +158,8 @@ class _Settings:
             parts.append(_FLAG_INFRA_MIRROR)
         if self.nvim_dir:
             parts.extend([_FLAG_NVIM_DIR, str(self.nvim_dir)])
+        if self.skip_dev:
+            parts.append(_FLAG_SKIP_DEV)
         if self.skip_update_submodules:
             parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
         if self.starship_toml:
@@ -251,9 +253,7 @@ def _post_install(settings: _Settings, /) -> None:
     install_uv()  # after curl
     install_yq()  # after curl, jq
     install_sops(age_secret_key=settings.age_secret_key)  # after curl, jq
-    if settings.docker:
-        install_docker()
-    if settings.dev:
+    if settings.skip_dev:
         install_bottom()  # after curl, jq
         install_delta()
         install_fd()
@@ -264,6 +264,8 @@ def _post_install(settings: _Settings, /) -> None:
         install_starship(starship_toml=settings.starship_toml)
         install_tmux()
         install_vim()
+    if not settings.docker:
+        install_docker()
     if settings.infra_mirror:
         _setup_infra_mirror(deploy_key=settings.deploy_key, branch=settings.branch)
     if settings.infra_cmd is not None:
