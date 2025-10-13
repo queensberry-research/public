@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from logging import basicConfig, getLogger
 from pathlib import Path
 from typing import Literal
-from urllib.parse import urlparse
 
 # from infra.constants import ETC
 # from infra.installers.groups.common import install_common
@@ -80,7 +79,7 @@ def _main() -> None:
         level="INFO",
     )
     _LOGGER.info("Welcome")
-    settings = _Settings.parse()
+    _Settings.parse()
 
 
 def _install_deploy_key(
