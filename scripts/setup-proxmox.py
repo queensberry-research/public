@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-from dataclasses import InitVar, asdict, astuple, dataclass, field, replace
-from enum import StrEnum, auto
+from dataclasses import dataclass
+from enum import StrEnum
 from getpass import getuser
-from logging import Formatter, Handler, StreamHandler, basicConfig, getLogger
+from logging import basicConfig, getLogger
 from pathlib import Path
 from socket import gethostname
-from subprocess import CalledProcessError, check_call, check_output, run
+from subprocess import check_call
 from time import sleep
 from typing import assert_never
 
@@ -88,7 +88,7 @@ def _wait_for_user() -> None:
 
 
 def _write_ssh_config() -> None:
-    path = _SSH / "config"
+    _SSH / "config"
 
 
 if __name__ == "__main__":

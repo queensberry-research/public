@@ -19,7 +19,7 @@ _REPO_ROOT = Path(__file__).parent
 
 ###############################################################################
 # NOTE: the initial installation can only contain standard library imports
-#       the post installation can also contain `infra` imports
+#       the post installation may contain `installer` imports
 ###############################################################################
 
 
@@ -79,7 +79,8 @@ def _main() -> None:
         level="INFO",
     )
     _LOGGER.info("Welcome")
-    _Settings.parse()
+    settings = _Settings.parse()
+    _LOGGER.info(settings)
 
 
 def _install_deploy_key(
