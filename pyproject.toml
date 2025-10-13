@@ -20,7 +20,7 @@ dependencies = []
 name = "public"
 readme = "README.md"
 requires-python = ">= 3.13"
-version = "0.4.12"
+version = "0.4.13"
 
 # coverage
 [tool.coverage]
@@ -95,7 +95,6 @@ xfail_strict = true
 
 # ruff
 [tool.ruff]
-src = ["src"]
 target-version = "py313"
 unsafe-fixes = true
 
