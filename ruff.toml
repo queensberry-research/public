@@ -2,3 +2,6 @@ extend = "repo/ruff/ruff.toml"
 
 [lint]
 exclude = ["src/public/installer"]
+extend-ignore = [
+  "TID252",  # relative-imports
+]

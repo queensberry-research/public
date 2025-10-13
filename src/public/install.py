@@ -208,8 +208,8 @@ def _post_install(settings: _Settings, /) -> None:
     ###########################################################################
     # this installer may only contain standard library & `public` imports
     ###########################################################################
-    from public.constants import HOME
-    from public.lib import (
+    from .constants import HOME
+    from .lib import (
         install_age,
         install_bottom,
         install_curl,
@@ -232,7 +232,7 @@ def _post_install(settings: _Settings, /) -> None:
         setup_ssh_keys,
         setup_sshd,
     )
-    from public.utilities import update_submodules
+    from .utilities import update_submodules
 
     _LOGGER.info("Post installation...")
     if not settings.skip_update_submodules:
@@ -296,8 +296,8 @@ def _run_in_repo(cmd: str, target: PathLike, /, *, src: bool = False) -> None:
 
 
 def _setup_proxmox_sources() -> None:
-    from public.more_constants import ETC
-    from public.utilities import apt_update, rm
+    from .more_constants import ETC
+    from .utilities import apt_update, rm
 
     sources = ETC / "apt/sources.list.d"
 
@@ -317,8 +317,8 @@ def _setup_proxmox_sources() -> None:
 def _setup_infra_mirror(
     *, deploy_key: PathLike | None = None, branch: str | None = None
 ) -> None:
-    from public.constants import HOME
-    from public.lib import setup_ssh_config
+    from .constants import HOME
+    from .lib import setup_ssh_config
 
     path = HOME / "infra"
     if path.exists():
@@ -335,7 +335,7 @@ def _setup_infra_mirror(
 
 
 def _setup_ssh_config(*, deploy_key: PathLike | None = None) -> None:
-    from public.lib import setup_ssh_config
+    from .lib import setup_ssh_config
 
     if deploy_key is not None:
         setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
