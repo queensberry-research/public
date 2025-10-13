@@ -169,7 +169,7 @@ def _initial_install(settings: _Settings, /) -> None:
     # this installer may only contain standard library imports
     ###########################################################################
     _LOGGER.info("Initial installation...")
-    _clone_repo_and_run(
+    _ensure_cloned_and_run(
         "https://github.com/queensberry-research/public.git", settings.post_cmd
     )
 
@@ -235,7 +235,7 @@ def _post_install(settings: _Settings, /) -> None:
         install_tmux()
         install_vim()
     if (settings.deploy_key is not None) and settings.infra_cmd:
-        _clone_repo_and_run(
+        _ensure_cloned_and_run(
             "https://github.com/queensberry-research/infra-mirror.git",
             f"{settings.infra_cmd} {settings.extra}",
             target=HOME / "infra",
@@ -245,7 +245,17 @@ def _post_install(settings: _Settings, /) -> None:
 # utilities
 
 
-def _clone_repo_and_run(
+def _clone_repo(url: str, target: PathLike, /) -> None:
+    _LOGGER.info("Cloning %r...", url)
+    _ = check_call(f"git clone {url} {target}", shell=True)
+
+
+def _clone_repo_and_run_core(url: str, target: PathLike, cmd: str, /) -> None:
+    _clone_repo(url, target)
+    _run_in_repo(cmd, target)
+
+
+def _ensure_cloned_and_run(
     url: str, cmd: str, /, *, target: PathLike | None = None
 ) -> None:
     if which("git") is None:
@@ -257,13 +267,16 @@ def _clone_repo_and_run(
             target = Path(temp_dir, repo_name)
             _clone_repo_and_run_core(url, target, cmd)
     else:
-        _clone_repo_and_run_core(url, target, cmd)
+        target = Path(target)
+        if target.exists():
+            _run_in_repo(cmd, target)
+        else:
+            _clone_repo_and_run_core(url, target, cmd)
 
 
-def _clone_repo_and_run_core(url: str, target: PathLike, cmd: str, /) -> None:
-    _LOGGER.info("Cloning %r...", url)
-    _ = check_call(f"git clone {url} {target}", shell=True)
+def _run_in_repo(cmd: str, target: PathLike, /) -> None:
     full_cmd = f"python3 -m {cmd}"
+    target = Path(target)
     _LOGGER.info("Running %r in %r...", full_cmd, str(target))
     _ = check_call(full_cmd, shell=True, cwd=target)
 
