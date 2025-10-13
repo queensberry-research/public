@@ -18,11 +18,6 @@ type _Command = Literal["init", "post"]
 type PathLike = Path | str
 
 _LOGGER = getLogger(__name__)
-_REPO_ROOT = Path(__file__).parent.parent.parent
-_MODULE_PATH = ".".join(
-    Path(__file__).relative_to(_REPO_ROOT.joinpath("src")).with_suffix("").parts
-)
-
 
 # classes
 
@@ -125,8 +120,13 @@ class _Settings:
 
     @property
     def post_cmd(self) -> str:
+        parts: list[str] = []
+        repo_root = Path(__file__).parent.parent.parent
+        relative_path = Path(__file__).relative_to(repo_root.joinpath("src"))
+        module_path = ".".join(relative_path.with_suffix("").parts)
+        parts.append(module_path)
         cmd: _Command = "post"
-        parts: list[str] = [_MODULE_PATH, cmd]
+        parts.append(cmd)
         if self.age_secret_key is not None:
             parts.extend([self._flag_age_secret_key, str(self.age_secret_key)])
         if self.bashrc is not None:
