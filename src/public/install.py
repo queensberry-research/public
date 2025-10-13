@@ -211,12 +211,12 @@ def _post_install(settings: _Settings, /) -> None:
     _LOGGER.info("Post installation...")
     if not settings.skip_update_submodules:
         update_submodules()
-    setup_ssh_keys(
-        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/ssh/keys.txt"
-    )
     setup_bashrc(bashrc=settings.bashrc)
     _setup_proxmox_sources()
     _setup_ssh_config(deploy_key=settings.deploy_key)
+    setup_ssh_keys(
+        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/ssh/keys.txt"
+    )
     setup_sshd(permit_root_login=True)
     install_age()
     install_curl()
