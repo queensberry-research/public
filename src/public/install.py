@@ -346,7 +346,7 @@ def _setup_ssh_config(*, deploy_key: PathLike | None = None) -> None:
 # remote
 
 
-def curl_public_installer(
+def generate_curl_public_installer(
     *,
     age_secret_key: PathLike | None = None,
     bashrc: PathLike | None = None,
@@ -360,11 +360,8 @@ def curl_public_installer(
     skip_dev: bool = False,
     skip_update_submodules: bool = False,
     starship_toml: PathLike | None = None,
-) -> None:
-    from .utilities import apt_install, run_commands
-
-    apt_install("curl")
-    parts: list[str] = ["python3", "-", _INIT_CMD]
+) -> str:
+    parts: list[str] = []
     if age_secret_key is not None:
         parts.extend([_FLAG_AGE_SECRET_KEY, str(age_secret_key)])
     if bashrc is not None:
@@ -390,12 +387,10 @@ def curl_public_installer(
     if starship_toml:
         parts.extend([_FLAG_STARSHIP_TOML, str(starship_toml)])
     cmd = " ".join(parts)
-    run_commands(
-        f"curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | {cmd}"
-    )
+    return f"""command -v curl >/dev/null 2>&1 || {{ if [ "$(id -u)" -eq 0 ]; then apt -y install curl; else sudo apt -y install curl; fi; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {_INIT_CMD} {cmd}"""
 
 
-__all__ = ["curl_public_installer"]
+__all__ = ["generate_curl_public_installer"]
 
 
 if __name__ == "__main__":
