@@ -1,1 +1,4 @@
-repo/ruff/ruff.toml
+extend = "repo/ruff/ruff.toml"
+
+[lint]
+extend-exclude = ["src/public/installer"]
