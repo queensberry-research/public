@@ -28,6 +28,7 @@ class _Settings:
     command: _Command
     age_secret_key: Path | None
     bashrc: Path | None
+    branch: str | None
     deploy_key: Path | None
     direnv_toml: Path | None
     dev: bool = False
@@ -40,6 +41,7 @@ class _Settings:
 
     _flag_age_secret_key: ClassVar[str] = "--age-secret-key"  # noqa: S105
     _flag_bashrc: ClassVar[str] = "--bashrc"
+    _flag_branch: ClassVar[str] = "--branch"
     _flag_deploy_key: ClassVar[str] = "--deploy-key"
     _flag_direnv_toml: ClassVar[str] = "--direnv-toml"
     _flag_dev: ClassVar[str] = "--dev"
@@ -69,6 +71,9 @@ class _Settings:
                 type=cls._to_path,
                 help="Path to the `.bashrc`",
                 metavar="PATH",
+            )
+            _ = p.add_argument(
+                cls._flag_branch, type=str, help="Branch to use", metavar="BRANCH"
             )
             _ = p.add_argument(
                 cls._flag_deploy_key,
@@ -128,6 +133,8 @@ class _Settings:
             parts.extend([self._flag_age_secret_key, str(self.age_secret_key)])
         if self.bashrc is not None:
             parts.extend([self._flag_bashrc, str(self.bashrc)])
+        if self.branch is not None:
+            parts.extend([self._flag_branch, str(self.branch)])
         if self.deploy_key is not None:
             parts.extend([self._flag_deploy_key, str(self.deploy_key)])
         if self.direnv_toml is not None:
@@ -173,6 +180,7 @@ def _initial_install(settings: _Settings, /) -> None:
     _ensure_cloned_and_run(
         "https://github.com/queensberry-research/public.git",
         settings.post_cmd,
+        branch=settings.branch,
         src=True,
     )
 
@@ -241,6 +249,7 @@ def _post_install(settings: _Settings, /) -> None:
         _ensure_cloned_and_run(
             "https://github.com/queensberry-research/infra-mirror.git",
             f"{settings.infra_cmd} {settings.extra}",
+            branch=settings.branch,
             target=HOME / "infra",
         )
 
@@ -248,21 +257,31 @@ def _post_install(settings: _Settings, /) -> None:
 # utilities
 
 
-def _clone_repo(url: str, target: PathLike, /) -> None:
+def _clone_repo_and_run_core(
+    url: str,
+    target: PathLike,
+    cmd: str,
+    /,
+    *,
+    branch: str | None = None,
+    src: bool = False,
+) -> None:
     target = Path(target)
     _LOGGER.info("Cloning %r to %r...", url, str(target))
     _ = check_call(f"git clone --recurse-submodules {url} {target}", shell=True)
-
-
-def _clone_repo_and_run_core(
-    url: str, target: PathLike, cmd: str, /, *, src: bool = False
-) -> None:
-    _clone_repo(url, target)
+    if branch is not None:
+        _ = check_call(f"git checkout {branch}", shell=True, cwd=target)
     _run_in_repo(cmd, target, src=src)
 
 
 def _ensure_cloned_and_run(
-    url: str, cmd: str, /, *, target: PathLike | None = None, src: bool = False
+    url: str,
+    cmd: str,
+    /,
+    *,
+    target: PathLike | None = None,
+    branch: str | None = None,
+    src: bool = False,
 ) -> None:
     if which("git") is None:
         _LOGGER.info("Installing 'git'...")
@@ -271,13 +290,13 @@ def _ensure_cloned_and_run(
         with TemporaryDirectory() as temp_dir:
             repo_name = Path(urlparse(url).path).stem
             target = Path(temp_dir, repo_name)
-            _clone_repo_and_run_core(url, target, cmd, src=src)
+            _clone_repo_and_run_core(url, target, cmd, branch=branch, src=src)
     else:
         target = Path(target)
         if target.exists():
             _run_in_repo(cmd, target, src=src)
         else:
-            _clone_repo_and_run_core(url, target, cmd, src=src)
+            _clone_repo_and_run_core(url, target, cmd, branch=branch, src=src)
 
 
 def _run_in_repo(cmd: str, target: PathLike, /, *, src: bool = False) -> None:
