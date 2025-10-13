@@ -120,11 +120,7 @@ class _Settings:
 
     @property
     def post_cmd(self) -> str:
-        parts: list[str] = []
-        repo_root = Path(__file__).parent.parent.parent
-        relative_path = Path(__file__).relative_to(repo_root.joinpath("src"))
-        module_path = ".".join(relative_path.with_suffix("").parts)
-        parts.append(module_path)
+        parts: list[str] = ["public.install"]
         cmd: _Command = "post"
         parts.append(cmd)
         if self.age_secret_key is not None:
