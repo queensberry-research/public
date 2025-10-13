@@ -40,7 +40,9 @@ class _Settings:
     direnv_toml: Path | None
     dev: bool = False
     docker: bool = False
+    nvim_dir: Path | None
     skip_update_submodules: bool = False
+    starship_toml: Path | None
 
     _flag_age_secret_key: ClassVar[str] = "--age-secret-key"  # noqa: S105
     _flag_bashrc: ClassVar[str] = "--bashrc"
@@ -48,7 +50,9 @@ class _Settings:
     _flag_direnv_toml: ClassVar[str] = "--direnv-toml"
     _flag_dev: ClassVar[str] = "--dev"
     _flag_docker: ClassVar[str] = "--docker"
+    _flag_nvim_dir: ClassVar[str] = "--nvim-dir"
     _flag_skip_submodule_updates: ClassVar[str] = "--skip-update-submodules"
+    _flag_starship_toml: ClassVar[str] = "--starship-toml"
 
     @classmethod
     def parse(cls) -> _Settings:
@@ -84,9 +88,21 @@ class _Settings:
             cls._flag_docker, action="store_true", help="Install 'docker'"
         )
         _ = parser.add_argument(
+            cls._flag_nvim_dir,
+            type=cls._to_path,
+            help="Path to the `nvim` directory",
+            metavar="PATH",
+        )
+        _ = parser.add_argument(
             cls._flag_skip_submodule_updates,
             action="store_true",
             help="Skip updating of the submodules",
+        )
+        _ = parser.add_argument(
+            cls._flag_starship_toml,
+            type=cls._to_path,
+            help="Path to the `starship.toml`",
+            metavar="PATH",
         )
         subparsers = parser.add_subparsers(dest="command", required=True)
         cmd: _Command = "init"
@@ -173,7 +189,6 @@ def _basic_install(settings: _Settings, /) -> None:
         install_just,
         install_neovim,
         install_ripgrep,
-        install_rsync,
         install_sops,
         install_starship,
         install_tmux,
@@ -192,54 +207,31 @@ def _basic_install(settings: _Settings, /) -> None:
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/ssh-keys.txt"
         # TODO: change to ssh/keys.txt
     )
+    _log_fail(_setup_proxmox_sources)()
+    _log_fail(_setup_ssh_config)(deploy_key=settings.deploy_key)
     _log_fail(setup_sshd)(permit_root_login=True)
     # _log_fail(_setup_subnet_env_var)() # TODO :
     _log_fail(_setup_bashrc)(bashrc=settings.bashrc)
     _log_fail(install_age)()
     _log_fail(install_curl)()
     _log_fail(install_direnv)(direnv_toml=settings.direnv_toml)
-    _log_fail(install_direnv)()
     _log_fail(install_jq)()
-    _log_fail(install_rsync)()
     _log_fail(install_uv)()  # after curl
-    _log_fail(install_sops)(age_secret_key=settings.age_secret_key)  # after curl, jq
-    # _log_fail(_install_sops_or_mkdir)(age_secret_key=age_secret_key)  # after curl, jq
     _log_fail(install_yq)()  # after curl, jq
-    if docker:
+    _log_fail(install_sops)(age_secret_key=settings.age_secret_key)  # after curl, jq
+    if settings.docker:
         _log_fail(install_docker)()
-    if dev:
+    if settings.dev:
         _log_fail(install_bottom)()  # after curl, jq
         _log_fail(install_delta)()
         _log_fail(install_fd)()
         _log_fail(install_fzf)()
         _log_fail(install_just)()
-        _log_fail(install_neovim)(nvim_dir=_REPO_ROOT / "neovim")
+        _log_fail(install_neovim)(nvim_dir=settings.nvim_dir)
         _log_fail(install_ripgrep)()
-        _log_fail(install_starship)(starship_toml=_CONFIGS / "starship.toml")
+        _log_fail(install_starship)(starship_toml=settings.starship_toml)
         _log_fail(install_tmux)()
         _log_fail(install_vim)()
-
-
-def _install_deploy_key(
-    *, age_secret_key: PathLike | None = None, root_password: str | None = None
-) -> None:
-    _LOGGER.info("Initial installation...")
-    update_submodules()
-    _setup_proxmox_apt()  # before `install_common`
-    install_common(  # after `_setup_proxmox_apt`
-        age_secret_key=age_secret_key, dev=True, root_password=root_password
-    )
-
-
-def _install_initial_z(
-    *, age_secret_key: PathLike | None = None, root_password: str | None = None
-) -> None:
-    _LOGGER.info("Initial installation...")
-    update_submodules()
-    _setup_proxmox_apt()  # before `install_common`
-    install_common(  # after `_setup_proxmox_apt`
-        age_secret_key=age_secret_key, dev=True, root_password=root_password
-    )
 
 
 # utilities
@@ -258,7 +250,7 @@ def _log_fail[**P](func: Callable[P, None], /) -> Callable[P, None]:
     return wrapped
 
 
-def _setup_proxmox_apt() -> None:
+def _setup_proxmox_sources() -> None:
     from public.more_constants import ETC
     from public.utilities import apt_update, rm
 
@@ -282,6 +274,32 @@ def _setup_bashrc(*, bashrc: PathLike | None = None) -> None:
     from public.utilities import symlink_if_given
 
     symlink_if_given(HOME / ".bashrc", bashrc)
+
+
+def _setup_ssh_config(*, deploy_key: PathLike | None = None) -> None:
+    from public.constants import SSH
+
+    if deploy_key is None:
+        return
+    path = SSH / "config"
+    expected = f"""\
+Host github-infra-mirror
+    User git
+    HostName github.com
+    IdentityFile {deploy_key}
+"""
+
+    def run() -> None:
+        _LOGGER.info("Writing %r...", str(path))
+        _ = path.write_text(expected)
+
+    try:
+        actual = path.read_text()
+    except FileNotFoundError:
+        run()
+    else:
+        if actual != expected:
+            run()
 
 
 if __name__ == "__main__":
