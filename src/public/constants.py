@@ -32,6 +32,7 @@ from .installer_constants import (
 
 ETC = Path("/etc")
 HOME_INFRA = HOME / "infra"
+SSH_INFRA = SSH / "infra"
 
 
 RESOLV_CONF = ETC / "resolv.conf"
@@ -65,5 +66,6 @@ __all__ = [
     "RESOLV_CONF",
     "SSH",
     "SSH_CONFIG",
+    "SSH_INFRA",
     "XDG_CONFIG_HOME",
 ]
