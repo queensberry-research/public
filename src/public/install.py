@@ -10,8 +10,6 @@ from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import Literal, assert_never, cast
 
-from public.utilities import full_path
-
 ###############################################################################
 # NOTE: the top-level may only contain standard library imports
 ###############################################################################
@@ -187,7 +185,7 @@ def _post_install(settings: _Settings, /) -> None:
         setup_ssh_keys,
         setup_sshd,
     )
-    from .utilities import NamedTemporaryFile, update_submodules
+    from .utilities import NamedTemporaryFile, full_path, update_submodules
 
     _LOGGER.info("Post installation...")
     path_public = Path(__file__).parent
