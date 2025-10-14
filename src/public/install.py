@@ -28,7 +28,6 @@ _FLAG_DEPLOY_KEY = "--deploy-key"
 _FLAG_DOCKER = "--docker"
 _FLAG_INFRA_CMD = "--infra-cmd"
 _FLAG_INFRA_MIRROR = "--infra-mirror"
-_FLAG_NVIM_DIR = "--nvim-dir"
 _FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 
 
@@ -44,7 +43,6 @@ class _Settings:
     docker: bool = False
     infra_cmd: str | None
     infra_mirror: bool = False
-    nvim_dir: Path | None
     skip_update_submodules: bool = False
     extra: list[str]
 
@@ -85,12 +83,6 @@ class _Settings:
                 help="Clone the `infra-mirror` repo",
             )
             _ = p.add_argument(
-                _FLAG_NVIM_DIR,
-                type=cls._to_path,
-                help="Path to the `nvim` directory",
-                metavar="PATH",
-            )
-            _ = p.add_argument(
                 _FLAG_SKIP_UPDATE_SUBMODULES,
                 action="store_true",
                 help="Skip updating of the submodules",
@@ -121,8 +113,6 @@ class _Settings:
             parts.extend([_FLAG_INFRA_CMD, self.infra_cmd])
         if self.infra_mirror:
             parts.append(_FLAG_INFRA_MIRROR)
-        if self.nvim_dir:
-            parts.extend([_FLAG_NVIM_DIR, str(self.nvim_dir)])
         if self.skip_update_submodules:
             parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
         return " ".join(parts)
@@ -219,7 +209,7 @@ def _post_install(settings: _Settings, /) -> None:
     install_fd()
     install_fzf()
     install_just()
-    install_neovim(nvim_dir=settings.nvim_dir)
+    install_neovim(nvim_dir=repo_root / "neovim")
     install_ripgrep()
     install_starship(starship_toml=path_configs / "starship.toml")
     install_tmux()
@@ -319,7 +309,6 @@ def generate_curl_public_installer(
     docker: bool = False,
     infra_cmd: str | None = None,
     infra_mirror: bool = False,
-    nvim_dir: PathLike | None = None,
     skip_update_submodules: bool = False,
 ) -> str:
     parts: list[str] = []
@@ -335,8 +324,6 @@ def generate_curl_public_installer(
         parts.extend([_FLAG_INFRA_CMD, infra_cmd])
     if infra_mirror:
         parts.append(_FLAG_INFRA_MIRROR)
-    if nvim_dir:
-        parts.extend([_FLAG_NVIM_DIR, str(nvim_dir)])
     if skip_update_submodules:
         parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
     cmd = " ".join(parts)
