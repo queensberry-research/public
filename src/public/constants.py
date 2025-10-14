@@ -13,12 +13,14 @@ from .installer_constants import (
 )
 
 ETC = Path("/etc")
+HOME_INFRA = HOME / "infra"
 
 
 __all__ = [
     "AUTHORIZED_KEYS",
     "ETC",
     "HOME",
+    "HOME_INFRA",
     "KNOWN_HOSTS",
     "LOCAL_BIN",
     "SSH",
