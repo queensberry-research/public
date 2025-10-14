@@ -1,9 +1,6 @@
 [submodule "neovim/lazyvim"]
 	path = neovim/lazyvim
 	url = https://github.com/lazyvim/starter
-[submodule "src/public/installer"]
-	path = src/public/installer
-	url = https://github.com/dycw/installer.git
 [submodule "submodules/installer"]
 	path = submodules/installer
 	url = https://github.com/dycw/installer.git

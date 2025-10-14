@@ -132,6 +132,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
+    _LOGGER.info("'public' version: 0.4.54")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -186,9 +187,15 @@ def _post_install(settings: _Settings, /) -> None:
         setup_ssh_keys,
         setup_sshd,
     )
-    from .utilities import cp_named_temporary, full_path, update_submodules
+    from .utilities import (
+        cp_named_temporary,
+        full_path,
+        log_installer_version,
+        update_submodules,
+    )
 
     _LOGGER.info("Post installation...")
+    log_installer_version()
     path_public = Path(__file__).parent
     path_src = path_public.parent
     repo_root = path_src.parent
