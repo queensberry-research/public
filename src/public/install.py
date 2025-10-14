@@ -185,7 +185,7 @@ def _post_install(settings: _Settings, /) -> None:
         setup_ssh_keys,
         setup_sshd,
     )
-    from .utilities import NamedTemporaryFile, full_path, update_submodules
+    from .utilities import cp_named_temporary, full_path, update_submodules
 
     _LOGGER.info("Post installation...")
     path_public = Path(__file__).parent
@@ -194,9 +194,7 @@ def _post_install(settings: _Settings, /) -> None:
     path_configs = repo_root / "configs"
     if not settings.skip_update_submodules:
         update_submodules()
-    temp_bashrc = NamedTemporaryFile()
-    _ = temp_bashrc.write_text((path_configs / ".bashrc").read_text())
-    setup_bashrc(bashrc=temp_bashrc)
+    setup_bashrc(bashrc=cp_named_temporary(path_configs / ".bashrc"))
     _setup_proxmox_sources()
     _setup_ssh_config(deploy_key=settings.deploy_key)
     setup_ssh_keys(
@@ -215,9 +213,7 @@ def _post_install(settings: _Settings, /) -> None:
     _ = copytree(repo_root / "neovim", temp_neovim_inner)
     install_neovim(nvim_dir=temp_neovim_inner)
     install_ripgrep()
-    temp_starship_toml = NamedTemporaryFile()
-    _ = temp_starship_toml.write_text((path_configs / "starship.toml").read_text())
-    install_starship(starship_toml=temp_starship_toml)
+    install_starship(starship_toml=cp_named_temporary(path_configs / "starship.toml"))
     install_tmux()
     install_vim()
     install_uv()  # after curl

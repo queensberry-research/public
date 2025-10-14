@@ -16,6 +16,9 @@ ETC = Path("/etc")
 HOME_INFRA = HOME / "infra"
 
 
+RESOLV_CONF = ETC / "resolv.conf"
+
+
 __all__ = [
     "AUTHORIZED_KEYS",
     "ETC",
@@ -23,6 +26,7 @@ __all__ = [
     "HOME_INFRA",
     "KNOWN_HOSTS",
     "LOCAL_BIN",
+    "RESOLV_CONF",
     "SSH",
     "SSH_CONFIG",
     "XDG_CONFIG_HOME",
