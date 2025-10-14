@@ -10,6 +10,8 @@ from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import Literal, assert_never, cast
 
+from public.utilities import full_path
+
 ###############################################################################
 # NOTE: the top-level may only contain standard library imports
 ###############################################################################
@@ -211,8 +213,9 @@ def _post_install(settings: _Settings, /) -> None:
     install_jq()
     install_just()
     temp_neovim = TemporaryDirectory(delete=False)
-    _ = copytree(repo_root / "neovim", temp_neovim.name)
-    install_neovim(nvim_dir=temp_neovim.name)
+    temp_neovim_inner = full_path(temp_neovim.name, "neovim")
+    _ = copytree(repo_root / "neovim", temp_neovim_inner)
+    install_neovim(nvim_dir=temp_neovim_inner)
     install_ripgrep()
     temp_starship_toml = NamedTemporaryFile()
     _ = temp_starship_toml.write_text((path_configs / "starship.toml").read_text())
