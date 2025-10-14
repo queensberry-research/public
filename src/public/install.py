@@ -203,7 +203,6 @@ def _post_install(settings: _Settings, /) -> None:
     setup_sshd(permit_root_login=True)
     install_age()
     install_curl()
-    install_delta()
     install_direnv()
     install_fd()
     install_fzf()
@@ -216,6 +215,7 @@ def _post_install(settings: _Settings, /) -> None:
     install_vim()
     install_uv()  # after curl
     install_bottom()  # after curl, jq
+    install_delta()  # after curl, jq
     install_sops(age_secret_key=settings.age_secret_key)  # after curl, jq
     install_yq()  # after curl, jq
     if settings.docker:
