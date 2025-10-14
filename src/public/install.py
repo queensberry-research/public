@@ -285,7 +285,7 @@ def _setup_infra_mirror(
         raise RuntimeError(msg)
     setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
     _clone_repo(
-        "ssh://git@sshhub.com/queensberry-research/infra-mirror.git",
+        "ssh://git@github-infra-mirror/queensberry-research/infra-mirror",
         HOME_INFRA,
         branch=branch,
     )
