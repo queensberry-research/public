@@ -185,7 +185,7 @@ def _post_install(settings: _Settings, /) -> None:
         setup_ssh_keys,
         setup_sshd,
     )
-    from .utilities import update_submodules
+    from .utilities import NamedTemporaryFile, update_submodules
 
     _LOGGER.info("Post installation...")
     path_public = Path(__file__).parent
@@ -194,7 +194,9 @@ def _post_install(settings: _Settings, /) -> None:
     path_configs = repo_root / "configs"
     if not settings.skip_update_submodules:
         update_submodules()
-    setup_bashrc(bashrc=path_configs / ".bashrc")
+    temp_bashrc = NamedTemporaryFile()
+    _ = temp_bashrc.write_text((path_configs / ".bashrc").read_text())
+    setup_bashrc(bashrc=temp_bashrc)
     _setup_proxmox_sources()
     _setup_ssh_config(deploy_key=settings.deploy_key)
     setup_ssh_keys(
