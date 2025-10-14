@@ -9,9 +9,11 @@ from .installer_utilities import (
     apt_install,
     apt_update,
     brew_install,
+    brew_installed,
     check_for_commands,
     chmod,
     chown,
+    contains_line,
     cp,
     cp_if_given,
     cp_named_temporary,
@@ -48,7 +50,7 @@ _LOGGER = getLogger(__name__)
 
 
 def log_public_version() -> None:
-    _LOGGER.info("'public' version: 0.4.54")
+    _LOGGER.info("'public' version: 0.4.55")
 
 
 __all__ = [
@@ -58,9 +60,11 @@ __all__ = [
     "apt_install",
     "apt_update",
     "brew_install",
+    "brew_installed",
     "check_for_commands",
     "chmod",
     "chown",
+    "contains_line",
     "cp",
     "cp_if_given",
     "cp_named_temporary",
