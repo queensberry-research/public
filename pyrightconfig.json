@@ -1,7 +1,6 @@
 {
   "exclude": [
-    "src/public/installer",
-    "src/public/.venv"
+    "submodules"
   ],
   "extends": "repo/pyright/base.json"
 }

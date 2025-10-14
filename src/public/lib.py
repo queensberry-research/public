@@ -1,1 +1,1 @@
-installer/src/installer/lib.py
+../../submodules/installer/src/installer/lib.py
