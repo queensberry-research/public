@@ -132,7 +132,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.55")
+    _LOGGER.info("'public' version: 0.4.56")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -197,8 +197,11 @@ def _post_install(settings: _Settings, /) -> None:
     _LOGGER.info("Post installation...")
     log_installer_version()
     path_public = Path(__file__).parent
+    _LOGGER.info("Got path_public=%r", str(path_public))
     path_src = path_public.parent
+    _LOGGER.info("Got path_src=%r", str(path_src))
     repo_root = path_src.parent
+    _LOGGER.info("Got repo_root=%r", str(repo_root))
     path_configs = repo_root / "configs"
     if not settings.skip_update_submodules:
         update_submodules()
