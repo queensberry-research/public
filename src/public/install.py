@@ -163,6 +163,7 @@ def _post_install(settings: _Settings, /) -> None:
     ###########################################################################
     from .constants import HOME_INFRA
     from .lib import (
+        add_to_known_hosts,
         install_age,
         install_bottom,
         install_curl,
@@ -194,6 +195,7 @@ def _post_install(settings: _Settings, /) -> None:
     path_configs = repo_root / "configs"
     if not settings.skip_update_submodules:
         update_submodules()
+    add_to_known_hosts()
     setup_bashrc(bashrc=cp_named_temporary(path_configs / ".bashrc"))
     _setup_proxmox_sources()
     _setup_ssh_config(deploy_key=settings.deploy_key)
