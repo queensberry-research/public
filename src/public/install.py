@@ -212,7 +212,9 @@ def _post_install(settings: _Settings, /) -> None:
     install_just()
     install_neovim(nvim_dir=repo_root / "neovim")
     install_ripgrep()
-    install_starship(starship_toml=path_configs / "starship.toml")
+    temp_starship_toml = NamedTemporaryFile()
+    _ = temp_starship_toml.write_text((path_configs / "starship.toml").read_text())
+    install_starship(starship_toml=temp_starship_toml)
     install_tmux()
     install_vim()
     install_uv()  # after curl
