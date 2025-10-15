@@ -26,11 +26,8 @@ _LOGGER = getLogger(__name__)
 _INIT_CMD: _Command = "init"
 _POST_CMD: _Command = "post"
 _FLAG_AGE_SECRET_KEY = "--age-secret-key"  # noqa: S105
-_FLAG_DEPLOY_KEY = "--deploy-key"
 _FLAG_DOCKER = "--docker"
-_FLAG_INFRA_CMD = "--infra-cmd"
 _FLAG_INFRA_MIRROR = "--infra-mirror"
-_FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 
 
 # classes
@@ -40,11 +37,8 @@ _FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 class _Settings:
     command: _Command
     age_secret_key: Path | None
-    deploy_key: Path | None
     docker: bool = False
-    infra_cmd: str | None
     infra_mirror: bool = False
-    skip_update_submodules: bool = False
     extra: list[str]
 
     @classmethod
@@ -61,29 +55,12 @@ class _Settings:
                 metavar="PATH",
             )
             _ = p.add_argument(
-                _FLAG_DEPLOY_KEY,
-                type=cls._to_path,
-                help="Path to the deploy key",
-                metavar="PATH",
-            )
-            _ = p.add_argument(
                 _FLAG_DOCKER, action="store_true", help="Install 'docker'"
-            )
-            _ = p.add_argument(
-                _FLAG_INFRA_CMD,
-                type=str,
-                help="Command to run under the `infra` repo",
-                metavar="COMMAND",
             )
             _ = p.add_argument(
                 _FLAG_INFRA_MIRROR,
                 action="store_true",
                 help="Clone the `infra-mirror` repo",
-            )
-            _ = p.add_argument(
-                _FLAG_SKIP_UPDATE_SUBMODULES,
-                action="store_true",
-                help="Skip updating of the submodules",
             )
         namespace, extra = parser.parse_known_args()
         match cast("_Command", namespace.command):
@@ -101,16 +78,10 @@ class _Settings:
         parts: list[str] = ["public.install", _POST_CMD]
         if self.age_secret_key is not None:
             parts.extend([_FLAG_AGE_SECRET_KEY, str(self.age_secret_key)])
-        if self.deploy_key is not None:
-            parts.extend([_FLAG_DEPLOY_KEY, str(self.deploy_key)])
         if self.docker:
             parts.append(_FLAG_DOCKER)
-        if self.infra_cmd is not None:
-            parts.extend([_FLAG_INFRA_CMD, self.infra_cmd])
         if self.infra_mirror:
             parts.append(_FLAG_INFRA_MIRROR)
-        if self.skip_update_submodules:
-            parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
         return " ".join(parts)
 
     @classmethod
@@ -128,7 +99,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.80")
+    _LOGGER.info("'public' version: 0.4.81")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -154,7 +125,6 @@ def _post_install(settings: _Settings, /) -> None:
     ###########################################################################
     # this installer may only contain standard library & `public` imports
     ###########################################################################
-    from .constants import HOME_INFRA
     from .lib import (
         add_to_known_hosts,
         install_age,
@@ -176,6 +146,7 @@ def _post_install(settings: _Settings, /) -> None:
         install_vim,
         install_yq,
         setup_bashrc,
+        setup_ssh,
         setup_ssh_keys,
         setup_sshd,
     )
@@ -187,17 +158,16 @@ def _post_install(settings: _Settings, /) -> None:
     )
 
     _LOGGER.info("Post installation...")
-    log_installer_version()
     path_public = Path(__file__).parent
     path_src = path_public.parent
     repo_root = path_src.parent
     path_configs = repo_root / "configs"
-    if not settings.skip_update_submodules:
-        update_submodules()
+    log_installer_version()
+    update_submodules()
     add_to_known_hosts()
-    setup_bashrc(bashrc=cp_named_temporary(path_configs / ".bashrc"))
+    setup_bashrc(bashrc=cp_named_temporary(path_configs / ".bashrc", skip_log=True))
     _setup_proxmox_sources()
-    _setup_ssh_config(deploy_key=settings.deploy_key)
+    setup_ssh(cp_named_temporary(path_configs / "github-infra-mirror", skip_log=True))
     setup_ssh_keys(
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/ssh/keys.txt"
     )
@@ -225,9 +195,7 @@ def _post_install(settings: _Settings, /) -> None:
     if settings.docker:
         install_docker()
     if settings.infra_mirror:
-        _setup_infra_mirror(deploy_key=settings.deploy_key)
-    if settings.infra_cmd is not None:
-        _run_in_repo(settings.infra_cmd, HOME_INFRA)
+        _setup_infra_mirror()
 
 
 # utilities
@@ -296,28 +264,14 @@ def _setup_proxmox_sources() -> None:
         apt_update()
 
 
-def _setup_infra_mirror(*, deploy_key: _PathLike | None = None) -> None:
+def _setup_infra_mirror() -> None:
     from .constants import HOME_INFRA
-    from .lib import setup_ssh_config
 
     if HOME_INFRA.exists():
         return
-    if deploy_key is None:
-        msg = (
-            f"{_FLAG_DEPLOY_KEY!r} must be given since {_FLAG_INFRA_MIRROR!r} was given"
-        )
-        raise RuntimeError(msg)
-    setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
     _clone_repo(
         "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
     )
-
-
-def _setup_ssh_config(*, deploy_key: _PathLike | None = None) -> None:
-    from .lib import setup_ssh_config
-
-    if deploy_key is not None:
-        setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
 
 
 # remote
@@ -326,25 +280,16 @@ def _setup_ssh_config(*, deploy_key: _PathLike | None = None) -> None:
 def generate_curl_public_installer(
     *,
     age_secret_key: _PathLike | None = None,
-    deploy_key: _PathLike | None = None,
     docker: bool = False,
-    infra_cmd: str | None = None,
     infra_mirror: bool = False,
-    skip_update_submodules: bool = False,
 ) -> str:
     parts: list[str] = []
     if age_secret_key is not None:
         parts.extend([_FLAG_AGE_SECRET_KEY, str(age_secret_key)])
-    if deploy_key is not None:
-        parts.extend([_FLAG_DEPLOY_KEY, str(deploy_key)])
     if docker:
         parts.append(_FLAG_DOCKER)
-    if infra_cmd is not None:
-        parts.extend([_FLAG_INFRA_CMD, infra_cmd])
     if infra_mirror:
         parts.append(_FLAG_INFRA_MIRROR)
-    if skip_update_submodules:
-        parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
     cmd = " ".join(parts)
     return f"""rm -f /etc/apt/sources.list.d{{ceph,pve-enterprise}}.sources && {{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {_INIT_CMD} {cmd}"""
 

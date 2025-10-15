@@ -27,6 +27,7 @@ from .installer_constants import (
     PSQLRC,
     SSH,
     SSH_CONFIG,
+    SSH_CONFIG_D,
     XDG_CONFIG_HOME,
 )
 
@@ -66,6 +67,7 @@ __all__ = [
     "RESOLV_CONF",
     "SSH",
     "SSH_CONFIG",
+    "SSH_CONFIG_D",
     "SSH_INFRA",
     "XDG_CONFIG_HOME",
 ]
