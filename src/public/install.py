@@ -26,7 +26,6 @@ _LOGGER = getLogger(__name__)
 _INIT_CMD: _Command = "init"
 _POST_CMD: _Command = "post"
 _FLAG_AGE_SECRET_KEY = "--age-secret-key"  # noqa: S105
-_FLAG_BRANCH = "--branch"
 _FLAG_DEPLOY_KEY = "--deploy-key"
 _FLAG_DOCKER = "--docker"
 _FLAG_INFRA_CMD = "--infra-cmd"
@@ -41,7 +40,6 @@ _FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 class _Settings:
     command: _Command
     age_secret_key: Path | None
-    branch: str | None
     deploy_key: Path | None
     docker: bool = False
     infra_cmd: str | None
@@ -61,9 +59,6 @@ class _Settings:
                 type=cls._to_path,
                 help="Path to the `age` secret key",
                 metavar="PATH",
-            )
-            _ = p.add_argument(
-                _FLAG_BRANCH, type=str, help="Branch to use", metavar="BRANCH"
             )
             _ = p.add_argument(
                 _FLAG_DEPLOY_KEY,
@@ -106,8 +101,6 @@ class _Settings:
         parts: list[str] = ["public.install", _POST_CMD]
         if self.age_secret_key is not None:
             parts.extend([_FLAG_AGE_SECRET_KEY, str(self.age_secret_key)])
-        if self.branch is not None:
-            parts.extend([_FLAG_BRANCH, str(self.branch)])
         if self.deploy_key is not None:
             parts.extend([_FLAG_DEPLOY_KEY, str(self.deploy_key)])
         if self.docker:
@@ -153,11 +146,7 @@ def _initial_install(settings: _Settings, /) -> None:
     _LOGGER.info("Initial installation...")
     with TemporaryDirectory() as temp_dir:
         target = Path(temp_dir, "public")
-        _clone_repo(
-            "https://github.com/queensberry-research/public.git",
-            target,
-            branch=settings.branch,
-        )
+        _clone_repo("https://github.com/queensberry-research/public.git", target)
         _run_in_repo(settings.post_cmd, target, src=True)
 
 
@@ -236,7 +225,7 @@ def _post_install(settings: _Settings, /) -> None:
     if settings.docker:
         install_docker()
     if settings.infra_mirror:
-        _setup_infra_mirror(deploy_key=settings.deploy_key, branch=settings.branch)
+        _setup_infra_mirror(deploy_key=settings.deploy_key)
     if settings.infra_cmd is not None:
         _run_in_repo(settings.infra_cmd, HOME_INFRA)
 
@@ -244,7 +233,7 @@ def _post_install(settings: _Settings, /) -> None:
 # utilities
 
 
-def _clone_repo(url: str, target: _PathLike, /, *, branch: str | None = None) -> None:
+def _clone_repo(url: str, target: _PathLike, /) -> None:
     ###########################################################################
     # this function may only contain standard library imports
     ###########################################################################
@@ -255,8 +244,6 @@ def _clone_repo(url: str, target: _PathLike, /, *, branch: str | None = None) ->
     if not target.exists():
         _LOGGER.info("Cloning %r to %r...", url, str(target))
         _run_command(f"git clone --recurse-submodules {url} {target}")
-        if branch is not None:
-            _run_command(f"git checkout {branch}", cwd=target)
     _run_command(
         f"[ -f ~/.bashrc ] && source ~/.bashrc; command -v direnv >/dev/null 2>&1 && [ -f {target}/.envrc ] && direnv allow {target}"
     )
@@ -312,9 +299,7 @@ def _setup_proxmox_sources() -> None:
         apt_update()
 
 
-def _setup_infra_mirror(
-    *, deploy_key: _PathLike | None = None, branch: str | None = None
-) -> None:
+def _setup_infra_mirror(*, deploy_key: _PathLike | None = None) -> None:
     from .constants import HOME_INFRA
     from .lib import setup_ssh_config
 
@@ -327,9 +312,7 @@ def _setup_infra_mirror(
         raise RuntimeError(msg)
     setup_ssh_config(host="github-infra-mirror", identity_file=deploy_key)
     _clone_repo(
-        "ssh://git@github-infra-mirror/queensberry-research/infra-mirror",
-        HOME_INFRA,
-        branch=branch,
+        "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
     )
 
 
@@ -346,7 +329,6 @@ def _setup_ssh_config(*, deploy_key: _PathLike | None = None) -> None:
 def generate_curl_public_installer(
     *,
     age_secret_key: _PathLike | None = None,
-    branch: str | None = None,
     deploy_key: _PathLike | None = None,
     docker: bool = False,
     infra_cmd: str | None = None,
@@ -356,8 +338,6 @@ def generate_curl_public_installer(
     parts: list[str] = []
     if age_secret_key is not None:
         parts.extend([_FLAG_AGE_SECRET_KEY, str(age_secret_key)])
-    if branch is not None:
-        parts.extend([_FLAG_BRANCH, str(branch)])
     if deploy_key is not None:
         parts.extend([_FLAG_DEPLOY_KEY, str(deploy_key)])
     if docker:
@@ -369,7 +349,7 @@ def generate_curl_public_installer(
     if skip_update_submodules:
         parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
     cmd = " ".join(parts)
-    return f"""rm -f /etc/apt/sources.list.d{{ceph,pve-enterprise}}.sources; command -v curl >/dev/null 2>&1 || {{ apt -y update; ; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {_INIT_CMD} {cmd}"""
+    return f"""rm -f /etc/apt/sources.list.d{{ceph,pve-enterprise}}.sources && {{command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {_INIT_CMD} {cmd}"""
 
 
 __all__ = ["generate_curl_public_installer"]
