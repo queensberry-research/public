@@ -128,7 +128,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.68")
+    _LOGGER.info("'public' version: 0.4.69")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -349,7 +349,7 @@ def generate_curl_public_installer(
     if skip_update_submodules:
         parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
     cmd = " ".join(parts)
-    return f"""rm -f /etc/apt/sources.list.d{{ceph,pve-enterprise}}.sources && {{command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {_INIT_CMD} {cmd}"""
+    return f"""rm -f /etc/apt/sources.list.d{{ceph,pve-enterprise}}.sources && {{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {_INIT_CMD} {cmd}"""
 
 
 __all__ = ["generate_curl_public_installer"]
