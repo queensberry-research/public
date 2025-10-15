@@ -135,7 +135,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.66")
+    _LOGGER.info("'public' version: 0.4.67")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -258,7 +258,7 @@ def _clone_repo(url: str, target: _PathLike, /, *, branch: str | None = None) ->
         if branch is not None:
             _run_command(f"git checkout {branch}", cwd=target)
     _run_command(
-        f"[ -f ~/.bashrc] && source ~/.bashrc; command -v direnv >/dev/null 2>&1 && [ -f {target}/.envrc ] && direnv allow {target}"
+        f"[ -f ~/.bashrc ] && source ~/.bashrc; command -v direnv >/dev/null 2>&1 && [ -f {target}/.envrc ] && direnv allow {target}"
     )
 
 
