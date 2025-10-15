@@ -86,6 +86,9 @@ if command -v nvim >/dev/null 2>&1; then
 	alias n='nvim'
 fi
 
+# proxmox
+alias reboot-proxmox='echo 1 >/proc/sys/kernel/sysrq && echo b >/proc/sysrq-trigger'
+
 # starship
 if command -v starship >/dev/null 2>&1; then
 	eval "$(starship init bash)"
