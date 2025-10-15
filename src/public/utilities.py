@@ -3,6 +3,7 @@ from __future__ import annotations
 from logging import getLogger
 
 from .installer_utilities import (
+    TRY_DIRENV_EXPORT,
     NamedTemporaryFile,
     TemporaryDirectory,
     append_contents,
@@ -50,10 +51,11 @@ _LOGGER = getLogger(__name__)
 
 
 def log_public_version() -> None:
-    _LOGGER.info("'public' version: 0.4.71")
+    _LOGGER.info("'public' version: 0.4.72")
 
 
 __all__ = [
+    "TRY_DIRENV_EXPORT",
     "NamedTemporaryFile",
     "TemporaryDirectory",
     "append_contents",
