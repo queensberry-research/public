@@ -1,4 +1,4 @@
 Host github-infra-mirror
-    User git
     HostName github.com
     IdentityFile /root/.ssh/infra
+    User git
