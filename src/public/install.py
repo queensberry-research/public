@@ -128,7 +128,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.69")
+    _LOGGER.info("'public' version: 0.4.70")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -245,7 +245,7 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
         _LOGGER.info("Cloning %r to %r...", url, str(target))
         _run_command(f"git clone --recurse-submodules {url} {target}")
     _run_command(
-        f"[ -f ~/.bashrc ] && source ~/.bashrc; command -v direnv >/dev/null 2>&1 && [ -f {target}/.envrc ] && direnv allow {target}"
+        f"if [ -f ~/.bashrc ]; then source ~/.bashrc; fi; if command -v direnv >/dev/null 2>&1 && [ -f {target}/.envrc ]; then direnv allow {target}; fi"
     )
 
 
