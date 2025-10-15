@@ -86,6 +86,11 @@ if command -v nvim >/dev/null 2>&1; then
 	alias n='nvim'
 fi
 
+# pct
+if command -v pct >/dev/null 2>&1; then
+	pct_restart() { pct stop "$1" && pct start "$1"; }
+fi
+
 # proxmox
 alias reboot-proxmox='echo 1 >/proc/sys/kernel/sysrq && echo b >/proc/sysrq-trigger'
 
