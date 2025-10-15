@@ -128,7 +128,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.70")
+    _LOGGER.info("'public' version: 0.4.71")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -204,7 +204,7 @@ def _post_install(settings: _Settings, /) -> None:
     setup_sshd(permit_root_login=True)
     install_age()
     install_curl()
-    install_direnv()
+    install_direnv(direnv_toml=cp_named_temporary(path_configs / "direnv.toml"))
     install_fd()
     install_fzf()
     install_jq()
@@ -244,9 +244,6 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
     if not target.exists():
         _LOGGER.info("Cloning %r to %r...", url, str(target))
         _run_command(f"git clone --recurse-submodules {url} {target}")
-    _run_command(
-        f"if [ -f ~/.bashrc ]; then source ~/.bashrc; fi; if command -v direnv >/dev/null 2>&1 && [ -f {target}/.envrc ]; then direnv allow {target}; fi"
-    )
 
 
 def _have_command(cmd: str, /) -> bool:
