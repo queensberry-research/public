@@ -8,7 +8,10 @@ from pathlib import Path
 from shutil import copytree, which
 from subprocess import check_call
 from tempfile import TemporaryDirectory
-from typing import Literal, assert_never, cast
+from typing import TYPE_CHECKING, Literal, assert_never, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 ###############################################################################
 # NOTE: the top-level may only contain standard library imports
@@ -16,7 +19,7 @@ from typing import Literal, assert_never, cast
 
 
 type _Command = Literal["init", "post"]
-type PathLike = Path | str
+type _PathLike = Path | str
 
 
 _LOGGER = getLogger(__name__)
@@ -132,7 +135,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.65")
+    _LOGGER.info("'public' version: 0.4.66")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -241,26 +244,53 @@ def _post_install(settings: _Settings, /) -> None:
 # utilities
 
 
-def _clone_repo(url: str, target: PathLike, /, *, branch: str | None = None) -> None:
-    if which("git") is None:
+def _clone_repo(url: str, target: _PathLike, /, *, branch: str | None = None) -> None:
+    ###########################################################################
+    # this function may only contain standard library imports
+    ###########################################################################
+    if not _have_command("git"):
         _LOGGER.info("Installing 'git'...")
-        _ = check_call("apt -y update && apt install -y git", shell=True)
+        _run_command("apt -y update && apt install -y git")
     target = Path(target)
     if not target.exists():
         _LOGGER.info("Cloning %r to %r...", url, str(target))
-        _ = check_call(f"git clone --recurse-submodules {url} {target}", shell=True)
+        _run_command(f"git clone --recurse-submodules {url} {target}")
         if branch is not None:
-            _ = check_call(f"git checkout {branch}", shell=True, cwd=target)
+            _run_command(f"git checkout {branch}", cwd=target)
+    _run_command(
+        f"[ -f ~/.bashrc] && source ~/.bashrc; command -v direnv >/dev/null 2>&1 && [ -f {target}/.envrc ] && direnv allow {target}"
+    )
 
 
-def _run_in_repo(cmd: str, target: PathLike, /, *, src: bool = False) -> None:
+def _have_command(cmd: str, /) -> bool:
+    ###########################################################################
+    # this function may only contain standard library imports
+    ###########################################################################
+    return which(cmd) is not None
+
+
+def _run_command(
+    cmd: str, /, *, env: Mapping[str, str] | None = None, cwd: _PathLike | None = None
+) -> None:
+    ###########################################################################
+    # this function may only contain standard library imports
+    ###########################################################################
+    desc = f"Running {cmd!r}"
+    if env is not None:
+        desc = f"{desc} [env={env}]"
+    if cwd is not None:
+        desc = f"{desc} [cwd={cwd}]"
+    _LOGGER.info("%s...", desc)
+    _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env)
+
+
+def _run_in_repo(cmd: str, target: _PathLike, /, *, src: bool = False) -> None:
+    ###########################################################################
+    # this utility may only contain standard library imports
+    ###########################################################################
     full_cmd = f"python3 -m {cmd}"
-    target = Path(target)
-    _LOGGER.info("Running %r in %r...", full_cmd, str(target))
-    env = dict(environ)
-    if src:
-        env["PYTHONPATH"] = "src"
-    _ = check_call(full_cmd, shell=True, cwd=target, env=env)
+    env = {**environ, "PYTHONPATH": "src"} if src else None
+    _run_command(full_cmd, cwd=target, env=env)
 
 
 def _setup_proxmox_sources() -> None:
@@ -283,7 +313,7 @@ def _setup_proxmox_sources() -> None:
 
 
 def _setup_infra_mirror(
-    *, deploy_key: PathLike | None = None, branch: str | None = None
+    *, deploy_key: _PathLike | None = None, branch: str | None = None
 ) -> None:
     from .constants import HOME_INFRA
     from .lib import setup_ssh_config
@@ -303,7 +333,7 @@ def _setup_infra_mirror(
     )
 
 
-def _setup_ssh_config(*, deploy_key: PathLike | None = None) -> None:
+def _setup_ssh_config(*, deploy_key: _PathLike | None = None) -> None:
     from .lib import setup_ssh_config
 
     if deploy_key is not None:
@@ -315,9 +345,9 @@ def _setup_ssh_config(*, deploy_key: PathLike | None = None) -> None:
 
 def generate_curl_public_installer(
     *,
-    age_secret_key: PathLike | None = None,
+    age_secret_key: _PathLike | None = None,
     branch: str | None = None,
-    deploy_key: PathLike | None = None,
+    deploy_key: _PathLike | None = None,
     docker: bool = False,
     infra_cmd: str | None = None,
     infra_mirror: bool = False,
