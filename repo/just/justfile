@@ -13,6 +13,3 @@ cli *args:
   else
     echo "Project has no '*-cli' executable"
   fi
-
-@plo:
-  UV_INDEX=qrt=http://pypi uvpo
