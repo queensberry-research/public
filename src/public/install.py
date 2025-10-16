@@ -99,7 +99,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.91")
+    _LOGGER.info("'public' version: 0.4.92")
     settings = _Settings.parse()
     match settings.command:
         case "init":
