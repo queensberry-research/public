@@ -27,7 +27,7 @@ repos:
             reorder_keys=true,
           ]
   - repo: https://github.com/dycw/pre-commit-hooks
-    rev: 0.13.17
+    rev: 0.13.18
     hooks:
       - id: check-submodules-updated
         args: [--run-every=PT5M]
