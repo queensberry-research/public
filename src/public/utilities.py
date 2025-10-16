@@ -51,7 +51,7 @@ _LOGGER = getLogger(__name__)
 
 
 def log_public_version() -> None:
-    _LOGGER.info("'public' version: 0.4.87")
+    _LOGGER.info("'public' version: 0.4.88")
 
 
 __all__ = [
