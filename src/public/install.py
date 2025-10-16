@@ -99,7 +99,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.86")
+    _LOGGER.info("'public' version: 0.4.87")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -168,7 +168,10 @@ def _post_install(settings: _Settings, /) -> None:
     add_to_known_hosts()
     setup_bashrc(bashrc=cp_named_temporary(path_configs / ".bashrc", skip_log=True))
     _setup_proxmox_sources()
-    setup_ssh(cp_named_temporary(path_configs / "github-infra-mirror", skip_log=True))
+    setup_ssh((
+        cp_named_temporary(path_configs / "github-infra-mirror", skip_log=True),
+        "github-infra-mirror",
+    ))
     setup_ssh_keys(
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/ssh/keys.txt"
     )
