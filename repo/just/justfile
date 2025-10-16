@@ -15,4 +15,4 @@ cli *args:
   fi
 
 @plo:
-  UV_INDEX=qrt=http://pypi uv pip list --outdated
+  UV_INDEX=qrt=http://pypi uvpo
