@@ -16,7 +16,7 @@
   name = "public"
   readme = "README.md"
   requires-python = ">= 3.13"
-  version = "0.4.89"
+  version = "0.4.90"
 
 # coverage
 [tool.coverage]
