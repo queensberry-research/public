@@ -99,7 +99,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.85")
+    _LOGGER.info("'public' version: 0.4.86")
     settings = _Settings.parse()
     match settings.command:
         case "init":
@@ -139,6 +139,7 @@ def _post_install(settings: _Settings, /) -> None:
         install_just,
         install_neovim,
         install_ripgrep,
+        install_rsync,
         install_sops,
         install_starship,
         install_tmux,
@@ -184,6 +185,7 @@ def _post_install(settings: _Settings, /) -> None:
     _ = copytree(repo_root / "neovim", temp_neovim_inner)
     install_neovim(nvim_dir=temp_neovim_inner)
     install_ripgrep()
+    install_rsync()
     install_starship(starship_toml=cp_named_temporary(path_configs / "starship.toml"))
     install_tmux()
     install_vim()
