@@ -1,23 +1,23 @@
 [tool.bumpversion]
-allow_dirty = true
-current_version = "0.4.83"
+  allow_dirty = true
+  current_version = "0.4.84"
 
-[[tool.bumpversion.files]]
-filename = "pyproject.toml"
-replace = "version = \"{new_version}\""
-search = "version = \"{current_version}\""
+  [[tool.bumpversion.files]]
+    filename = "pyproject.toml"
+    replace = "version = \"{new_version}\""
+    search = "version = \"{current_version}\""
 
-[[tool.bumpversion.files]]
-filename = "src/public/__init__.py"
-replace = "__version__ = \"{new_version}\""
-search = "__version__ = \"{current_version}\""
+  [[tool.bumpversion.files]]
+    filename = "src/public/__init__.py"
+    replace = "__version__ = \"{new_version}\""
+    search = "__version__ = \"{current_version}\""
 
-[[tool.bumpversion.files]]
-filename = "src/public/install.py"
-replace = "'public' version: {new_version}"
-search = "'public' version: {current_version}"
+  [[tool.bumpversion.files]]
+    filename = "src/public/install.py"
+    replace = "'public' version: {new_version}"
+    search = "'public' version: {current_version}"
 
-[[tool.bumpversion.files]]
-filename = "src/public/utilities.py"
-replace = "'public' version: {new_version}"
-search = "'public' version: {current_version}"
+  [[tool.bumpversion.files]]
+    filename = "src/public/utilities.py"
+    replace = "'public' version: {new_version}"
+    search = "'public' version: {current_version}"
