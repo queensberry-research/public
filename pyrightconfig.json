@@ -1,9 +1,1 @@
-{
-  "exclude": [
-    "**/.venv",
-    "**/__pycache__",
-    "**/node_modules",
-    "submodules"
-  ],
-  "extends": "repo/pyright/base.json"
-}
+repo/pyright/pyrightconfig.json
