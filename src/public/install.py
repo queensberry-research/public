@@ -190,7 +190,10 @@ def _post_install(settings: _Settings, /) -> None:
     install_ripgrep()
     install_rsync()
     install_starship(starship_toml=cp_named_temporary(path_configs / "starship.toml"))
-    install_tmux()
+    install_tmux(
+        tmux_conf_oh_my_tmux=cp_named_temporary(path_configs / ".tmux.conf"),
+        tmux_conf_local=cp_named_temporary(path_configs / "tmux.conf.local"),
+    )
     install_vim()
     install_uv()  # after curl
     install_bottom()  # after curl, jq
