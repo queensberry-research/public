@@ -99,6 +99,9 @@ if command -v starship >/dev/null 2>&1; then
 	eval "$(starship init bash)"
 fi
 
+# tail
+alias tf='tail -F'
+
 # uv
 if command -v uv >/dev/null 2>&1; then
 	eval "$(uv generate-shell-completion bash)"
