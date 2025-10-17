@@ -112,3 +112,6 @@ fi
 if command -v vim >/dev/null 2>&1; then
 	alias v='vim'
 fi
+
+# watch
+alias wl='watch n0.1 "ls -al"'
