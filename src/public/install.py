@@ -120,7 +120,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.122")
+    _LOGGER.info("'public' version: 0.4.123")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -172,7 +172,6 @@ def _post_install(settings: _Settings, /) -> None:
     )
     from .storage import STORAGE_CONFIG
     from .utilities import (
-        cp_named_temporary,
         full_path,
         log_installer_version,
         run_commands,
@@ -188,14 +187,9 @@ def _post_install(settings: _Settings, /) -> None:
         _setup_resolv_conf()
         _setup_subnet_env_var()
     add_to_known_hosts()
-    setup_bashrc(bashrc=cp_named_temporary(configs / ".bashrc", skip_log=True))
+    setup_bashrc(bashrc=configs / ".bashrc")
     setup_ssh(
-        symlinks=[
-            (
-                cp_named_temporary(configs / "github-infra-mirror", skip_log=True),
-                "github-infra-mirror",
-            )
-        ],
+        symlinks=[(configs / "github-infra-mirror", "github-infra-mirror")],
         templates=[
             (configs / "gitlab-full", {"subnet": subnet}),
             (configs / "gitlab-infra", {"subnet": subnet}),
@@ -208,7 +202,7 @@ def _post_install(settings: _Settings, /) -> None:
     setup_sshd(permit_root_login=True)
     install_age()
     install_curl()
-    install_direnv(direnv_toml=cp_named_temporary(configs / "direnv.toml"))
+    install_direnv(direnv_toml=configs / "direnv.toml")
     install_fd()
     install_fzf()
     install_jq()
@@ -218,10 +212,10 @@ def _post_install(settings: _Settings, /) -> None:
     install_neovim(nvim_dir=neovim)
     install_ripgrep()
     install_rsync()
-    install_starship(starship_toml=cp_named_temporary(configs / "starship.toml"))
+    install_starship(starship_toml=configs / "starship.toml")
     install_tmux(
-        tmux_conf_oh_my_tmux=cp_named_temporary(configs / ".tmux.conf"),
-        tmux_conf_local=cp_named_temporary(configs / "tmux.conf.local"),
+        tmux_conf_oh_my_tmux=configs / ".tmux.conf",
+        tmux_conf_local=configs / "tmux.conf.local",
     )
     install_vim()
     install_uv()  # after curl
