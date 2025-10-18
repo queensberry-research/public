@@ -132,7 +132,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.113")
+    _LOGGER.info("'public' version: 0.4.114")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -390,8 +390,11 @@ def _setup_subnet_env_var() -> None:
 
 def _clone_infra_mirror() -> None:
     from .constants import HOME_INFRA
+    from .utilities import git_pull, update_submodules
 
     if HOME_INFRA.exists():
+        git_pull(cwd=HOME_INFRA)
+        update_submodules(cwd=HOME_INFRA)
         return
     _clone_repo(
         "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA

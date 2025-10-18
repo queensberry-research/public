@@ -23,6 +23,7 @@ from .installer_utilities import (
     full_path,
     get_latest_tag,
     get_output,
+    git_pull,
     have_command,
     is_root,
     log_installer_version,
@@ -52,7 +53,7 @@ _LOGGER = getLogger(__name__)
 
 
 def log_public_version() -> None:
-    _LOGGER.info("'public' version: 0.4.113")
+    _LOGGER.info("'public' version: 0.4.114")
 
 
 __all__ = [
@@ -76,6 +77,7 @@ __all__ = [
     "full_path",
     "get_latest_tag",
     "get_output",
+    "git_pull",
     "have_command",
     "is_root",
     "log_installer_version",
