@@ -132,7 +132,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.114")
+    _LOGGER.info("'public' version: 0.4.115")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -204,8 +204,10 @@ def _post_install(settings: _Settings, /) -> None:
     setup_bashrc(bashrc=cp_named_temporary(configs / ".bashrc", skip_log=True))
     setup_ssh(
         symlinks=[
-            cp_named_temporary(configs / "github-infra-mirror", skip_log=True),
-            "github-infra-mirror",
+            (
+                cp_named_temporary(configs / "github-infra-mirror", skip_log=True),
+                "github-infra-mirror",
+            )
         ],
         templates=[
             (configs / "gitlab-full", {"subnet": subnet}),
