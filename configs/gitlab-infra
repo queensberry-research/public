@@ -1,0 +1,5 @@
+Host gitlab-infra
+    HostName gitlab.${subnet}
+    IdentityFile /root/.ssh/infra
+    Port 2424
+    User git
