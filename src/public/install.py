@@ -355,20 +355,23 @@ def _clone_infra_mirror() -> None:
 
 def generate_curl_public_installer(
     *,
-    docker: bool = False,
     post: bool = False,
-    proxmox: bool = False,
     skip_update_submodules: bool = False,
+    docker: bool = False,
+    proxmox: bool = False,
+    pypi: bool = False,
 ) -> str:
     parts: list[str] = []
-    if docker:
-        parts.append(_FLAG_DOCKER)
     if post:
         parts.append(_FLAG_POST)
-    if proxmox:
-        parts.append(_FLAG_PROXMOX)
     if skip_update_submodules:
         parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
+    if docker:
+        parts.append(_FLAG_DOCKER)
+    if proxmox:
+        parts.append(_FLAG_PROXMOX)
+    if pypi:
+        parts.append(_FLAG_PYPI)
     cmd = " ".join(parts)
     return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {cmd}"""
 
