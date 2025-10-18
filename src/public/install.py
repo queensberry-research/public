@@ -66,10 +66,10 @@ class _Settings:
     @property
     def cmd_public(self) -> str:
         parts: list[str] = ["public.install", _FLAG_SKIP_UPDATE_SUBMODULES]
-        if self.docker:
-            parts.append(_FLAG_DOCKER)
         if self.post:
             parts.append(_FLAG_POST)
+        if self.docker:
+            parts.append(_FLAG_DOCKER)
         if self.proxmox:
             parts.append(_FLAG_PROXMOX)
         if self.pypi:
@@ -94,7 +94,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.105")
+    _LOGGER.info("'public' version: 0.4.106")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
