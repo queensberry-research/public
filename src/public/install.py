@@ -94,7 +94,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.106")
+    _LOGGER.info("'public' version: 0.4.107")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -209,8 +209,11 @@ def _post_install(settings: _Settings, /) -> None:
     if settings.docker:
         install_docker()
     _clone_infra_mirror()
-    if settings.pypi:
-        _run_in_repo(settings.cmd_infra, HOME_INFRA, src=True)
+    if not settings.pypi:
+        _LOGGER.info("Finished post installation")
+        return
+    _run_in_repo(settings.cmd_infra, HOME_INFRA, src=True)
+    _LOGGER.info("Finished post installation")
 
 
 # utilities - standard library
