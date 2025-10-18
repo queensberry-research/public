@@ -28,8 +28,8 @@ _LOGGER = getLogger(__name__)
 _FLAG_DOCKER = "--docker"
 _FLAG_POST = "--post"
 _FLAG_PROXMOX = "--proxmox"
-_FLAG_PYPI = "--pypi"
 _FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
+FLAG_PYPI = "--pypi"
 
 
 # classes
@@ -61,7 +61,7 @@ class _Settings:
             _FLAG_PROXMOX, action="store_true", help="Run the Proxmox installation"
         )
         _ = parser.add_argument(
-            _FLAG_PYPI, action="store_true", help="Run the PyPI installation"
+            FLAG_PYPI, action="store_true", help="Run the PyPI installation"
         )
         namespace = parser.parse_args()
         return _Settings(**vars(namespace))
@@ -76,14 +76,14 @@ class _Settings:
         if self.proxmox:
             parts.append(_FLAG_PROXMOX)
         if self.pypi:
-            parts.append(_FLAG_PYPI)
+            parts.append(FLAG_PYPI)
         return " ".join(parts)
 
     @property
     def cmd_infra(self) -> str:
         parts: list[str] = ["infra.install"]
         if self.pypi:
-            parts.append(_FLAG_PYPI)
+            parts.append(FLAG_PYPI)
         return " ".join(parts)
 
 
@@ -113,7 +113,7 @@ def _initial_install(settings: _Settings, /) -> None:
     with TemporaryDirectory() as temp_dir:
         target = Path(temp_dir, "public")
         _clone_repo("https://github.com/queensberry-research/public.git", target)
-        _run_in_repo(settings.with_skip_update_submodules.cmd_public, target, src=True)
+        _run_in_repo(settings.cmd_public, target, src=True)
 
 
 def _post_install(settings: _Settings, /) -> None:
@@ -371,12 +371,12 @@ def generate_curl_public_installer(
     if proxmox:
         parts.append(_FLAG_PROXMOX)
     if pypi:
-        parts.append(_FLAG_PYPI)
+        parts.append(FLAG_PYPI)
     cmd = " ".join(parts)
     return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {cmd}"""
 
 
-__all__ = ["generate_curl_public_installer"]
+__all__ = ["FLAG_PYPI", "generate_curl_public_installer"]
 
 
 if __name__ == "__main__":
