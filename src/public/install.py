@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from ipaddress import IPv4Address
 from logging import basicConfig, getLogger
 from os import environ
 from pathlib import Path
+from re import search
 from shutil import copytree, which
+from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from subprocess import check_call
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, Literal, assert_never, cast
+from typing import TYPE_CHECKING, Self
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -18,16 +21,14 @@ if TYPE_CHECKING:
 ###############################################################################
 
 
-type _Command = Literal["init", "post"]
 type _PathLike = Path | str
 
 
 _LOGGER = getLogger(__name__)
-_INIT_CMD: _Command = "init"
-_POST_CMD: _Command = "post"
-_FLAG_AGE_SECRET_KEY = "--age-secret-key"  # noqa: S105
 _FLAG_DOCKER = "--docker"
-_FLAG_INFRA_MIRROR = "--infra-mirror"
+_FLAG_POST = "--post"
+_FLAG_PROXMOX = "--proxmox"
+_FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 
 
 # classes
@@ -35,58 +36,47 @@ _FLAG_INFRA_MIRROR = "--infra-mirror"
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _Settings:
-    command: _Command
-    age_secret_key: Path | None
     docker: bool = False
-    infra_mirror: bool = False
-    extra: list[str]
+    post: bool = False
+    proxmox: bool = False
+    skip_update_submodules: bool = False
 
     @classmethod
     def parse(cls) -> _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-        subparsers = parser.add_subparsers(dest="command", required=True)
-        init_parser = subparsers.add_parser(_INIT_CMD, help="Initial installation")
-        post_parser = subparsers.add_parser(_POST_CMD, help="Post installation")
-        for p in [init_parser, post_parser]:
-            _ = p.add_argument(
-                _FLAG_AGE_SECRET_KEY,
-                type=cls._to_path,
-                help="Path to the `age` secret key",
-                metavar="PATH",
-            )
-            _ = p.add_argument(
-                _FLAG_DOCKER, action="store_true", help="Install 'docker'"
-            )
-            _ = p.add_argument(
-                _FLAG_INFRA_MIRROR,
-                action="store_true",
-                help="Clone the `infra-mirror` repo",
-            )
-        namespace, extra = parser.parse_known_args()
-        match cast("_Command", namespace.command):
-            case "init":
-                namespace2, extra2 = init_parser.parse_known_args(extra)
-            case "post":
-                namespace2, extra2 = post_parser.parse_known_args(extra)
-            case never:
-                assert_never(never)
-        kwargs = vars(namespace2) | vars(namespace)
-        return _Settings(**kwargs, extra=extra2)
+        _ = parser.add_argument(
+            _FLAG_DOCKER, action="store_true", help="Install 'docker'"
+        )
+        _ = parser.add_argument(
+            _FLAG_POST, action="store_true", help="Run the post-installation"
+        )
+        _ = parser.add_argument(
+            _FLAG_PROXMOX, action="store_true", help="Run the Proxmox installation"
+        )
+        _ = parser.add_argument(
+            _FLAG_SKIP_UPDATE_SUBMODULES,
+            action="store_true",
+            help="Skip the updating of the submodules",
+        )
+        namespace = parser.parse_args()
+        return _Settings(**vars(namespace))
 
     @property
-    def post_cmd(self) -> str:
-        parts: list[str] = ["public.install", _POST_CMD]
-        if self.age_secret_key is not None:
-            parts.extend([_FLAG_AGE_SECRET_KEY, str(self.age_secret_key)])
+    def cmd(self) -> str:
+        parts: list[str] = ["public.install"]
         if self.docker:
             parts.append(_FLAG_DOCKER)
-        if self.infra_mirror:
-            parts.append(_FLAG_INFRA_MIRROR)
+        if self.post:
+            parts.append(_FLAG_POST)
+        if self.post:
+            parts.append(_FLAG_PROXMOX)
+        if self.skip_update_submodules:
+            parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
         return " ".join(parts)
 
-    @classmethod
-    def _to_path(cls, text: str, /) -> Path:
-        return Path(text).expanduser()
+    @property
+    def with_skip_update_submodules(self) -> Self:
+        return replace(self, skip_update_submodules=True)
 
 
 # main
@@ -99,15 +89,12 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.100")
+    _LOGGER.info("'public' version: 0.4.101")
     settings = _Settings.parse()
-    match settings.command:
-        case "init":
-            _initial_install(settings)
-        case "post":
-            _post_install(settings)
-        case never:
-            assert_never(never)
+    if not settings.post:
+        _initial_install(settings)
+    else:
+        _post_install(settings)
 
 
 def _initial_install(settings: _Settings, /) -> None:
@@ -118,7 +105,7 @@ def _initial_install(settings: _Settings, /) -> None:
     with TemporaryDirectory() as temp_dir:
         target = Path(temp_dir, "public")
         _clone_repo("https://github.com/queensberry-research/public.git", target)
-        _run_in_repo(settings.post_cmd, target, src=True)
+        _run_in_repo(settings.with_skip_update_submodules.cmd, target, src=True)
 
 
 def _post_install(settings: _Settings, /) -> None:
@@ -167,7 +154,6 @@ def _post_install(settings: _Settings, /) -> None:
     update_submodules()
     add_to_known_hosts()
     setup_bashrc(bashrc=cp_named_temporary(path_configs / ".bashrc", skip_log=True))
-    _setup_proxmox_sources()
     setup_ssh((
         cp_named_temporary(path_configs / "github-infra-mirror", skip_log=True),
         "github-infra-mirror",
@@ -176,6 +162,8 @@ def _post_install(settings: _Settings, /) -> None:
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/ssh/keys.txt"
     )
     setup_sshd(permit_root_login=True)
+    if settings.proxmox or _is_proxmox():
+        _setup_proxmox_sources()
     install_age()
     install_curl()
     install_direnv(direnv_toml=cp_named_temporary(path_configs / "direnv.toml"))
@@ -199,14 +187,15 @@ def _post_install(settings: _Settings, /) -> None:
     install_bottom()  # after curl, jq
     install_delta()  # after curl, jq
     install_sops(age_secret_key=settings.age_secret_key)  # after curl, jq
+    # install_sops(age_secret_key=settings.age_secret_key)  # after curl, jq
     install_yq()  # after curl, jq
     if settings.docker:
         install_docker()
-    if settings.infra_mirror:
-        _setup_infra_mirror()
+    if settings.proxmox or _is_proxmox():
+        _setup_proxmox()
 
 
-# utilities
+# utilities - standard library
 
 
 def _clone_repo(url: str, target: _PathLike, /) -> None:
@@ -253,6 +242,13 @@ def _run_in_repo(cmd: str, target: _PathLike, /, *, src: bool = False) -> None:
     _run_command(full_cmd, cwd=target, env=env)
 
 
+# utilities - standard library & public
+
+
+def _is_proxmox() -> bool:
+    return bool(search("proxmox", gethostname()))
+
+
 def _setup_proxmox_sources() -> None:
     from .constants import ETC
     from .utilities import apt_update, rm
@@ -272,6 +268,45 @@ def _setup_proxmox_sources() -> None:
         apt_update()
 
 
+def _setup_subnet_env_var() -> None:
+    from .constants import HOME
+    from .utilities import write_text
+
+    path = HOME / ".bashrc.d/subnet.sh"
+    if path.exists():
+        return
+    try:
+        subnet = environ["SUBNET"]
+    except KeyError:
+        ip = _get_current_ip()
+        _, _, current_str, _ = str(ip).split(".")
+        current = int(current_str)
+        config = _REPO_ROOT / "config.toml"
+        vlan = tomllib.loads(config.read_text())["network"]["vlan"]
+        main, test = vlan["main"], vlan["test"]
+        if current == main:
+            subnet = Subnet.main
+        elif current == test:
+            subnet = Subnet.test
+        else:
+            msg = f"Unable to determine subnet since current IP {ip} matches neither 'main' {main} nor 'test' {test}"
+            raise ValueError(msg) from None
+    text = f"export SUBNET='{subnet}'\n"
+    write_text(text, path)
+
+
+def _get_current_ip() -> IPv4Address:
+    with socket(AF_INET, SOCK_DGRAM) as s:
+        s.connect(("1.1.1.1", 80))
+        return IPv4Address(s.getsockname()[0])
+
+
+def _setup_resolv_conf(settings: Settings, /) -> None:
+    from .utilities import write_text
+
+    write_text(settings.proxmox.networking.resolv_conf, RESOLV_CONF, immutable=True)
+
+
 def _setup_infra_mirror() -> None:
     from .constants import HOME_INFRA
 
@@ -286,18 +321,11 @@ def _setup_infra_mirror() -> None:
 
 
 def generate_curl_public_installer(
-    *,
-    age_secret_key: _PathLike | None = None,
-    docker: bool = False,
-    infra_mirror: bool = False,
+    *, docker: bool = False, infra_mirror: bool = False
 ) -> str:
     parts: list[str] = []
-    if age_secret_key is not None:
-        parts.extend([_FLAG_AGE_SECRET_KEY, str(age_secret_key)])
     if docker:
         parts.append(_FLAG_DOCKER)
-    if infra_mirror:
-        parts.append(_FLAG_INFRA_MIRROR)
     cmd = " ".join(parts)
     return f"""rm -f /etc/apt/sources.list.d{{ceph,pve-enterprise}}.sources && {{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {_INIT_CMD} {cmd}"""
 
