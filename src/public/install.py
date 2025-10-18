@@ -27,7 +27,12 @@ _FLAG_POST = "--post"
 _FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 _FLAG_DOCKER = "--docker"
 _FLAG_PROXMOX = "--proxmox"
+FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
+FLAG_GITLAB = "--gitlab"
+FLAG_GITLAB_RUNNER = "--gitlab-runner"
+FLAG_POSTGRES = "--postgres"
 FLAG_PYPI = "--pypi"
+FLAG_REDIS = "--redis"
 
 
 # classes
@@ -39,7 +44,12 @@ class _Settings:
     skip_update_submodules: bool = False
     docker: bool = False
     proxmox: bool = False
+    ib_gateway_docker: bool = False
+    gitlab: bool = False
+    gitlab_runner: bool = False
+    postgres: bool = False
     pypi: bool = False
+    redis: bool = False
 
     @classmethod
     def parse(cls) -> _Settings:
@@ -59,13 +69,24 @@ class _Settings:
             _FLAG_PROXMOX, action="store_true", help="Run the Proxmox installation"
         )
         _ = parser.add_argument(
-            FLAG_PYPI, action="store_true", help="Run the PyPI installation"
+            FLAG_IB_GATEWAY_DOCKER, action="store_true", help="Setup IB Gateway Docker"
         )
+        _ = parser.add_argument(FLAG_GITLAB, action="store_true", help="Setup GitLab")
+        _ = parser.add_argument(
+            FLAG_GITLAB_RUNNER, action="store_true", help="Setup GitLab runner"
+        )
+        _ = parser.add_argument(
+            FLAG_POSTGRES, action="store_true", help="Setup Postgres"
+        )
+        _ = parser.add_argument(FLAG_PYPI, action="store_true", help="Setup PyPI")
+        _ = parser.add_argument(FLAG_REDIS, action="store_true", help="Setup Redis")
         return _Settings(**vars(parser.parse_args()))
 
     @property
     def cmd_public(self) -> str:
-        parts: list[str] = ["public.install", _FLAG_POST, _FLAG_SKIP_UPDATE_SUBMODULES]
+        parts: list[str] = ["public.install", _FLAG_SKIP_UPDATE_SUBMODULES]
+        if self.post:
+            parts.append(_FLAG_POST)
         if self.docker:
             parts.append(_FLAG_DOCKER)
         if self.proxmox:
@@ -92,7 +113,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.108")
+    _LOGGER.info("'public' version: 0.4.107")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -108,9 +129,7 @@ def _initial_install(settings: _Settings, /) -> None:
     with TemporaryDirectory() as temp_dir:
         target = Path(temp_dir, "public")
         _clone_repo("https://github.com/queensberry-research/public.git", target)
-        _run_command(
-            f"python3 -m {settings.cmd_public}", env={"PYTHONPATH": "src"}, cwd=target
-        )
+        _run_in_repo(settings.cmd_public, target, src=True)
 
 
 def _post_install(settings: _Settings, /) -> None:
@@ -149,7 +168,6 @@ def _post_install(settings: _Settings, /) -> None:
         cp_named_temporary,
         full_path,
         log_installer_version,
-        run_commands,
         update_submodules,
     )
 
@@ -211,7 +229,7 @@ def _post_install(settings: _Settings, /) -> None:
         install_docker()
     _clone_infra_mirror()
     if settings.pypi:
-        run_commands(settings.cmd_infra, cwd=HOME_INFRA)
+        _run_in_repo(settings.cmd_infra, HOME_INFRA, src=True)
 
 
 # utilities - standard library
@@ -244,15 +262,21 @@ def _run_command(
     # this function may only contain standard library imports
     ###########################################################################
     desc = f"Running {cmd!r}"
-    if env is None:
-        env_use = None
-    else:
-        env_use = {**environ, **env}
+    if env is not None:
         desc = f"{desc} [env={env}]"
     if cwd is not None:
         desc = f"{desc} [cwd={cwd}]"
     _LOGGER.info("%s...", desc)
-    _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env_use)
+    _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env)
+
+
+def _run_in_repo(cmd: str, target: _PathLike, /, *, src: bool = False) -> None:
+    ###########################################################################
+    # this utility may only contain standard library imports
+    ###########################################################################
+    full_cmd = f"python3 -m {cmd}"
+    env = {**environ, "PYTHONPATH": "src"} if src else None
+    _run_command(full_cmd, cwd=target, env=env)
 
 
 # utilities - standard library & public
@@ -369,7 +393,12 @@ def generate_curl_public_installer(
     skip_update_submodules: bool = False,
     docker: bool = False,
     proxmox: bool = False,
+    ib_gateway_docker: bool = False,
+    gitlab: bool = False,
+    gitlab_runner: bool = False,
+    postgres: bool = False,
     pypi: bool = False,
+    redis: bool = False,
 ) -> str:
     parts: list[str] = []
     if post:
@@ -380,13 +409,32 @@ def generate_curl_public_installer(
         parts.append(_FLAG_DOCKER)
     if proxmox:
         parts.append(_FLAG_PROXMOX)
+    if ib_gateway_docker:
+        parts.append(FLAG_IB_GATEWAY_DOCKER)
+    if gitlab:
+        parts.append(FLAG_GITLAB)
+    if gitlab_runner:
+        parts.append(FLAG_GITLAB_RUNNER)
+    if postgres:
+        parts.append(FLAG_POSTGRES)
     if pypi:
         parts.append(FLAG_PYPI)
+    if redis:
+        parts.append(FLAG_REDIS)
     cmd = " ".join(parts)
     return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {cmd}"""
 
 
-__all__ = ["FLAG_PYPI", "generate_curl_public_installer"]
+__all__ = [
+    "FLAG_GITLAB",
+    "FLAG_GITLAB_RUNNER",
+    "FLAG_IB_GATEWAY_DOCKER",
+    "FLAG_POSTGRES",
+    "FLAG_PYPI",
+    "FLAG_PYPI",
+    "FLAG_REDIS",
+    "generate_curl_public_installer",
+]
 
 
 if __name__ == "__main__":
