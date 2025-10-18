@@ -84,15 +84,23 @@ class _Settings:
 
     @property
     def cmd_public(self) -> str:
-        parts: list[str] = ["public.install", _FLAG_SKIP_UPDATE_SUBMODULES]
-        if self.post:
-            parts.append(_FLAG_POST)
+        parts: list[str] = ["public.install", _FLAG_POST, _FLAG_SKIP_UPDATE_SUBMODULES]
         if self.docker:
             parts.append(_FLAG_DOCKER)
         if self.proxmox:
             parts.append(_FLAG_PROXMOX)
+        if self.ib_gateway_docker:
+            parts.append(FLAG_IB_GATEWAY_DOCKER)
+        if self.gitlab:
+            parts.append(FLAG_GITLAB)
+        if self.gitlab_runner:
+            parts.append(FLAG_GITLAB_RUNNER)
+        if self.postgres:
+            parts.append(FLAG_POSTGRES)
         if self.pypi:
             parts.append(FLAG_PYPI)
+        if self.redis:
+            parts.append(FLAG_REDIS)
         return " ".join(parts)
 
     @property
@@ -113,7 +121,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.110")
+    _LOGGER.info("'public' version: 0.4.111")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -129,7 +137,9 @@ def _initial_install(settings: _Settings, /) -> None:
     with TemporaryDirectory() as temp_dir:
         target = Path(temp_dir, "public")
         _clone_repo("https://github.com/queensberry-research/public.git", target)
-        _run_in_repo(settings.cmd_public, target, src=True)
+        _run_command(
+            f"python3 -m {settings.cmd_public}", env={"PYTHONPATH": "src"}, cwd=target
+        )
 
 
 def _post_install(settings: _Settings, /) -> None:
@@ -168,6 +178,7 @@ def _post_install(settings: _Settings, /) -> None:
         cp_named_temporary,
         full_path,
         log_installer_version,
+        run_commands,
         update_submodules,
     )
 
@@ -228,8 +239,18 @@ def _post_install(settings: _Settings, /) -> None:
     if settings.docker:
         install_docker()
     _clone_infra_mirror()
-    if settings.pypi:
-        _run_in_repo(settings.cmd_infra, HOME_INFRA, src=True)
+    if not (
+        settings.ib_gateway_docker
+        or settings.gitlab
+        or settings.gitlab_runner
+        or settings.postgres
+        or settings.pypi
+        or settings.redis
+    ):
+        _LOGGER.info("Finished post installation")
+        return
+    run_commands(settings.cmd_infra, cwd=HOME_INFRA)
+    _LOGGER.info("Finished post installation")
 
 
 # utilities - standard library
@@ -262,12 +283,15 @@ def _run_command(
     # this function may only contain standard library imports
     ###########################################################################
     desc = f"Running {cmd!r}"
-    if env is not None:
+    if env is None:
+        env_use = None
+    else:
+        env_use = {**environ, **env}
         desc = f"{desc} [env={env}]"
     if cwd is not None:
         desc = f"{desc} [cwd={cwd}]"
     _LOGGER.info("%s...", desc)
-    _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env)
+    _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env_use)
 
 
 def _run_in_repo(cmd: str, target: _PathLike, /, *, src: bool = False) -> None:
