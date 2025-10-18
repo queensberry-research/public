@@ -23,10 +23,10 @@ if TYPE_CHECKING:
 
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
-_FLAG_DOCKER = "--docker"
 _FLAG_POST = "--post"
-_FLAG_PROXMOX = "--proxmox"
 _FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
+_FLAG_DOCKER = "--docker"
+_FLAG_PROXMOX = "--proxmox"
 FLAG_PYPI = "--pypi"
 
 
@@ -95,7 +95,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.103")
+    _LOGGER.info("'public' version: 0.4.104")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
