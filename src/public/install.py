@@ -65,9 +65,7 @@ class _Settings:
 
     @property
     def cmd_public(self) -> str:
-        parts: list[str] = ["public.install", _FLAG_SKIP_UPDATE_SUBMODULES]
-        if self.post:
-            parts.append(_FLAG_POST)
+        parts: list[str] = ["public.install", _FLAG_POST, _FLAG_SKIP_UPDATE_SUBMODULES]
         if self.docker:
             parts.append(_FLAG_DOCKER)
         if self.proxmox:
@@ -94,7 +92,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.107")
+    _LOGGER.info("'public' version: 0.4.108")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -110,7 +108,9 @@ def _initial_install(settings: _Settings, /) -> None:
     with TemporaryDirectory() as temp_dir:
         target = Path(temp_dir, "public")
         _clone_repo("https://github.com/queensberry-research/public.git", target)
-        _run_in_repo(settings.cmd_public, target, src=True)
+        _run_command(
+            f"python3 -m {settings.cmd_public}", env={"PYTHONPATH": "src"}, cwd=target
+        )
 
 
 def _post_install(settings: _Settings, /) -> None:
@@ -149,6 +149,7 @@ def _post_install(settings: _Settings, /) -> None:
         cp_named_temporary,
         full_path,
         log_installer_version,
+        run_commands,
         update_submodules,
     )
 
@@ -210,7 +211,7 @@ def _post_install(settings: _Settings, /) -> None:
         install_docker()
     _clone_infra_mirror()
     if settings.pypi:
-        _run_in_repo(settings.cmd_infra, HOME_INFRA, src=True)
+        run_commands(settings.cmd_infra, cwd=HOME_INFRA)
 
 
 # utilities - standard library
@@ -243,21 +244,15 @@ def _run_command(
     # this function may only contain standard library imports
     ###########################################################################
     desc = f"Running {cmd!r}"
-    if env is not None:
+    if env is None:
+        env_use = None
+    else:
+        env_use = {**environ, **env}
         desc = f"{desc} [env={env}]"
     if cwd is not None:
         desc = f"{desc} [cwd={cwd}]"
     _LOGGER.info("%s...", desc)
-    _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env)
-
-
-def _run_in_repo(cmd: str, target: _PathLike, /, *, src: bool = False) -> None:
-    ###########################################################################
-    # this utility may only contain standard library imports
-    ###########################################################################
-    full_cmd = f"python3 -m {cmd}"
-    env = {**environ, "PYTHONPATH": "src"} if src else None
-    _run_command(full_cmd, cwd=target, env=env)
+    _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env_use)
 
 
 # utilities - standard library & public
