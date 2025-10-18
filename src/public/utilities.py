@@ -4,7 +4,6 @@ from logging import getLogger
 
 from .installer_utilities import (
     TRY_DIRENV_EXPORT,
-    NamedTemporaryFile,
     TemporaryDirectory,
     append_contents,
     apt_install,
@@ -17,7 +16,6 @@ from .installer_utilities import (
     contains_line,
     cp,
     cp_if_given,
-    cp_named_temporary,
     download,
     dpkg_install,
     full_path,
@@ -53,12 +51,11 @@ _LOGGER = getLogger(__name__)
 
 
 def log_public_version() -> None:
-    _LOGGER.info("'public' version: 0.4.122")
+    _LOGGER.info("'public' version: 0.4.123")
 
 
 __all__ = [
     "TRY_DIRENV_EXPORT",
-    "NamedTemporaryFile",
     "TemporaryDirectory",
     "append_contents",
     "apt_install",
@@ -71,7 +68,6 @@ __all__ = [
     "contains_line",
     "cp",
     "cp_if_given",
-    "cp_named_temporary",
     "download",
     "dpkg_install",
     "full_path",
