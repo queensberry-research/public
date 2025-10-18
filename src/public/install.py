@@ -9,7 +9,6 @@ from pathlib import Path
 from re import search
 from shutil import copytree, which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
-from string import Template
 from subprocess import check_call
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Literal, assert_never
@@ -23,8 +22,6 @@ if TYPE_CHECKING:
 
 
 type _PathLike = Path | str
-
-
 _LOGGER = getLogger(__name__)
 _FLAG_DOCKER = "--docker"
 _FLAG_POST = "--post"
@@ -98,7 +95,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.102")
+    _LOGGER.info("'public' version: 0.4.103")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -157,11 +154,8 @@ def _post_install(settings: _Settings, /) -> None:
     )
 
     _LOGGER.info("Post installation...")
-    path_public = Path(__file__).parent
-    path_src = path_public.parent
-    repo_root = path_src.parent
-    path_configs = repo_root / "configs"
     log_installer_version()
+    configs, subnet = _get_configs(), _get_subnet()
     if not settings.skip_update_submodules:
         update_submodules()
     if settings.proxmox or _is_proxmox():
@@ -169,14 +163,16 @@ def _post_install(settings: _Settings, /) -> None:
         _setup_resolv_conf()
         _setup_subnet_env_var()
     add_to_known_hosts()
-    setup_bashrc(bashrc=cp_named_temporary(path_configs / ".bashrc", skip_log=True))
-    setup_ssh((
-        cp_named_temporary(path_configs / "github-infra-mirror", skip_log=True),
-        "github-infra-mirror",
-    ))
-    _setup_ssh_gitlab(
-        full_template=cp_named_temporary(path_configs / "gitlab-full", skip_log=True),
-        infra_template=cp_named_temporary(path_configs / "gitlab-infra", skip_log=True),
+    setup_bashrc(bashrc=cp_named_temporary(configs / ".bashrc", skip_log=True))
+    setup_ssh(
+        symlinks=[
+            cp_named_temporary(configs / "github-infra-mirror", skip_log=True),
+            "github-infra-mirror",
+        ],
+        templates=[
+            (configs / "gitlab-full", {"subnet": subnet}),
+            (configs / "gitlab-infra", {"subnet": subnet}),
+        ],
     )
     _setup_ssh_deploy_key()
     setup_ssh_keys(
@@ -185,21 +181,20 @@ def _post_install(settings: _Settings, /) -> None:
     setup_sshd(permit_root_login=True)
     install_age()
     install_curl()
-    install_direnv(direnv_toml=cp_named_temporary(path_configs / "direnv.toml"))
+    install_direnv(direnv_toml=cp_named_temporary(configs / "direnv.toml"))
     install_fd()
     install_fzf()
     install_jq()
     install_just()
-    temp_neovim = TemporaryDirectory(delete=False)
-    temp_neovim_inner = full_path(temp_neovim.name, "neovim")
-    _ = copytree(repo_root / "neovim", temp_neovim_inner)
-    install_neovim(nvim_dir=temp_neovim_inner)
+    neovim = full_path(TemporaryDirectory(delete=False).name, "neovim")
+    _ = copytree(_get_repo_root() / "neovim", neovim)
+    install_neovim(nvim_dir=neovim)
     install_ripgrep()
     install_rsync()
-    install_starship(starship_toml=cp_named_temporary(path_configs / "starship.toml"))
+    install_starship(starship_toml=cp_named_temporary(configs / "starship.toml"))
     install_tmux(
-        tmux_conf_oh_my_tmux=cp_named_temporary(path_configs / ".tmux.conf"),
-        tmux_conf_local=cp_named_temporary(path_configs / "tmux.conf.local"),
+        tmux_conf_oh_my_tmux=cp_named_temporary(configs / ".tmux.conf"),
+        tmux_conf_local=cp_named_temporary(configs / "tmux.conf.local"),
     )
     install_vim()
     install_uv()  # after curl
@@ -269,6 +264,16 @@ def _run_in_repo(cmd: str, target: _PathLike, /, *, src: bool = False) -> None:
 # utilities - standard library & public
 
 
+def _get_configs() -> Path:
+    return _get_repo_root() / "configs"
+
+
+def _get_repo_root() -> Path:
+    path_public = Path(__file__).parent
+    path_src = path_public.parent
+    return path_src.parent
+
+
 def _get_subnet() -> Literal["main", "test"]:
     from .constants import MAIN_SUBNET, TEST_SUBNET
 
@@ -279,9 +284,10 @@ def _get_subnet() -> Literal["main", "test"]:
             s.connect(("1.1.1.1", 80))
             ip = IPv4Address(s.getsockname()[0])
         _, _, third, _ = str(ip).split(".")
-        if int(third) == MAIN_SUBNET:
+        third = int(third)
+        if third == MAIN_SUBNET:
             return "main"
-        if int(third) == TEST_SUBNET:
+        if third == TEST_SUBNET:
             return "test"
         msg = f"Invalid IP; got {ip}"
         raise ValueError(msg) from None
@@ -317,9 +323,10 @@ def _setup_proxmox_sources() -> None:
 
 def _setup_resolv_conf() -> None:
     from .constants import MAIN_SUBNET, RESOLV_CONF, TEST_SUBNET
-    from .utilities import write_text
+    from .utilities import write_template
 
     _LOGGER.info("Setting up 'resolv.conf'...")
+    path_from = _get_configs() / "resolv.conf"
     match subnet := _get_subnet():
         case "main":
             n = MAIN_SUBNET
@@ -327,12 +334,7 @@ def _setup_resolv_conf() -> None:
             n = TEST_SUBNET
         case never:
             assert_never(never)
-    text = f"""\
-nameserver 192.168.{n}.1
-nameserver 8.8.8.8
-search {subnet}
-"""
-    write_text(text, RESOLV_CONF, immutable=True)
+    write_template(path_from, RESOLV_CONF, immutable=True, n=n, subnet=subnet)
 
 
 def _setup_ssh_deploy_key() -> None:
@@ -344,30 +346,14 @@ def _setup_ssh_deploy_key() -> None:
     cp(STORAGE_CONFIG.nfs.secrets / "deploy-key/infra", SSH / "infra")
 
 
-def _setup_ssh_gitlab(
-    *, full_template: _PathLike | None = None, infra_template: _PathLike | None = None
-) -> None:
-    from .constants import SSH_CONFIG_D
-    from .utilities import full_path, write_text
-
-    _LOGGER.info("Setting up GitLab SSH configs...")
-    subnet = _get_subnet()
-    if full_template is not None:
-        text = Template(full_path(full_template).read_text()).substitute(subnet=subnet)
-        write_text(text, SSH_CONFIG_D / "gitlab-full")
-    if infra_template is not None:
-        text = Template(full_path(infra_template).read_text()).substitute(subnet=subnet)
-        write_text(text, SSH_CONFIG_D / "gitlab-infra")
-
-
 def _setup_subnet_env_var() -> None:
     from .constants import HOME
-    from .utilities import write_text
+    from .utilities import write_template
 
+    path_from = _get_configs() / "subnet.sh"
+    path_to = HOME / ".bashrc.d/subnet.sh"
     subnet = _get_subnet()
-    text = f"export SUBNET='{subnet}'\n"
-    path = HOME / ".bashrc.d/subnet.sh"
-    write_text(text, path)
+    write_template(path_from, path_to, subnet=subnet)
 
 
 def _clone_infra_mirror() -> None:
