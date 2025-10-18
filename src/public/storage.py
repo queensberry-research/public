@@ -61,6 +61,14 @@ nfs: {self.name}
   nodes {",".join(self.nodes)}
 """
 
+    @property
+    def qrt(self) -> Path:
+        return self.path / "qrt"
+
+    @property
+    def secrets(self) -> Path:
+        return self.qrt / "secrets"
+
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _StorageZFSPoolConfig:

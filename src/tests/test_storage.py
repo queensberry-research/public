@@ -9,6 +9,8 @@ class TestStorageConfig:
     def test_main(self) -> None:
         assert STORAGE_CONFIG.dir_.name == "local"
         assert STORAGE_CONFIG.nfs.path == Path("/mnt/pve/qrt-share")
+        assert STORAGE_CONFIG.nfs.qrt == Path("/mnt/pve/qrt-share/qrt")
+        assert STORAGE_CONFIG.nfs.secrets == Path("/mnt/pve/qrt-share/qrt/secrets")
         assert STORAGE_CONFIG.zfspool.pool == Path("rpool/data")
         assert (
             str(STORAGE_CONFIG)
