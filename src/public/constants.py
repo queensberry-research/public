@@ -33,6 +33,7 @@ from .installer_constants import (
 
 ETC = Path("/etc")
 HOME_INFRA = HOME / "infra"
+HOME_PUBLIC = HOME / "public"
 SSH_INFRA = SSH / "infra"
 
 
@@ -64,6 +65,7 @@ __all__ = [
     "ETC",
     "HOME",
     "HOME_INFRA",
+    "HOME_PUBLIC",
     "KNOWN_HOSTS",
     "LOCAL_BIN",
     "MAIN_SUBNET",

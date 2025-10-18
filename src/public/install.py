@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
 _FLAG_POST = "--post"
-_FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 _FLAG_DOCKER = "--docker"
 _FLAG_PROXMOX = "--proxmox"
 FLAG_SKIP_PUBLIC = "--skip-public"
@@ -42,7 +41,6 @@ FLAG_REDIS = "--redis"
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _Settings:
     post: bool = False
-    skip_update_submodules: bool = False
     docker: bool = False
     proxmox: bool = False
     ib_gateway_docker: bool = False
@@ -57,11 +55,6 @@ class _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         _ = parser.add_argument(
             _FLAG_POST, action="store_true", help="Run the post-installation"
-        )
-        _ = parser.add_argument(
-            _FLAG_SKIP_UPDATE_SUBMODULES,
-            action="store_true",
-            help="Skip the updating of the submodules",
         )
         _ = parser.add_argument(
             _FLAG_DOCKER, action="store_true", help="Install 'docker'"
@@ -85,13 +78,7 @@ class _Settings:
 
     @property
     def python3_public(self) -> str:
-        parts: list[str] = [
-            "python3",
-            "-m",
-            "public.install",
-            _FLAG_POST,
-            _FLAG_SKIP_UPDATE_SUBMODULES,
-        ]
+        parts: list[str] = ["python3", "-m", "public.install", _FLAG_POST]
         if self.docker:
             parts.append(_FLAG_DOCKER)
         if self.proxmox:
@@ -133,7 +120,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.121")
+    _LOGGER.info("'public' version: 0.4.122")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -146,10 +133,10 @@ def _initial_install(settings: _Settings, /) -> None:
     # this installer may only contain standard library imports
     ###########################################################################
     _LOGGER.info("Initial installation...")
-    with TemporaryDirectory() as temp_dir:
-        target = Path(temp_dir, "public")
-        _clone_repo("https://github.com/queensberry-research/public.git", target)
-        _run_command(settings.python3_public, env={"PYTHONPATH": "src"}, cwd=target)
+    target = Path("~/public").expanduser()
+    _clone_repo("https://github.com/queensberry-research/public.git", target)
+    _LOGGER.info("Finished initial installation")
+    _run_commands(settings.python3_public, env={"PYTHONPATH": "src"}, cwd=target)
 
 
 def _post_install(settings: _Settings, /) -> None:
@@ -193,10 +180,9 @@ def _post_install(settings: _Settings, /) -> None:
     )
 
     _LOGGER.info("Post installation...")
+    update_submodules()
     log_installer_version()
     configs, subnet = _get_configs(), _get_subnet()
-    if not settings.skip_update_submodules:
-        update_submodules()
     if settings.proxmox or _is_proxmox():
         _setup_proxmox_sources()
         _setup_resolv_conf()
@@ -264,11 +250,23 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
     ###########################################################################
     if not _have_command("git"):
         _LOGGER.info("Installing 'git'...")
-        _run_command("apt -y update && apt install -y git")
+        _run_commands("apt -y update && apt install -y git")
     target = Path(target)
-    if not target.exists():
+    if target.exists():
         _LOGGER.info("Cloning %r to %r...", url, str(target))
-        _run_command(f"git clone --recurse-submodules {url} {target}")
+        _run_commands(
+            "git pull",
+            "git submodule update --init --recursive",
+            """git submodule foreach --recursive '
+            git checkout -- . &&
+            git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
+            git pull --ff-only
+        '""",
+            cwd=target,
+        )
+    else:
+        _LOGGER.info("Cloning %r to %r...", url, str(target))
+        _run_commands(f"git clone --recurse-submodules {url} {target}")
 
 
 def _have_command(cmd: str, /) -> bool:
@@ -276,6 +274,16 @@ def _have_command(cmd: str, /) -> bool:
     # this function may only contain standard library imports
     ###########################################################################
     return which(cmd) is not None
+
+
+def _run_commands(
+    *cmds: str, env: Mapping[str, str] | None = None, cwd: _PathLike | None = None
+) -> None:
+    ###########################################################################
+    # this function may only contain standard library imports
+    ###########################################################################
+    for cmd in cmds:
+        _run_command(cmd, env=env, cwd=cwd)
 
 
 def _run_command(
@@ -410,7 +418,6 @@ def _clone_infra_mirror() -> None:
 def generate_curl_public_installer(
     *,
     post: bool = False,
-    skip_update_submodules: bool = False,
     docker: bool = False,
     proxmox: bool = False,
     ib_gateway_docker: bool = False,
@@ -423,8 +430,6 @@ def generate_curl_public_installer(
     parts: list[str] = []
     if post:
         parts.append(_FLAG_POST)
-    if skip_update_submodules:
-        parts.append(_FLAG_SKIP_UPDATE_SUBMODULES)
     if docker:
         parts.append(_FLAG_DOCKER)
     if proxmox:
