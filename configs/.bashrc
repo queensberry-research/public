@@ -4,18 +4,6 @@
 export PATH="$HOME/.local/bin${PATH:+:$PATH}"
 export PATH="/usr/local/bin${PATH:+:$PATH}"
 
-# tmux
-if [ -z "$TMUX" ]; then
-	count=$(tmux ls 2>/dev/null | wc -l)
-	if [ "$count" -eq 0 ]; then
-		tmux new
-	elif [ "$count" -eq 1 ]; then
-		tmux attach
-	else
-		echo "Detected $count 'tmux' sessions; skipping auto-new/attach"
-	fi
-fi
-
 # local
 if [ -d "$HOME/.bashrc.d" ]; then
 	for file in "$HOME"/.bashrc.d/*; do
