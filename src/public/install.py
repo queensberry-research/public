@@ -27,6 +27,7 @@ _FLAG_POST = "--post"
 _FLAG_SKIP_UPDATE_SUBMODULES = "--skip-update-submodules"
 _FLAG_DOCKER = "--docker"
 _FLAG_PROXMOX = "--proxmox"
+FLAG_SKIP_PUBLIC = "--skip-public"
 FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
 FLAG_GITLAB = "--gitlab"
 FLAG_GITLAB_RUNNER = "--gitlab-runner"
@@ -100,7 +101,7 @@ class _Settings:
 
     @property
     def python3_infra(self) -> str:
-        parts: list[str] = ["python3", "-m", "infra.install"]
+        parts: list[str] = ["python3", "-m", "infra.install", FLAG_SKIP_PUBLIC]
         parts.extend(self._flags)
         return " ".join(parts)
 
@@ -132,7 +133,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.115")
+    _LOGGER.info("'public' version: 0.4.116")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -452,6 +453,7 @@ __all__ = [
     "FLAG_PYPI",
     "FLAG_PYPI",
     "FLAG_REDIS",
+    "FLAG_SKIP_PUBLIC",
     "generate_curl_public_installer",
 ]
 
