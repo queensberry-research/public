@@ -89,6 +89,18 @@ class _Settings:
             parts.append(_FLAG_DOCKER)
         if self.proxmox:
             parts.append(_FLAG_PROXMOX)
+        parts.extend(self._flags)
+        return " ".join(parts)
+
+    @property
+    def cmd_infra(self) -> str:
+        parts: list[str] = ["infra.install"]
+        parts.extend(self._flags)
+        return " ".join(parts)
+
+    @property
+    def _flags(self) -> list[str]:
+        parts: list[str] = []
         if self.ib_gateway_docker:
             parts.append(FLAG_IB_GATEWAY_DOCKER)
         if self.gitlab:
@@ -101,14 +113,7 @@ class _Settings:
             parts.append(FLAG_PYPI)
         if self.redis:
             parts.append(FLAG_REDIS)
-        return " ".join(parts)
-
-    @property
-    def cmd_infra(self) -> str:
-        parts: list[str] = ["infra.install"]
-        if self.pypi:
-            parts.append(FLAG_PYPI)
-        return " ".join(parts)
+        return parts
 
 
 # main
@@ -121,7 +126,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.111")
+    _LOGGER.info("'public' version: 0.4.112")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -239,16 +244,6 @@ def _post_install(settings: _Settings, /) -> None:
     if settings.docker:
         install_docker()
     _clone_infra_mirror()
-    if not (
-        settings.ib_gateway_docker
-        or settings.gitlab
-        or settings.gitlab_runner
-        or settings.postgres
-        or settings.pypi
-        or settings.redis
-    ):
-        _LOGGER.info("Finished post installation")
-        return
     run_commands(settings.cmd_infra, cwd=HOME_INFRA)
     _LOGGER.info("Finished post installation")
 
