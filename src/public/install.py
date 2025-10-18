@@ -94,7 +94,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.106")
+    _LOGGER.info("'public' version: 0.4.107")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
