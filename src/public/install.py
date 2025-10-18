@@ -61,8 +61,7 @@ class _Settings:
         _ = parser.add_argument(
             FLAG_PYPI, action="store_true", help="Run the PyPI installation"
         )
-        namespace = parser.parse_args()
-        return _Settings(**vars(namespace))
+        return _Settings(**vars(parser.parse_args()))
 
     @property
     def cmd_public(self) -> str:
@@ -95,7 +94,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.104")
+    _LOGGER.info("'public' version: 0.4.105")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
