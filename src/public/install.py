@@ -128,12 +128,12 @@ class _Settings:
 
 def _main() -> None:
     basicConfig(
-        format="{asctime} | {message}",
+        format="{asctime} | {module}:{funcName}:{lineno} | {message}",
         datefmt="%Y-%m-%d %H:%M:%S",
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.120")
+    _LOGGER.info("'public' version: 0.4.121")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
