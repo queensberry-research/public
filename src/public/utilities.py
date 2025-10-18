@@ -41,6 +41,7 @@ from .installer_utilities import (
     update_submodules,
     uv_tool_install,
     which,
+    write_template,
     write_text,
     yield_download,
     yield_github_latest_download,
@@ -51,7 +52,7 @@ _LOGGER = getLogger(__name__)
 
 
 def log_public_version() -> None:
-    _LOGGER.info("'public' version: 0.4.102")
+    _LOGGER.info("'public' version: 0.4.103")
 
 
 __all__ = [
@@ -93,6 +94,7 @@ __all__ = [
     "update_submodules",
     "uv_tool_install",
     "which",
+    "write_template",
     "write_text",
     "yield_download",
     "yield_github_latest_download",
