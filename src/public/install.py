@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 type _Mode = Literal["core", "core-in-repo", "infra", "password"]
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
-_ENV = {"PYTHONPATH": "src"}
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -102,7 +101,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.155")
+    _LOGGER.info("'public' version: 0.4.156")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -158,7 +157,7 @@ def _core_install(*, docker: bool = False) -> None:
     if docker:
         parts.append(_FLAG_DOCKER)
     _update_code(cwd=_HOME_PUBLIC)
-    _run_commands(" ".join(parts), env=_ENV, cwd=_HOME_PUBLIC)
+    _run_commands(" ".join(parts), env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
 
 
 def _core_install_in_repo(*, docker: bool = False) -> None:
@@ -285,9 +284,7 @@ def _setup_root_password(password: str, /) -> None:
     # standard library imports only
     ###########################################################################
     _LOGGER.info("Setting root password...")
-    _run_commands(
-        f"echo 'root:{password}' | chpasswd", env=_ENV, cwd=_HOME_PUBLIC, skip_log=True
-    )
+    _run_commands(f"echo 'root:{password}' | chpasswd", skip_log=True)
     _LOGGER.info("Finished setting root password")
 
 
