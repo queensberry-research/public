@@ -146,7 +146,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.141")
+    _LOGGER.info("'public' version: 0.4.142")
     settings = _PublicInstallerSettings.parse()
     if not settings.post:
         _initial_install(settings)
