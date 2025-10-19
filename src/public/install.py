@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 ###############################################################################
 
 
-type _Mode = Literal["core", "infra"]
+type _Mode = Literal["core", "infra", "password"]
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
 _FLAG_MODE = "--mode"
@@ -119,7 +119,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.144")
+    _LOGGER.info("'public' version: 0.4.145")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
