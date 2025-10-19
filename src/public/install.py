@@ -81,7 +81,7 @@ class _Settings:
         return _Settings(**vars(parser.parse_args()))
 
     @property
-    def python3_public(self) -> str:
+    def python3_public_post(self) -> str:
         parts: list[str] = ["python3", "-m", "public.install", _FLAG_POST]
         if self.docker:
             parts.append(_FLAG_DOCKER)
@@ -91,7 +91,7 @@ class _Settings:
         return " ".join(parts)
 
     @property
-    def python3_infra(self) -> str:
+    def python3_infra_skip_public(self) -> str:
         parts: list[str] = ["python3", "-m", "infra.install", FLAG_SKIP_PUBLIC]
         parts.extend(self._flags)
         return " ".join(parts)
@@ -124,7 +124,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.129")
+    _LOGGER.info("'public' version: 0.4.130")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -140,7 +140,7 @@ def _initial_install(settings: _Settings, /) -> None:
     target = Path("~/public").expanduser()
     _clone_repo("https://github.com/queensberry-research/public.git", target)
     _LOGGER.info("Finished initial installation")
-    _run_commands(settings.python3_public, env={"PYTHONPATH": "src"}, cwd=target)
+    _run_commands(settings.python3_public_post, env={"PYTHONPATH": "src"}, cwd=target)
 
 
 def _post_install(settings: _Settings, /) -> None:
@@ -234,7 +234,7 @@ def _post_install(settings: _Settings, /) -> None:
         _LOGGER.info("Skipping infra installer...")
     else:
         _LOGGER.info("Running infra installer...")
-        run_commands(settings.python3_infra, cwd=HOME_INFRA)
+        run_commands(settings.python3_infra_skip_public, cwd=HOME_INFRA)
         _LOGGER.info("Finished running infra installer")
     _LOGGER.info("Finished post installation")
 
