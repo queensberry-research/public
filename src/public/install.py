@@ -25,6 +25,7 @@ type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
 _FLAG_MODE = "--mode"
 _FLAG_DOCKER = "--docker"
+_FLAG_PASSWORD = "--password"  # noqa: S105
 FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
 FLAG_GITLAB = "--gitlab"
 FLAG_GITLAB_RUNNER = "--gitlab-runner"
@@ -41,6 +42,7 @@ FLAG_FORCE_RECREATE = "--force-recreate"
 class _PublicInstallerSettings:
     mode: _Mode | None = None
     docker: bool = False
+    password: str | None = None
     ib_gateway_docker: bool = False
     gitlab: bool = False
     gitlab_runner: bool = False
@@ -61,6 +63,7 @@ class _PublicInstallerSettings:
         _ = parser.add_argument(
             _FLAG_DOCKER, action="store_true", help="Install 'docker'"
         )
+        _ = parser.add_argument(_FLAG_PASSWORD, type=str, help="Root password")
         _ = parser.add_argument(
             FLAG_IB_GATEWAY_DOCKER, action="store_true", help="Setup IB Gateway Docker"
         )
@@ -136,6 +139,11 @@ def _install() -> None:
                 redis=settings.redis,
                 force_recreate=settings.force_recreate,
             )
+        case "password":
+            if settings.password is None:
+                msg = "'password' must be given"
+                raise ValueError(msg)
+            _set_root_password(settings.password)
         case never:
             assert_never(never)
 
@@ -154,9 +162,6 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
 
 
 def _core_install(*, docker: bool = False) -> None:
-    ###########################################################################
-    # this installer may only contain standard library & `public` imports
-    ###########################################################################
     from .constants import HOME_INFRA, HOME_PUBLIC
     from .lib import (
         add_to_known_hosts,
@@ -252,9 +257,6 @@ def _infra_install(
     redis: bool = False,
     force_recreate: bool = False,
 ) -> None:
-    ###########################################################################
-    # this installer may only contain standard library & `public` imports
-    ###########################################################################
     from .constants import HOME_INFRA
     from .utilities import run_commands
 
@@ -277,6 +279,14 @@ def _infra_install(
     _LOGGER.info("Finished running 'infra.install'")
     run_commands(" ".join(parts), cwd=HOME_INFRA)
     _LOGGER.info("Finished cloning & installing 'infra'...")
+
+
+def _set_root_password(password: str, /) -> None:
+    from .utilities import run_commands
+
+    _LOGGER.info("Setting root password...")
+    run_commands(f"echo 'root:{password}' | sudo chpasswd")
+    _LOGGER.info("Finished setting root password")
 
 
 # utilities - standard library
