@@ -119,7 +119,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.126")
+    _LOGGER.info("'public' version: 0.4.127")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -386,6 +386,7 @@ def _setup_subnet_env_var() -> None:
 def generate_curl_public_installer(
     *,
     post: bool = False,
+    skip_public: bool = False,
     docker: bool = False,
     proxmox: bool = False,
     ib_gateway_docker: bool = False,
@@ -402,6 +403,8 @@ def generate_curl_public_installer(
         parts.append(_FLAG_DOCKER)
     if proxmox:
         parts.append(_FLAG_PROXMOX)
+    if skip_public:
+        parts.append(FLAG_SKIP_PUBLIC)
     if ib_gateway_docker:
         parts.append(FLAG_IB_GATEWAY_DOCKER)
     if gitlab:
