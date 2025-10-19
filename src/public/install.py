@@ -16,17 +16,16 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 ###############################################################################
-# NOTE: the top-level may only contain standard library imports
+# standard library imports only
 ###############################################################################
 
 
-type _Mode = Literal[
-    "core", "core-repo", "infra", "infra-repo", "password", "password-repo"
-]
+type _Mode = Literal["core", "core-in-repo", "infra", "password"]
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
 _ENV = {"PYTHONPATH": "src"}
 _HOME_PUBLIC = Path("~/public").expanduser()
+_HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
 _PYTHON3_M_PUBLIC = f"{_PYTHON3_M} public.install"
 _FLAG_MODE = "--mode"
@@ -103,26 +102,16 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.153")
+    _LOGGER.info("'public' version: 0.4.154")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
             _initial_install(settings)
         case "core":
-            _core_entry(docker=settings.docker)
-        case "core-repo":
-            _core_install(docker=settings.docker)
+            _core_in_stall(docker=settings.docker)
+        case "core-in-repo":
+            _core_install_in_repo(docker=settings.docker)
         case "infra":
-            _infra_entry(
-                ib_gateway_docker=settings.ib_gateway_docker,
-                gitlab=settings.gitlab,
-                gitlab_runner=settings.gitlab_runner,
-                postgres=settings.postgres,
-                pypi=settings.pypi,
-                redis=settings.redis,
-                force_recreate=settings.force_recreate,
-            )
-        case "infra-repo":
             _infra_install(
                 ib_gateway_docker=settings.ib_gateway_docker,
                 gitlab=settings.gitlab,
@@ -136,25 +125,20 @@ def _install() -> None:
             if settings.password is None:
                 msg = "'password' must be given"
                 raise ValueError(msg)
-            _password_entry(settings.password)
-        case "password-repo":
-            if settings.password is None:
-                msg = "'password' must be given"
-                raise ValueError(msg)
-            _password_install(settings.password)
+            _setup_root_password(settings.password)
         case never:
             assert_never(never)
 
 
 def _initial_install(settings: _PublicInstallerSettings, /) -> None:
     ###########################################################################
-    # this installer may only contain standard library imports
+    # standard library imports only
     ###########################################################################
     _LOGGER.info("Running initial installation...")
     _clone_repo("https://github.com/queensberry-research/public.git", _HOME_PUBLIC)
     _LOGGER.info("Finished running initial installation")
-    _core_entry(docker=settings.docker)
-    _infra_entry(
+    _core_in_stall(docker=settings.docker)
+    _infra_install(
         ib_gateway_docker=settings.ib_gateway_docker,
         gitlab=settings.gitlab,
         gitlab_runner=settings.gitlab_runner,
@@ -165,16 +149,19 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
     )
 
 
-def _core_entry(*, docker: bool = False) -> None:
-    mode: _Mode = "core-repo"
+def _core_in_stall(*, docker: bool = False) -> None:
+    ###########################################################################
+    # standard library imports only
+    ###########################################################################
+    mode: _Mode = "core-in-repo"
     parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
     if docker:
         parts.append(_FLAG_DOCKER)
     _update_code()
-    _run_command(" ".join(parts), env=_ENV, cwd=_HOME_PUBLIC)
+    _run_commands(" ".join(parts), env=_ENV, cwd=_HOME_PUBLIC)
 
 
-def _core_install(*, docker: bool = False) -> None:
+def _core_install_in_repo(*, docker: bool = False) -> None:
     from .constants import HOME_INFRA, HOME_PUBLIC
     from .lib import (
         add_to_known_hosts,
@@ -259,36 +246,6 @@ def _core_install(*, docker: bool = False) -> None:
     _LOGGER.info("Finished running core installation")
 
 
-def _infra_entry(
-    *,
-    ib_gateway_docker: bool = False,
-    gitlab: bool = False,
-    gitlab_runner: bool = False,
-    postgres: bool = False,
-    pypi: bool = False,
-    redis: bool = False,
-    force_recreate: bool = False,
-) -> None:
-    mode: _Mode = "infra-repo"
-    parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
-    if ib_gateway_docker:
-        parts.append(FLAG_IB_GATEWAY_DOCKER)
-    if gitlab:
-        parts.append(FLAG_GITLAB)
-    if gitlab_runner:
-        parts.append(FLAG_GITLAB_RUNNER)
-    if postgres:
-        parts.append(FLAG_POSTGRES)
-    if pypi:
-        parts.append(FLAG_PYPI)
-    if redis:
-        parts.append(FLAG_REDIS)
-    if force_recreate:
-        parts.append(FLAG_FORCE_RECREATE)
-    _update_code()
-    _run_command(" ".join(parts), env=_ENV, cwd=_HOME_PUBLIC)
-
-
 def _infra_install(
     *,
     ib_gateway_docker: bool = False,
@@ -299,9 +256,9 @@ def _infra_install(
     redis: bool = False,
     force_recreate: bool = False,
 ) -> None:
-    from .constants import HOME_INFRA
-    from .utilities import run_commands
-
+    ###########################################################################
+    # standard library imports only
+    ###########################################################################
     _LOGGER.info("Running 'infra.install'...")
     parts: list[str] = [_PYTHON3_M, "infra.install"]
     if ib_gateway_docker:
@@ -318,24 +275,16 @@ def _infra_install(
         parts.append(FLAG_REDIS)
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
-    run_commands(" ".join(parts), cwd=HOME_INFRA)
+    _run_commands(" ".join(parts), cwd=_HOME_INFRA)
     _LOGGER.info("Finished running 'infra.install'")
 
 
-def _password_entry(password: str, /) -> None:
-    mode: _Mode = "password-repo"
-    _update_code()
-    _run_commands(
-        f"{_PYTHON3_M_PUBLIC} {_FLAG_MODE} {mode} {_FLAG_PASSWORD} {password}",
-        cwd=_HOME_PUBLIC,
-    )
-
-
-def _password_install(password: str, /) -> None:
-    from .utilities import run_commands
-
+def _setup_root_password(password: str, /) -> None:
+    ###########################################################################
+    # standard library imports only
+    ###########################################################################
     _LOGGER.info("Setting root password...")
-    run_commands(
+    _run_commands(
         f"echo 'root:{password}' | sudo chpasswd",
         env=_ENV,
         cwd=_HOME_PUBLIC,
@@ -373,17 +322,25 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
 
 
 def _run_commands(
-    *cmds: str, env: Mapping[str, str] | None = None, cwd: _PathLike | None = None
+    *cmds: str,
+    env: Mapping[str, str] | None = None,
+    cwd: _PathLike | None = None,
+    skip_log: bool = False,
 ) -> None:
     ###########################################################################
     # this function may only contain standard library imports
     ###########################################################################
     for cmd in cmds:
-        _run_command(cmd, env=env, cwd=cwd)
+        _run_command(cmd, env=env, cwd=cwd, skip_log=skip_log)
 
 
 def _run_command(
-    cmd: str, /, *, env: Mapping[str, str] | None = None, cwd: _PathLike | None = None
+    cmd: str,
+    /,
+    *,
+    env: Mapping[str, str] | None = None,
+    cwd: _PathLike | None = None,
+    skip_log: bool = False,
 ) -> None:
     ###########################################################################
     # this function may only contain standard library imports
@@ -396,7 +353,8 @@ def _run_command(
         desc = f"{desc} [env={env}]"
     if cwd is not None:
         desc = f"{desc} [cwd={cwd}]"
-    _LOGGER.info("%s...", desc)
+    if not skip_log:
+        _LOGGER.info("%s...", desc)
     _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env_use)
 
 
