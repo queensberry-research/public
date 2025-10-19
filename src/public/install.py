@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from ipaddress import IPv4Address
 from logging import basicConfig, getLogger
 from os import environ
@@ -86,7 +86,7 @@ class _PublicInstallerSettings:
             FLAG_FORCE_RECREATE, action="store_true", help="Force re-create containers"
         )
         settings = _PublicInstallerSettings(**vars(parser.parse_args()))
-        _LOGGER.info("'public' settings: %s", settings)
+        _LOGGER.info("'public' settings: %s", replace(settings, password="***"))  # noqa: S106
         return settings
 
 
@@ -103,7 +103,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.152")
+    _LOGGER.info("'public' version: 0.4.153")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
