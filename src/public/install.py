@@ -7,10 +7,9 @@ from logging import basicConfig, getLogger
 from os import environ
 from pathlib import Path
 from re import search
-from shutil import copytree, which
+from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from subprocess import check_call
-from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Literal, assert_never
 
 if TYPE_CHECKING:
@@ -120,7 +119,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.123")
+    _LOGGER.info("'public' version: 0.4.124")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -171,12 +170,7 @@ def _post_install(settings: _Settings, /) -> None:
         setup_sshd,
     )
     from .storage import STORAGE_CONFIG
-    from .utilities import (
-        full_path,
-        log_installer_version,
-        run_commands,
-        update_submodules,
-    )
+    from .utilities import log_installer_version, run_commands, update_submodules
 
     _LOGGER.info("Post installation...")
     update_submodules()
@@ -207,9 +201,7 @@ def _post_install(settings: _Settings, /) -> None:
     install_fzf()
     install_jq()
     install_just()
-    neovim = full_path(TemporaryDirectory(delete=False).name, "neovim")
-    _ = copytree(_get_repo_root() / "neovim", neovim)
-    install_neovim(nvim_dir=neovim)
+    install_neovim(nvim_dir=_get_repo_root() / "neovim")
     install_ripgrep()
     install_rsync()
     install_starship(starship_toml=configs / "starship.toml")
