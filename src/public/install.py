@@ -108,7 +108,7 @@ def _install() -> None:
         case None:
             _initial_install(settings)
         case "core":
-            _core_in_stall(docker=settings.docker)
+            _core_install(docker=settings.docker)
         case "core-in-repo":
             _core_install_in_repo(docker=settings.docker)
         case "infra":
@@ -137,7 +137,7 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
     _LOGGER.info("Running initial installation...")
     _clone_repo("https://github.com/queensberry-research/public.git", _HOME_PUBLIC)
     _LOGGER.info("Finished running initial installation")
-    _core_in_stall(docker=settings.docker)
+    _core_install(docker=settings.docker)
     _infra_install(
         ib_gateway_docker=settings.ib_gateway_docker,
         gitlab=settings.gitlab,
@@ -149,7 +149,7 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
     )
 
 
-def _core_in_stall(*, docker: bool = False) -> None:
+def _core_install(*, docker: bool = False) -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
