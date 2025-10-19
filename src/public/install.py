@@ -91,7 +91,7 @@ class _Settings:
         return " ".join(parts)
 
     @property
-    def python3_infra(self) -> str:
+    def python3_infra_skip_public(self) -> str:
         parts: list[str] = ["python3", "-m", "infra.install", FLAG_SKIP_PUBLIC]
         parts.extend(self._flags)
         return " ".join(parts)
@@ -234,7 +234,7 @@ def _post_install(settings: _Settings, /) -> None:
         _LOGGER.info("Skipping infra installer...")
     else:
         _LOGGER.info("Running infra installer...")
-        run_commands(settings.python3_infra, cwd=HOME_INFRA)
+        run_commands(settings.python3_infra_skip_public, cwd=HOME_INFRA)
         _LOGGER.info("Finished running infra installer")
     _LOGGER.info("Finished post installation")
 
