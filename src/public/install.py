@@ -122,7 +122,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.145")
+    _LOGGER.info("'public' version: 0.4.146")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -453,6 +453,7 @@ def curl_public_install(
     *,
     mode: _Mode | None = None,
     docker: bool = False,
+    password: str | None = None,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
     gitlab_runner: bool = False,
@@ -462,10 +463,12 @@ def curl_public_install(
     force_recreate: bool = False,
 ) -> str:
     parts: list[str] = []
-    if mode:
-        parts.extend([_FLAG_MODE, "mode"])
+    if mode is not None:
+        parts.extend([_FLAG_MODE, mode])
     if docker:
         parts.append(_FLAG_DOCKER)
+    if password:
+        parts.extend([_FLAG_PASSWORD, password])
     if ib_gateway_docker:
         parts.append(FLAG_IB_GATEWAY_DOCKER)
     if gitlab:
