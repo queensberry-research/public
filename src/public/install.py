@@ -288,7 +288,7 @@ def _infra_entry(
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
     cmd = " ".join(parts)
-    _run_command(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
+    _run_command(cmd, env=_ENV, cwd=_HOME_PUBLIC)
 
 
 def _infra_install(
@@ -320,9 +320,8 @@ def _infra_install(
         parts.append(FLAG_REDIS)
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
-    _LOGGER.info("Finished running 'infra.install'")
     run_commands(" ".join(parts), cwd=HOME_INFRA)
-    _LOGGER.info("Finished cloning & installing 'infra'...")
+    _LOGGER.info("Finished running 'infra.install'")
 
 
 def _password_entry(password: str, /) -> None:
@@ -337,7 +336,12 @@ def _password_install(password: str, /) -> None:
     from .utilities import run_commands
 
     _LOGGER.info("Setting root password...")
-    run_commands(f"echo 'root:{password}' | sudo chpasswd", skip_log=True)
+    run_commands(
+        f"echo 'root:{password}' | sudo chpasswd",
+        env=_ENV,
+        cwd=_HOME_PUBLIC,
+        skip_log=True,
+    )
     _LOGGER.info("Finished setting root password")
 
 
