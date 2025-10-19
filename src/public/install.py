@@ -28,6 +28,8 @@ type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
 _ENV = {"PYTHONPATH": "src"}
 _HOME_PUBLIC = Path("~/public").expanduser()
+_PYTHON3_M = "python3 -m"
+_PYTHON3_M_PUBLIC = f"{_PYTHON3_M} public.install"
 _FLAG_MODE = "--mode"
 _FLAG_DOCKER = "--docker"
 _FLAG_PASSWORD = "--password"  # noqa: S105
@@ -166,7 +168,7 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
 
 def _core_entry(*, docker: bool = False) -> None:
     mode: _ModeAll = "core-repo"
-    parts: list[str] = ["python3", "-m", _FLAG_MODE, mode]
+    parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
     if docker:
         parts.append(_FLAG_DOCKER)
     cmd = " ".join(parts)
@@ -270,7 +272,7 @@ def _infra_entry(
     force_recreate: bool = False,
 ) -> None:
     mode: _ModeAll = "infra-repo"
-    parts: list[str] = ["python3", "-m", _FLAG_MODE, mode]
+    parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
     if ib_gateway_docker:
         parts.append(FLAG_IB_GATEWAY_DOCKER)
     if gitlab:
@@ -303,7 +305,7 @@ def _infra_install(
     from .utilities import run_commands
 
     _LOGGER.info("Running 'infra.install'...")
-    parts: list[str] = ["python3", "-m", "infra.install"]
+    parts: list[str] = [_PYTHON3_M, "infra.install"]
     if ib_gateway_docker:
         parts.append(FLAG_IB_GATEWAY_DOCKER)
     if gitlab:
@@ -326,7 +328,7 @@ def _infra_install(
 def _password_entry(password: str, /) -> None:
     mode: _ModeAll = "password-repo"
     _run_commands(
-        f"python3 -m infra.install {_FLAG_MODE} {mode} {_FLAG_PASSWORD} {password}",
+        f"{_PYTHON3_M_PUBLIC} {_FLAG_MODE} {mode} {_FLAG_PASSWORD} {password}",
         cwd=_HOME_PUBLIC,
     )
 
