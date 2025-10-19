@@ -20,9 +20,13 @@ if TYPE_CHECKING:
 ###############################################################################
 
 
-type _Mode = Literal["core", "core-repo", "infra", "password"]
+type _ModePublic = Literal["core", "infra", "password"]
+type _ModeAll = Literal[
+    "core", "core-repo", "infra", "infra-repo", "password", "password-repo"
+]
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
+_ENV = {"PYTHONPATH": "src"}
 _HOME_PUBLIC = Path("~/public").expanduser()
 _FLAG_MODE = "--mode"
 _FLAG_DOCKER = "--docker"
@@ -41,7 +45,7 @@ FLAG_FORCE_RECREATE = "--force-recreate"
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _PublicInstallerSettings:
-    mode: _Mode | None = None
+    mode: _ModeAll | None = None
     docker: bool = False
     password: str | None = None
     ib_gateway_docker: bool = False
@@ -58,7 +62,7 @@ class _PublicInstallerSettings:
         _ = parser.add_argument(
             _FLAG_MODE,
             type=str,
-            choices=get_args(_Mode.__value__),
+            choices=get_args(_ModePublic.__value__),
             help="Installation mode",
         )
         _ = parser.add_argument(
@@ -84,34 +88,6 @@ class _PublicInstallerSettings:
         _LOGGER.info("'public' settings: %s", settings)
         return settings
 
-    @property
-    def cmd_core(self) -> str:
-        parts: list[str] = ["python3", "-m", "public.install", _FLAG_MODE]
-        mode: _Mode = "core"
-        parts.append(mode)
-        if self.docker:
-            parts.append(_FLAG_DOCKER)
-        return " ".join(parts)
-
-    @property
-    def cmd_infra(self) -> str:
-        parts: list[str] = ["python3", "-m", "infra.install"]
-        if self.ib_gateway_docker:
-            parts.append(FLAG_IB_GATEWAY_DOCKER)
-        if self.gitlab:
-            parts.append(FLAG_GITLAB)
-        if self.gitlab_runner:
-            parts.append(FLAG_GITLAB_RUNNER)
-        if self.postgres:
-            parts.append(FLAG_POSTGRES)
-        if self.pypi:
-            parts.append(FLAG_PYPI)
-        if self.redis:
-            parts.append(FLAG_REDIS)
-        if self.force_recreate:
-            parts.append(FLAG_FORCE_RECREATE)
-        return " ".join(parts)
-
 
 # main
 
@@ -132,13 +108,20 @@ def _install() -> None:
         case None:
             _initial_install(settings)
         case "core":
-            _run_command(
-                curl_public_install(mode="core-repo", docker=settings.docker),
-                cwd=_HOME_PUBLIC,
-            )
+            _core_entry(docker=settings.docker)
         case "core-repo":
             _core_install(docker=settings.docker)
         case "infra":
+            _infra_entry(
+                ib_gateway_docker=settings.ib_gateway_docker,
+                gitlab=settings.gitlab,
+                gitlab_runner=settings.gitlab_runner,
+                postgres=settings.postgres,
+                pypi=settings.pypi,
+                redis=settings.redis,
+                force_recreate=settings.force_recreate,
+            )
+        case "infra-repo":
             _infra_install(
                 ib_gateway_docker=settings.ib_gateway_docker,
                 gitlab=settings.gitlab,
@@ -152,7 +135,12 @@ def _install() -> None:
             if settings.password is None:
                 msg = "'password' must be given"
                 raise ValueError(msg)
-            _set_root_password(settings.password)
+            _password_entry(settings.password)
+        case "password-repo":
+            if settings.password is None:
+                msg = "'password' must be given"
+                raise ValueError(msg)
+            _password_install(settings.password)
         case never:
             assert_never(never)
 
@@ -163,13 +151,26 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
     ###########################################################################
     _LOGGER.info("Running initial installation...")
     _clone_repo("https://github.com/queensberry-research/public.git", _HOME_PUBLIC)
-    _LOGGER.info("Finished ruhnning initial installation")
-    _run_commands(
-        settings.cmd_core,
-        settings.cmd_infra,
-        env={"PYTHONPATH": "src"},
-        cwd=_HOME_PUBLIC,
+    _LOGGER.info("Finished running initial installation")
+    _core_entry(docker=settings.docker)
+    _infra_entry(
+        ib_gateway_docker=settings.ib_gateway_docker,
+        gitlab=settings.gitlab,
+        gitlab_runner=settings.gitlab_runner,
+        postgres=settings.postgres,
+        pypi=settings.pypi,
+        redis=settings.redis,
+        force_recreate=settings.force_recreate,
     )
+
+
+def _core_entry(*, docker: bool = False) -> None:
+    mode: _ModeAll = "core-repo"
+    parts: list[str] = ["python3", "-m", _FLAG_MODE, mode]
+    if docker:
+        parts.append(_FLAG_DOCKER)
+    cmd = " ".join(parts)
+    _run_command(cmd, env=_ENV, cwd=_HOME_PUBLIC)
 
 
 def _core_install(*, docker: bool = False) -> None:
@@ -258,6 +259,36 @@ def _core_install(*, docker: bool = False) -> None:
     _LOGGER.info("Finished running core installation")
 
 
+def _infra_entry(
+    *,
+    ib_gateway_docker: bool = False,
+    gitlab: bool = False,
+    gitlab_runner: bool = False,
+    postgres: bool = False,
+    pypi: bool = False,
+    redis: bool = False,
+    force_recreate: bool = False,
+) -> None:
+    mode: _ModeAll = "infra-repo"
+    parts: list[str] = ["python3", "-m", _FLAG_MODE, mode]
+    if ib_gateway_docker:
+        parts.append(FLAG_IB_GATEWAY_DOCKER)
+    if gitlab:
+        parts.append(FLAG_GITLAB)
+    if gitlab_runner:
+        parts.append(FLAG_GITLAB_RUNNER)
+    if postgres:
+        parts.append(FLAG_POSTGRES)
+    if pypi:
+        parts.append(FLAG_PYPI)
+    if redis:
+        parts.append(FLAG_REDIS)
+    if force_recreate:
+        parts.append(FLAG_FORCE_RECREATE)
+    cmd = " ".join(parts)
+    _run_command(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
+
+
 def _infra_install(
     *,
     ib_gateway_docker: bool = False,
@@ -292,11 +323,19 @@ def _infra_install(
     _LOGGER.info("Finished cloning & installing 'infra'...")
 
 
-def _set_root_password(password: str, /) -> None:
+def _password_entry(password: str, /) -> None:
+    mode: _ModeAll = "password-repo"
+    _run_commands(
+        f"python3 -m infra.install {_FLAG_MODE} {mode} {_FLAG_PASSWORD} {password}",
+        cwd=_HOME_PUBLIC,
+    )
+
+
+def _password_install(password: str, /) -> None:
     from .utilities import run_commands
 
     _LOGGER.info("Setting root password...")
-    run_commands(f"echo 'root:{password}' | sudo chpasswd")
+    run_commands(f"echo 'root:{password}' | sudo chpasswd", skip_log=True)
     _LOGGER.info("Finished setting root password")
 
 
@@ -462,7 +501,7 @@ def _setup_subnet_env_var() -> None:
 
 def curl_public_install(
     *,
-    mode: _Mode | None = None,
+    mode: _ModeAll | None = None,
     docker: bool = False,
     password: str | None = None,
     ib_gateway_docker: bool = False,
