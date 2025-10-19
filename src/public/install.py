@@ -104,7 +104,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.147")
+    _LOGGER.info("'public' version: 0.4.151")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -171,8 +171,8 @@ def _core_entry(*, docker: bool = False) -> None:
     parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
     if docker:
         parts.append(_FLAG_DOCKER)
-    cmd = " ".join(parts)
-    _run_command(cmd, env=_ENV, cwd=_HOME_PUBLIC)
+    _update_code()
+    _run_command(" ".join(parts), env=_ENV, cwd=_HOME_PUBLIC)
 
 
 def _core_install(*, docker: bool = False) -> None:
@@ -203,10 +203,9 @@ def _core_install(*, docker: bool = False) -> None:
         setup_ssh_keys,
         setup_sshd,
     )
-    from .utilities import log_installer_version, update_submodules
+    from .utilities import log_installer_version
 
     _LOGGER.info("Running core installation...")
-    update_submodules()
     log_installer_version()
     configs, subnet = _get_configs(), _get_subnet()
     if _is_proxmox():
@@ -287,8 +286,8 @@ def _infra_entry(
         parts.append(FLAG_REDIS)
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
-    cmd = " ".join(parts)
-    _run_command(cmd, env=_ENV, cwd=_HOME_PUBLIC)
+    _update_code()
+    _run_command(" ".join(parts), env=_ENV, cwd=_HOME_PUBLIC)
 
 
 def _infra_install(
@@ -326,6 +325,7 @@ def _infra_install(
 
 def _password_entry(password: str, /) -> None:
     mode: _ModeAll = "password-repo"
+    _update_code()
     _run_commands(
         f"{_PYTHON3_M_PUBLIC} {_FLAG_MODE} {mode} {_FLAG_PASSWORD} {password}",
         cwd=_HOME_PUBLIC,
@@ -500,6 +500,22 @@ def _setup_subnet_env_var() -> None:
     path_to = HOME / ".bashrc.d/subnet.sh"
     subnet = _get_subnet()
     write_template(path_from, path_to, subnet=subnet)
+
+
+def _update_code() -> None:
+    _LOGGER.info("Updating repo & submodules...")
+    _run_commands(
+        "git pull",
+        "git submodule update --init --recursive",
+        """git submodule foreach --recursive '
+            git checkout -- . &&
+            git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
+            git pull --ff-only
+        '""",
+        env=_ENV,
+        cwd=_HOME_PUBLIC,
+    )
+    _LOGGER.info("Finished updating repo & submodules")
 
 
 # remote
