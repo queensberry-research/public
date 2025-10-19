@@ -89,6 +89,7 @@ fi
 # pct
 if command -v pct >/dev/null 2>&1; then
 	pct_restart() { pct stop "$1" && pct start "$1"; }
+	pct_stop_destroy() { pct stop "$1" && pct destroy "$1"; }
 fi
 
 # proxmox
