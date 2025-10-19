@@ -102,7 +102,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.154")
+    _LOGGER.info("'public' version: 0.4.155")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -286,10 +286,7 @@ def _setup_root_password(password: str, /) -> None:
     ###########################################################################
     _LOGGER.info("Setting root password...")
     _run_commands(
-        f"echo 'root:{password}' | sudo chpasswd",
-        env=_ENV,
-        cwd=_HOME_PUBLIC,
-        skip_log=True,
+        f"echo 'root:{password}' | chpasswd", env=_ENV, cwd=_HOME_PUBLIC, skip_log=True
     )
     _LOGGER.info("Finished setting root password")
 
