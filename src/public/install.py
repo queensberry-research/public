@@ -157,7 +157,7 @@ def _core_install(*, docker: bool = False) -> None:
     parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
     if docker:
         parts.append(_FLAG_DOCKER)
-    _update_code()
+    _update_code(cwd=_HOME_PUBLIC)
     _run_commands(" ".join(parts), env=_ENV, cwd=_HOME_PUBLIC)
 
 
@@ -275,6 +275,7 @@ def _infra_install(
         parts.append(FLAG_REDIS)
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
+    _update_code(cwd=_HOME_INFRA)
     _run_commands(" ".join(parts), cwd=_HOME_INFRA)
     _LOGGER.info("Finished running 'infra.install'")
 
@@ -459,7 +460,7 @@ def _setup_subnet_env_var() -> None:
     write_template(path_from, path_to, subnet=subnet)
 
 
-def _update_code() -> None:
+def _update_code(*, cwd: _PathLike | None = None) -> None:
     _LOGGER.info("Updating repo & submodules...")
     _run_commands(
         "git pull",
@@ -469,8 +470,7 @@ def _update_code() -> None:
             git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
             git pull --ff-only
         '""",
-        env=_ENV,
-        cwd=_HOME_PUBLIC,
+        cwd=cwd,
     )
     _LOGGER.info("Finished updating repo & submodules")
 
