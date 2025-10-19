@@ -127,14 +127,14 @@ class _PublicInstallerSettings:
 # main
 
 
-def _main() -> None:
+def _install() -> None:
     basicConfig(
         format=f"[{{asctime}} ❯ {gethostname()} ❯ {{module}}:{{funcName}}:{{lineno}}] {{message}}",  # noqa: RUF001
         datefmt="%Y-%m-%d %H:%M:%S",
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.137")
+    _LOGGER.info("'public' version: 0.4.138")
     settings = _PublicInstallerSettings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -459,4 +459,4 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    _main()
+    _install()
