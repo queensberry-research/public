@@ -25,8 +25,7 @@ _LOGGER = getLogger(__name__)
 _FLAG_POST = "--post"
 _FLAG_DOCKER = "--docker"
 _FLAG_PROXMOX = "--proxmox"
-FLAG_SKIP_PUBLIC = "--skip-public"
-FLAG_SKIP_INFRA = "--skip-infra"
+FLAG_INFRA_CORE_ONLY = "--infra-core-only"
 FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
 FLAG_GITLAB = "--gitlab"
 FLAG_GITLAB_RUNNER = "--gitlab-runner"
@@ -44,7 +43,7 @@ class _PublicInstallerSettings:
     post: bool = False
     docker: bool = False
     proxmox: bool = False
-    skip_infra: bool = False
+    infra_core_only: bool = False
     ib_gateway_docker: bool = False
     gitlab: bool = False
     gitlab_runner: bool = False
@@ -66,7 +65,9 @@ class _PublicInstallerSettings:
             _FLAG_PROXMOX, action="store_true", help="Run the Proxmox installation"
         )
         _ = parser.add_argument(
-            FLAG_SKIP_INFRA, action="store_true", help="Skip the infra installation"
+            FLAG_INFRA_CORE_ONLY,
+            action="store_true",
+            help="Infra core installation only",
         )
         _ = parser.add_argument(
             FLAG_IB_GATEWAY_DOCKER, action="store_true", help="Setup IB Gateway Docker"
@@ -98,8 +99,8 @@ class _PublicInstallerSettings:
         return " ".join(parts)
 
     @property
-    def python3_infra_skip_public(self) -> str:
-        parts: list[str] = ["python3", "-m", "infra.install", FLAG_SKIP_PUBLIC]
+    def python3_infra_core_only(self) -> str:
+        parts: list[str] = ["python3", "-m", "infra.install", FLAG_INFRA_CORE_ONLY]
         parts.extend(self._flags)
         return " ".join(parts)
 
@@ -133,7 +134,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.136")
+    _LOGGER.info("'public' version: 0.4.137")
     settings = _PublicInstallerSettings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -238,12 +239,7 @@ def _post_install(settings: _PublicInstallerSettings, /) -> None:
     _clone_repo(
         "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
     )
-    if settings.skip_infra:
-        _LOGGER.info("Skipping infra installer...")
-    else:
-        _LOGGER.info("Running infra installer...")
-        run_commands(settings.python3_infra_skip_public, cwd=HOME_INFRA)
-        _LOGGER.info("Finished running infra installer")
+    run_commands(settings.python3_infra_core_only, cwd=HOME_INFRA)
     _LOGGER.info("Finished post installation")
 
 
@@ -410,10 +406,9 @@ def _setup_subnet_env_var() -> None:
 def generate_curl_public_installer(
     *,
     post: bool = False,
-    skip_public: bool = False,
-    skip_infra: bool = False,
     docker: bool = False,
     proxmox: bool = False,
+    infra_core_only: bool = False,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
     gitlab_runner: bool = False,
@@ -429,10 +424,8 @@ def generate_curl_public_installer(
         parts.append(_FLAG_DOCKER)
     if proxmox:
         parts.append(_FLAG_PROXMOX)
-    if skip_public:
-        parts.append(FLAG_SKIP_PUBLIC)
-    if skip_infra:
-        parts.append(FLAG_SKIP_INFRA)
+    if infra_core_only:
+        parts.append(FLAG_INFRA_CORE_ONLY)
     if ib_gateway_docker:
         parts.append(FLAG_IB_GATEWAY_DOCKER)
     if gitlab:
@@ -456,12 +449,11 @@ __all__ = [
     "FLAG_GITLAB",
     "FLAG_GITLAB_RUNNER",
     "FLAG_IB_GATEWAY_DOCKER",
+    "FLAG_INFRA_CORE_ONLY",
     "FLAG_POSTGRES",
     "FLAG_PYPI",
     "FLAG_PYPI",
     "FLAG_REDIS",
-    "FLAG_SKIP_INFRA",
-    "FLAG_SKIP_PUBLIC",
     "generate_curl_public_installer",
 ]
 
