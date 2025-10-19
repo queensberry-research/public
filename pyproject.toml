@@ -1,5 +1,3 @@
-#
-
 # build-system
 [build-system]
   build-backend = "uv_build"
@@ -16,24 +14,25 @@
   name = "public"
   readme = "README.md"
   requires-python = ">= 3.13"
-  version = "0.4.137"
+  version = "0.4.138"
+
+  [project.scripts]
+    install = "public.install:_install"
 
 # coverage
-[tool.coverage]
+[tool.coverage.html]
+  directory = ".coverage/html"
 
-  [tool.coverage.html]
-    directory = ".coverage/html"
+[tool.coverage.report]
+  exclude_also = ["@overload", "if TYPE_CHECKING:"]
+  fail_under = 100.0
+  skip_covered = true
+  skip_empty = true
 
-  [tool.coverage.report]
-    exclude_also = ["@overload", "if TYPE_CHECKING:"]
-    fail_under = 100.0
-    skip_covered = true
-    skip_empty = true
-
-  [tool.coverage.run]
-    branch = true
-    data_file = ".coverage/data"
-    parallel = true
+[tool.coverage.run]
+  branch = true
+  data_file = ".coverage/data"
+  parallel = true
 
 # nitpick
 [tool.nitpick]
@@ -43,14 +42,12 @@
   ]
 
 # pytest
-[tool.pytest]
-
-  [tool.pytest.ini_options]
-    addopts = ["-ra", "-vv", "--color=auto", "--strict-markers"]
-    asyncio_default_fixture_loop_scope = "function"
-    asyncio_mode = "auto"
-    collect_imported_tests = false
-    filterwarnings = ["error"]
-    minversion = "8.0"
-    testpaths = ["src/tests"]
-    xfail_strict = true
+[tool.pytest.ini_options]
+  addopts = ["-ra", "-vv", "--color=auto", "--strict-markers"]
+  asyncio_default_fixture_loop_scope = "function"
+  asyncio_mode = "auto"
+  collect_imported_tests = false
+  filterwarnings = ["error"]
+  minversion = "8.0"
+  testpaths = ["src/tests"]
+  xfail_strict = true
