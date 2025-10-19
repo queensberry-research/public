@@ -101,7 +101,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.157")
+    _LOGGER.info("'public' version: 0.4.158")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -286,7 +286,7 @@ def _infra_install(
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
     _update_code(cwd=_HOME_INFRA)
-    _run_commands(" ".join(parts), cwd=_HOME_INFRA)
+    _run_commands(" ".join(parts), direnv=True, cwd=_HOME_INFRA)
     _LOGGER.info("Finished running 'infra.install'")
 
 
@@ -329,6 +329,7 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
 
 def _run_commands(
     *cmds: str,
+    direnv: bool = False,
     env: Mapping[str, str] | None = None,
     cwd: _PathLike | None = None,
     skip_log: bool = False,
@@ -337,13 +338,14 @@ def _run_commands(
     # standard library imports only
     ###########################################################################
     for cmd in cmds:
-        _run_command(cmd, env=env, cwd=cwd, skip_log=skip_log)
+        _run_command(cmd, direnv=direnv, env=env, cwd=cwd, skip_log=skip_log)
 
 
 def _run_command(
     cmd: str,
     /,
     *,
+    direnv: bool = False,
     env: Mapping[str, str] | None = None,
     cwd: _PathLike | None = None,
     skip_log: bool = False,
@@ -352,6 +354,9 @@ def _run_command(
     # standard library imports only
     ###########################################################################
     desc = f"Running {cmd!r}"
+    if direnv:
+        desc = f"{desc} [direnv]"
+        cmd = f'if [ -f ~/.bashrc ]; then source ~/.bashrc; fi; if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)" >/dev/null 2>&1; fi; {cmd}'
     if env is None:
         env_use = None
     else:
@@ -466,7 +471,10 @@ def _setup_subnet_env_var() -> None:
 
 
 def _update_code(*, cwd: _PathLike | None = None) -> None:
-    _LOGGER.info("Updating repo & submodules...")
+    desc = "Updating code"
+    if cwd is not None:
+        desc = f"{desc} in {str(cwd)!r}"
+    _LOGGER.info("%s...", desc)
     _run_commands(
         "git pull",
         "git submodule update --init --recursive",
