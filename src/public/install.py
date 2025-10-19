@@ -95,17 +95,22 @@ class _PublicInstallerSettings:
             parts.append(_FLAG_DOCKER)
         if self.proxmox:
             parts.append(_FLAG_PROXMOX)
-        parts.extend(self._flags)
+        if self.infra_core_only:
+            parts.append(FLAG_INFRA_CORE_ONLY)
+        parts.extend(self._flags_containers)
         return " ".join(parts)
 
     @property
     def python3_infra_core_only(self) -> str:
-        parts: list[str] = ["python3", "-m", "infra.install", FLAG_INFRA_CORE_ONLY]
-        parts.extend(self._flags)
+        return f"python3 -m infra.install {FLAG_INFRA_CORE_ONLY}"
+
+    @property
+    def python3_infra_container_only(self) -> str:
+        parts: list[str] = ["python3", "-m", "infra.install", *self._flags_containers]
         return " ".join(parts)
 
     @property
-    def _flags(self) -> list[str]:
+    def _flags_containers(self) -> list[str]:
         parts: list[str] = []
         if self.ib_gateway_docker:
             parts.append(FLAG_IB_GATEWAY_DOCKER)
@@ -134,7 +139,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.138")
+    _LOGGER.info("'public' version: 0.4.139")
     settings = _PublicInstallerSettings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -239,7 +244,10 @@ def _post_install(settings: _PublicInstallerSettings, /) -> None:
     _clone_repo(
         "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
     )
-    run_commands(settings.python3_infra_core_only, cwd=HOME_INFRA)
+    if settings.infra_core_only:
+        run_commands(settings.python3_infra_core_only, cwd=HOME_INFRA)
+    else:
+        run_commands(settings.python3_infra_container_only, cwd=HOME_INFRA)
     _LOGGER.info("Finished post installation")
 
 
