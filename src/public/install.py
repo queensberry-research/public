@@ -304,7 +304,7 @@ def _setup_root_password(password: str, /) -> None:
 
 def _clone_repo(url: str, target: _PathLike, /) -> None:
     ###########################################################################
-    # this function may only contain standard library imports
+    # standard library imports only
     ###########################################################################
     if which("git") is None:
         _LOGGER.info("Installing 'git'...")
