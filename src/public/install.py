@@ -26,6 +26,7 @@ _FLAG_POST = "--post"
 _FLAG_DOCKER = "--docker"
 _FLAG_PROXMOX = "--proxmox"
 FLAG_SKIP_PUBLIC = "--skip-public"
+FLAG_SKIP_INFRA = "--skip-infra"
 FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
 FLAG_GITLAB = "--gitlab"
 FLAG_GITLAB_RUNNER = "--gitlab-runner"
@@ -42,6 +43,7 @@ class _Settings:
     post: bool = False
     docker: bool = False
     proxmox: bool = False
+    skip_infra: bool = False
     ib_gateway_docker: bool = False
     gitlab: bool = False
     gitlab_runner: bool = False
@@ -60,6 +62,9 @@ class _Settings:
         )
         _ = parser.add_argument(
             _FLAG_PROXMOX, action="store_true", help="Run the Proxmox installation"
+        )
+        _ = parser.add_argument(
+            FLAG_SKIP_INFRA, action="store_true", help="Skip the infra installation"
         )
         _ = parser.add_argument(
             FLAG_IB_GATEWAY_DOCKER, action="store_true", help="Setup IB Gateway Docker"
@@ -119,7 +124,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.127")
+    _LOGGER.info("'public' version: 0.4.128")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -225,7 +230,12 @@ def _post_install(settings: _Settings, /) -> None:
     _clone_repo(
         "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
     )
-    run_commands(settings.python3_infra, cwd=HOME_INFRA)
+    if settings.skip_infra:
+        _LOGGER.info("Skipping infra installer...")
+    else:
+        _LOGGER.info("Running infra installer...")
+        run_commands(settings.python3_infra, cwd=HOME_INFRA)
+        _LOGGER.info("Finished running infra installer")
     _LOGGER.info("Finished post installation")
 
 
@@ -429,6 +439,7 @@ __all__ = [
     "FLAG_PYPI",
     "FLAG_PYPI",
     "FLAG_REDIS",
+    "FLAG_SKIP_INFRA",
     "FLAG_SKIP_PUBLIC",
     "generate_curl_public_installer",
 ]
