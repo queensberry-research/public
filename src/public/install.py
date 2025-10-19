@@ -334,7 +334,7 @@ def _run_commands(
     skip_log: bool = False,
 ) -> None:
     ###########################################################################
-    # this function may only contain standard library imports
+    # standard library imports only
     ###########################################################################
     for cmd in cmds:
         _run_command(cmd, env=env, cwd=cwd, skip_log=skip_log)
@@ -349,7 +349,7 @@ def _run_command(
     skip_log: bool = False,
 ) -> None:
     ###########################################################################
-    # this function may only contain standard library imports
+    # standard library imports only
     ###########################################################################
     desc = f"Running {cmd!r}"
     if env is None:
