@@ -119,7 +119,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.125")
+    _LOGGER.info("'public' version: 0.4.126")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -236,7 +236,7 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
     ###########################################################################
     # this function may only contain standard library imports
     ###########################################################################
-    if not _have_command("git"):
+    if which("git") is None:
         _LOGGER.info("Installing 'git'...")
         _run_commands("apt -y update && apt install -y git")
     target = Path(target)
@@ -255,13 +255,6 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
     else:
         _LOGGER.info("Cloning %r to %r...", url, str(target))
         _run_commands(f"git clone --recurse-submodules {url} {target}")
-
-
-def _have_command(cmd: str, /) -> bool:
-    ###########################################################################
-    # this function may only contain standard library imports
-    ###########################################################################
-    return which(cmd) is not None
 
 
 def _run_commands(
