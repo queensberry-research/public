@@ -287,9 +287,9 @@ def _setup_root_password(password: str, /) -> None:
     _LOGGER.info("Setting root password...")
     _run_commands(
         f"echo 'root:{password}' | sudo chpasswd",
+        skip_log=True,
         env=_ENV,
         cwd=_HOME_PUBLIC,
-        skip_log=True,
     )
     _LOGGER.info("Finished setting root password")
 
@@ -324,24 +324,24 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
 
 def _run_commands(
     *cmds: str,
+    skip_log: bool = False,
     env: Mapping[str, str] | None = None,
     cwd: _PathLike | None = None,
-    skip_log: bool = False,
 ) -> None:
     ###########################################################################
     # this function may only contain standard library imports
     ###########################################################################
     for cmd in cmds:
-        _run_command(cmd, env=env, cwd=cwd, skip_log=skip_log)
+        _run_command(cmd, skip_log=skip_log, env=env, cwd=cwd)
 
 
 def _run_command(
     cmd: str,
     /,
     *,
+    skip_log: bool = False,
     env: Mapping[str, str] | None = None,
     cwd: _PathLike | None = None,
-    skip_log: bool = False,
 ) -> None:
     ###########################################################################
     # this function may only contain standard library imports
