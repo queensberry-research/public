@@ -10,7 +10,7 @@ from re import search
 from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from subprocess import check_call
-from typing import TYPE_CHECKING, Literal, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -20,9 +20,10 @@ if TYPE_CHECKING:
 ###############################################################################
 
 
+type _Mode = Literal["core", "infra"]
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
-_FLAG_POST = "--post"
+_FLAG_MODE = "--mode"
 _FLAG_DOCKER = "--docker"
 FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
 FLAG_GITLAB = "--gitlab"
@@ -38,7 +39,7 @@ FLAG_FORCE_RECREATE = "--force-recreate"
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _PublicInstallerSettings:
-    post: bool = False
+    mode: _Mode | None = None
     docker: bool = False
     ib_gateway_docker: bool = False
     gitlab: bool = False
@@ -52,7 +53,10 @@ class _PublicInstallerSettings:
     def parse(cls) -> _PublicInstallerSettings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         _ = parser.add_argument(
-            _FLAG_POST, action="store_true", help="Run the post-installation"
+            _FLAG_MODE,
+            type=str,
+            choices=get_args(_Mode.__value__),
+            help="Installation mode",
         )
         _ = parser.add_argument(
             _FLAG_DOCKER, action="store_true", help="Install 'docker'"
@@ -77,21 +81,17 @@ class _PublicInstallerSettings:
         return settings
 
     @property
-    def python3_public_post(self) -> str:
-        parts: list[str] = ["python3", "-m", "public.install", _FLAG_POST]
+    def cmd_core(self) -> str:
+        parts: list[str] = ["python3", "-m", "public.install", _FLAG_MODE]
+        mode: _Mode = "core"
+        parts.append(mode)
         if self.docker:
             parts.append(_FLAG_DOCKER)
-        parts.extend(self._flags_containers)
         return " ".join(parts)
 
     @property
-    def python3_infra(self) -> str:
-        parts: list[str] = ["python3", "-m", "infra.install", *self._flags_containers]
-        return " ".join(parts)
-
-    @property
-    def _flags_containers(self) -> list[str]:
-        parts: list[str] = []
+    def cmd_infra(self) -> str:
+        parts: list[str] = ["python3", "-m", "infra.install"]
         if self.ib_gateway_docker:
             parts.append(FLAG_IB_GATEWAY_DOCKER)
         if self.gitlab:
@@ -106,7 +106,7 @@ class _PublicInstallerSettings:
             parts.append(FLAG_REDIS)
         if self.force_recreate:
             parts.append(FLAG_FORCE_RECREATE)
-        return parts
+        return " ".join(parts)
 
 
 # main
@@ -119,40 +119,45 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.142")
+    _LOGGER.info("'public' version: 0.4.144")
     settings = _PublicInstallerSettings.parse()
-    if not settings.post:
-        _initial_install(settings)
-    else:
-        _post_install(settings)
+    match settings.mode:
+        case None:
+            _initial_install(settings)
+        case "core":
+            _core_install(docker=settings.docker)
+        case "infra":
+            _infra_install(
+                ib_gateway_docker=settings.ib_gateway_docker,
+                gitlab=settings.gitlab,
+                gitlab_runner=settings.gitlab_runner,
+                postgres=settings.postgres,
+                pypi=settings.pypi,
+                redis=settings.redis,
+                force_recreate=settings.force_recreate,
+            )
+        case never:
+            assert_never(never)
 
 
 def _initial_install(settings: _PublicInstallerSettings, /) -> None:
     ###########################################################################
     # this installer may only contain standard library imports
     ###########################################################################
-    _LOGGER.info("Initial installation...")
+    _LOGGER.info("Running initial installation...")
     target = Path("~/public").expanduser()
     _clone_repo("https://github.com/queensberry-research/public.git", target)
-    _LOGGER.info("Finished initial installation")
-    _run_commands(settings.python3_public_post, env={"PYTHONPATH": "src"}, cwd=target)
+    _LOGGER.info("Finished ruhnning initial installation")
+    _run_commands(
+        settings.cmd_core, settings.cmd_infra, env={"PYTHONPATH": "src"}, cwd=target
+    )
 
 
-def _post_install(settings: _PublicInstallerSettings, /) -> None:
+def _core_install(*, docker: bool = False) -> None:
     ###########################################################################
     # this installer may only contain standard library & `public` imports
     ###########################################################################
-    _LOGGER.info("Post installation...")
-    setup_and_install_core()
-    _clone_and_install_infra(settings)
-    _LOGGER.info("Finished post installation")
-
-
-def setup_and_install_core(*, docker: bool = False) -> None:
-    ###########################################################################
-    # this installer may only contain standard library & `public` imports
-    ###########################################################################
-    from .constants import HOME_PUBLIC
+    from .constants import HOME_INFRA, HOME_PUBLIC
     from .lib import (
         add_to_known_hosts,
         install_age,
@@ -181,7 +186,7 @@ def setup_and_install_core(*, docker: bool = False) -> None:
     )
     from .utilities import log_installer_version, update_submodules
 
-    _LOGGER.info("Core installation...")
+    _LOGGER.info("Running core installation...")
     update_submodules()
     log_installer_version()
     configs, subnet = _get_configs(), _get_subnet()
@@ -231,18 +236,46 @@ def setup_and_install_core(*, docker: bool = False) -> None:
     install_yq()  # after curl, jq
     if docker:
         install_docker()
-    _LOGGER.info("Finished core installation")
-
-
-def _clone_and_install_infra(settings: _PublicInstallerSettings, /) -> None:
-    from .constants import HOME_INFRA
-    from .utilities import run_commands
-
-    _LOGGER.info("Cloning & installing 'infra'...")
     _clone_repo(
         "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
     )
-    run_commands(settings.python3_infra, cwd=HOME_INFRA)
+    _LOGGER.info("Finished running core installation")
+
+
+def _infra_install(
+    *,
+    ib_gateway_docker: bool = False,
+    gitlab: bool = False,
+    gitlab_runner: bool = False,
+    postgres: bool = False,
+    pypi: bool = False,
+    redis: bool = False,
+    force_recreate: bool = False,
+) -> None:
+    ###########################################################################
+    # this installer may only contain standard library & `public` imports
+    ###########################################################################
+    from .constants import HOME_INFRA
+    from .utilities import run_commands
+
+    _LOGGER.info("Running 'infra.install'...")
+    parts: list[str] = ["python3", "-m", "infra.install"]
+    if ib_gateway_docker:
+        parts.append(FLAG_IB_GATEWAY_DOCKER)
+    if gitlab:
+        parts.append(FLAG_GITLAB)
+    if gitlab_runner:
+        parts.append(FLAG_GITLAB_RUNNER)
+    if postgres:
+        parts.append(FLAG_POSTGRES)
+    if pypi:
+        parts.append(FLAG_PYPI)
+    if redis:
+        parts.append(FLAG_REDIS)
+    if force_recreate:
+        parts.append(FLAG_FORCE_RECREATE)
+    _LOGGER.info("Finished running 'infra.install'")
+    run_commands(" ".join(parts), cwd=HOME_INFRA)
     _LOGGER.info("Finished cloning & installing 'infra'...")
 
 
@@ -406,9 +439,9 @@ def _setup_subnet_env_var() -> None:
 # remote
 
 
-def generate_curl_public_installer(
+def curl_public_install(
     *,
-    post: bool = False,
+    mode: _Mode | None = None,
     docker: bool = False,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
@@ -419,8 +452,8 @@ def generate_curl_public_installer(
     force_recreate: bool = False,
 ) -> str:
     parts: list[str] = []
-    if post:
-        parts.append(_FLAG_POST)
+    if mode:
+        parts.extend([_FLAG_MODE, "mode"])
     if docker:
         parts.append(_FLAG_DOCKER)
     if ib_gateway_docker:
@@ -449,8 +482,7 @@ __all__ = [
     "FLAG_POSTGRES",
     "FLAG_PYPI",
     "FLAG_REDIS",
-    "generate_curl_public_installer",
-    "setup_and_install_core",
+    "curl_public_install",
 ]
 
 
