@@ -40,7 +40,7 @@ FLAG_FORCE_RECREATE = "--force-recreate"
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
-class _Settings:
+class _PublicInstallerSettings:
     post: bool = False
     docker: bool = False
     proxmox: bool = False
@@ -54,7 +54,7 @@ class _Settings:
     force_recreate: bool = False
 
     @classmethod
-    def parse(cls) -> _Settings:
+    def parse(cls) -> _PublicInstallerSettings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         _ = parser.add_argument(
             _FLAG_POST, action="store_true", help="Run the post-installation"
@@ -83,7 +83,9 @@ class _Settings:
         _ = parser.add_argument(
             FLAG_FORCE_RECREATE, action="store_true", help="Force re-create containers"
         )
-        return _Settings(**vars(parser.parse_args()))
+        settings = _PublicInstallerSettings(**vars(parser.parse_args()))
+        _LOGGER.info("'public' settings: %s", settings)
+        return settings
 
     @property
     def python3_public_post(self) -> str:
@@ -131,15 +133,15 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.134")
-    settings = _Settings.parse()
+    _LOGGER.info("'public' version: 0.4.135")
+    settings = _PublicInstallerSettings.parse()
     if not settings.post:
         _initial_install(settings)
     else:
         _post_install(settings)
 
 
-def _initial_install(settings: _Settings, /) -> None:
+def _initial_install(settings: _PublicInstallerSettings, /) -> None:
     ###########################################################################
     # this installer may only contain standard library imports
     ###########################################################################
@@ -150,7 +152,7 @@ def _initial_install(settings: _Settings, /) -> None:
     _run_commands(settings.python3_public_post, env={"PYTHONPATH": "src"}, cwd=target)
 
 
-def _post_install(settings: _Settings, /) -> None:
+def _post_install(settings: _PublicInstallerSettings, /) -> None:
     ###########################################################################
     # this installer may only contain standard library & `public` imports
     ###########################################################################
