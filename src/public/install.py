@@ -20,9 +20,10 @@ if TYPE_CHECKING:
 ###############################################################################
 
 
-type _Mode = Literal["core", "infra", "password"]
+type _Mode = Literal["core", "core-repo", "infra", "password"]
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
+_HOME_PUBLIC = Path("~/public").expanduser()
 _FLAG_MODE = "--mode"
 _FLAG_DOCKER = "--docker"
 _FLAG_PASSWORD = "--password"  # noqa: S105
@@ -116,18 +117,26 @@ class _PublicInstallerSettings:
 
 
 def _install() -> None:
+    ###########################################################################
+    # this installer may only contain standard library imports
+    ###########################################################################
     basicConfig(
         format=f"[{{asctime}} ❯ {gethostname()} ❯ {{module}}:{{funcName}}:{{lineno}}] {{message}}",  # noqa: RUF001
         datefmt="%Y-%m-%d %H:%M:%S",
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.146")
+    _LOGGER.info("'public' version: 0.4.147")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
             _initial_install(settings)
         case "core":
+            _run_command(
+                curl_public_install(mode="core-repo", docker=settings.docker),
+                cwd=_HOME_PUBLIC,
+            )
+        case "core-repo":
             _core_install(docker=settings.docker)
         case "infra":
             _infra_install(
@@ -153,11 +162,13 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
     # this installer may only contain standard library imports
     ###########################################################################
     _LOGGER.info("Running initial installation...")
-    target = Path("~/public").expanduser()
-    _clone_repo("https://github.com/queensberry-research/public.git", target)
+    _clone_repo("https://github.com/queensberry-research/public.git", _HOME_PUBLIC)
     _LOGGER.info("Finished ruhnning initial installation")
     _run_commands(
-        settings.cmd_core, settings.cmd_infra, env={"PYTHONPATH": "src"}, cwd=target
+        settings.cmd_core,
+        settings.cmd_infra,
+        env={"PYTHONPATH": "src"},
+        cwd=_HOME_PUBLIC,
     )
 
 
