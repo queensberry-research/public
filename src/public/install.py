@@ -24,9 +24,6 @@ type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
 _FLAG_POST = "--post"
 _FLAG_DOCKER = "--docker"
-_FLAG_PROXMOX = "--proxmox"
-FLAG_SKIP_INFRA = "--skip-infra"
-FLAG_INFRA_CORE_ONLY = "--infra-core-only"
 FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
 FLAG_GITLAB = "--gitlab"
 FLAG_GITLAB_RUNNER = "--gitlab-runner"
@@ -43,9 +40,6 @@ FLAG_FORCE_RECREATE = "--force-recreate"
 class _PublicInstallerSettings:
     post: bool = False
     docker: bool = False
-    proxmox: bool = False
-    skip_infra: bool = False
-    infra_core_only: bool = False
     ib_gateway_docker: bool = False
     gitlab: bool = False
     gitlab_runner: bool = False
@@ -62,17 +56,6 @@ class _PublicInstallerSettings:
         )
         _ = parser.add_argument(
             _FLAG_DOCKER, action="store_true", help="Install 'docker'"
-        )
-        _ = parser.add_argument(
-            _FLAG_PROXMOX, action="store_true", help="Run the Proxmox installation"
-        )
-        _ = parser.add_argument(
-            FLAG_SKIP_INFRA, action="store_true", help="Skip the infra installation"
-        )
-        _ = parser.add_argument(
-            FLAG_INFRA_CORE_ONLY,
-            action="store_true",
-            help="Infra core installation only",
         )
         _ = parser.add_argument(
             FLAG_IB_GATEWAY_DOCKER, action="store_true", help="Setup IB Gateway Docker"
@@ -98,21 +81,11 @@ class _PublicInstallerSettings:
         parts: list[str] = ["python3", "-m", "public.install", _FLAG_POST]
         if self.docker:
             parts.append(_FLAG_DOCKER)
-        if self.proxmox:
-            parts.append(_FLAG_PROXMOX)
-        if self.skip_infra:
-            parts.append(FLAG_SKIP_INFRA)
-        if self.infra_core_only:
-            parts.append(FLAG_INFRA_CORE_ONLY)
         parts.extend(self._flags_containers)
         return " ".join(parts)
 
     @property
-    def python3_infra_core_only(self) -> str:
-        return f"python3 -m infra.install {FLAG_INFRA_CORE_ONLY}"
-
-    @property
-    def python3_infra_containers(self) -> str:
+    def python3_infra(self) -> str:
         parts: list[str] = ["python3", "-m", "infra.install", *self._flags_containers]
         return " ".join(parts)
 
@@ -169,7 +142,16 @@ def _post_install(settings: _PublicInstallerSettings, /) -> None:
     ###########################################################################
     # this installer may only contain standard library & `public` imports
     ###########################################################################
-    from .constants import HOME_INFRA, HOME_PUBLIC
+    _LOGGER.info("Post installation...")
+    setup_and_install_core()
+    _LOGGER.info("Finished post installation")
+
+
+def setup_and_install_core(*, docker: bool = False) -> None:
+    ###########################################################################
+    # this installer may only contain standard library & `public` imports
+    ###########################################################################
+    from .constants import HOME_PUBLIC
     from .lib import (
         add_to_known_hosts,
         install_age,
@@ -196,13 +178,13 @@ def _post_install(settings: _PublicInstallerSettings, /) -> None:
         setup_ssh_keys,
         setup_sshd,
     )
-    from .utilities import log_installer_version, run_commands, update_submodules
+    from .utilities import log_installer_version, update_submodules
 
-    _LOGGER.info("Post installation...")
+    _LOGGER.info("Core installation...")
     update_submodules()
     log_installer_version()
     configs, subnet = _get_configs(), _get_subnet()
-    if settings.proxmox or _is_proxmox():
+    if _is_proxmox():
         _setup_proxmox_sources()
         _setup_resolv_conf()
         _setup_subnet_env_var()
@@ -239,31 +221,28 @@ def _post_install(settings: _PublicInstallerSettings, /) -> None:
     install_uv()  # after curl
     install_bottom()  # after curl, jq
     install_delta()  # after curl, jq
-    if settings.proxmox or _is_proxmox():
+    if _is_proxmox():
         install_sops(  # after curl, jq
             age_secret_key=_get_qrt_secrets() / "age/secret-key.txt"
         )
     else:
         install_sops()
     install_yq()  # after curl, jq
-    if settings.docker:
+    if docker:
         install_docker()
-    if settings.skip_infra:
-        _LOGGER.info("Skipping infra installation; finished post installation")
-        return
-    _LOGGER.info("Installing infra...")
+    _LOGGER.info("Finished core installation")
+
+
+def _clone_and_install_infra(settings: _PublicInstallerSettings, /) -> None:
+    from .constants import HOME_INFRA
+    from .utilities import run_commands
+
+    _LOGGER.info("Cloning & installing 'infra'...")
     _clone_repo(
         "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
     )
-    if settings.infra_core_only:
-        _LOGGER.info("Installing core infrastructure...")
-        run_commands(settings.python3_infra_core_only, cwd=HOME_INFRA)
-        _LOGGER.info("Finished install core infrastructure")
-    else:
-        _LOGGER.info("Setting up containers...")
-        run_commands(settings.python3_infra_containers, cwd=HOME_INFRA)
-        _LOGGER.info("Finished setting up containers")
-    _LOGGER.info("Finished post installation")
+    run_commands(settings.python3_infra, cwd=HOME_INFRA)
+    _LOGGER.info("Finished cloning & installing 'infra'...")
 
 
 # utilities - standard library
@@ -446,8 +425,6 @@ def generate_curl_public_installer(
         parts.append(_FLAG_POST)
     if docker:
         parts.append(_FLAG_DOCKER)
-    if proxmox:
-        parts.append(_FLAG_PROXMOX)
     if skip_infra:
         parts.append(FLAG_SKIP_INFRA)
     if infra_core_only:
@@ -478,8 +455,8 @@ __all__ = [
     "FLAG_INFRA_CORE_ONLY",
     "FLAG_POSTGRES",
     "FLAG_PYPI",
-    "FLAG_PYPI",
     "FLAG_REDIS",
+    "FLAG_SKIP_INFRA",
     "generate_curl_public_installer",
 ]
 
