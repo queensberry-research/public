@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 ###############################################################################
 
 
-type _Mode = Literal["core", "core-in-repo", "infra", "password"]
+type _Mode = Literal["public", "core", "core-in-repo", "infra", "password"]
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
 _HOME_PUBLIC = Path("~/public").expanduser()
@@ -101,11 +101,13 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.156")
+    _LOGGER.info("'public' version: 0.4.157")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
             _initial_install(settings)
+        case "public":
+            _public_install()
         case "core":
             _core_install(docker=settings.docker)
         case "core-in-repo":
@@ -134,9 +136,9 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
     # standard library imports only
     ###########################################################################
     _LOGGER.info("Running initial installation...")
-    _clone_repo("https://github.com/queensberry-research/public.git", _HOME_PUBLIC)
-    _LOGGER.info("Finished running initial installation")
+    _public_install()
     _core_install(docker=settings.docker)
+    _LOGGER.info("Finished running initial installation")
     _infra_install(
         ib_gateway_docker=settings.ib_gateway_docker,
         gitlab=settings.gitlab,
@@ -146,6 +148,15 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
         redis=settings.redis,
         force_recreate=settings.force_recreate,
     )
+
+
+def _public_install() -> None:
+    ###########################################################################
+    # standard library imports only
+    ###########################################################################
+    _LOGGER.info("Cloning 'public'...")
+    _clone_repo("https://github.com/queensberry-research/public.git", _HOME_PUBLIC)
+    _LOGGER.info("Finished cloning 'public'")
 
 
 def _core_install(*, docker: bool = False) -> None:
