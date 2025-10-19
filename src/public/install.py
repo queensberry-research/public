@@ -144,6 +144,7 @@ def _post_install(settings: _PublicInstallerSettings, /) -> None:
     ###########################################################################
     _LOGGER.info("Post installation...")
     setup_and_install_core()
+    _clone_and_install_infra(settings)
     _LOGGER.info("Finished post installation")
 
 
@@ -409,9 +410,6 @@ def generate_curl_public_installer(
     *,
     post: bool = False,
     docker: bool = False,
-    proxmox: bool = False,
-    skip_infra: bool = False,
-    infra_core_only: bool = False,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
     gitlab_runner: bool = False,
@@ -425,10 +423,6 @@ def generate_curl_public_installer(
         parts.append(_FLAG_POST)
     if docker:
         parts.append(_FLAG_DOCKER)
-    if skip_infra:
-        parts.append(FLAG_SKIP_INFRA)
-    if infra_core_only:
-        parts.append(FLAG_INFRA_CORE_ONLY)
     if ib_gateway_docker:
         parts.append(FLAG_IB_GATEWAY_DOCKER)
     if gitlab:
@@ -452,12 +446,11 @@ __all__ = [
     "FLAG_GITLAB",
     "FLAG_GITLAB_RUNNER",
     "FLAG_IB_GATEWAY_DOCKER",
-    "FLAG_INFRA_CORE_ONLY",
     "FLAG_POSTGRES",
     "FLAG_PYPI",
     "FLAG_REDIS",
-    "FLAG_SKIP_INFRA",
     "generate_curl_public_installer",
+    "setup_and_install_core",
 ]
 
 
