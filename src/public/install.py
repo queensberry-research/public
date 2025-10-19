@@ -20,8 +20,7 @@ if TYPE_CHECKING:
 ###############################################################################
 
 
-type _ModePublic = Literal["core", "infra", "password"]
-type _ModeAll = Literal[
+type _Mode = Literal[
     "core", "core-repo", "infra", "infra-repo", "password", "password-repo"
 ]
 type _PathLike = Path | str
@@ -47,7 +46,7 @@ FLAG_FORCE_RECREATE = "--force-recreate"
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _PublicInstallerSettings:
-    mode: _ModeAll | None = None
+    mode: _Mode | None = None
     docker: bool = False
     password: str | None = None
     ib_gateway_docker: bool = False
@@ -64,7 +63,7 @@ class _PublicInstallerSettings:
         _ = parser.add_argument(
             _FLAG_MODE,
             type=str,
-            choices=get_args(_ModePublic.__value__),
+            choices=get_args(_Mode.__value__),
             help="Installation mode",
         )
         _ = parser.add_argument(
@@ -104,7 +103,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.151")
+    _LOGGER.info("'public' version: 0.4.152")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -167,7 +166,7 @@ def _initial_install(settings: _PublicInstallerSettings, /) -> None:
 
 
 def _core_entry(*, docker: bool = False) -> None:
-    mode: _ModeAll = "core-repo"
+    mode: _Mode = "core-repo"
     parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
     if docker:
         parts.append(_FLAG_DOCKER)
@@ -270,7 +269,7 @@ def _infra_entry(
     redis: bool = False,
     force_recreate: bool = False,
 ) -> None:
-    mode: _ModeAll = "infra-repo"
+    mode: _Mode = "infra-repo"
     parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
     if ib_gateway_docker:
         parts.append(FLAG_IB_GATEWAY_DOCKER)
@@ -324,7 +323,7 @@ def _infra_install(
 
 
 def _password_entry(password: str, /) -> None:
-    mode: _ModeAll = "password-repo"
+    mode: _Mode = "password-repo"
     _update_code()
     _run_commands(
         f"{_PYTHON3_M_PUBLIC} {_FLAG_MODE} {mode} {_FLAG_PASSWORD} {password}",
@@ -523,7 +522,7 @@ def _update_code() -> None:
 
 def curl_public_install(
     *,
-    mode: _ModeAll | None = None,
+    mode: _Mode | None = None,
     docker: bool = False,
     password: str | None = None,
     ib_gateway_docker: bool = False,
