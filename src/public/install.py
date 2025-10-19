@@ -33,6 +33,7 @@ FLAG_GITLAB_RUNNER = "--gitlab-runner"
 FLAG_POSTGRES = "--postgres"
 FLAG_PYPI = "--pypi"
 FLAG_REDIS = "--redis"
+FLAG_FORCE_RECREATE = "--force-recreate"
 
 
 # classes
@@ -50,6 +51,7 @@ class _Settings:
     postgres: bool = False
     pypi: bool = False
     redis: bool = False
+    force_recreate: bool = False
 
     @classmethod
     def parse(cls) -> _Settings:
@@ -78,6 +80,9 @@ class _Settings:
         )
         _ = parser.add_argument(FLAG_PYPI, action="store_true", help="Setup PyPI")
         _ = parser.add_argument(FLAG_REDIS, action="store_true", help="Setup Redis")
+        _ = parser.add_argument(
+            FLAG_FORCE_RECREATE, action="store_true", help="Force re-create containers"
+        )
         return _Settings(**vars(parser.parse_args()))
 
     @property
@@ -111,6 +116,8 @@ class _Settings:
             parts.append(FLAG_PYPI)
         if self.redis:
             parts.append(FLAG_REDIS)
+        if self.force_recreate:
+            parts.append(FLAG_FORCE_RECREATE)
         return parts
 
 
@@ -124,7 +131,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.133")
+    _LOGGER.info("'public' version: 0.4.134")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -411,6 +418,7 @@ def generate_curl_public_installer(
     postgres: bool = False,
     pypi: bool = False,
     redis: bool = False,
+    force_recreate: bool = False,
 ) -> str:
     parts: list[str] = []
     if post:
@@ -435,11 +443,14 @@ def generate_curl_public_installer(
         parts.append(FLAG_PYPI)
     if redis:
         parts.append(FLAG_REDIS)
+    if force_recreate:
+        parts.append(FLAG_FORCE_RECREATE)
     cmd = " ".join(parts)
     return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/src/public/install.py | python3 - {cmd}"""
 
 
 __all__ = [
+    "FLAG_FORCE_RECREATE",
     "FLAG_GITLAB",
     "FLAG_GITLAB_RUNNER",
     "FLAG_IB_GATEWAY_DOCKER",
