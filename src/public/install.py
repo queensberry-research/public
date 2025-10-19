@@ -124,7 +124,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.131")
+    _LOGGER.info("'public' version: 0.4.132")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -147,7 +147,7 @@ def _post_install(settings: _Settings, /) -> None:
     ###########################################################################
     # this installer may only contain standard library & `public` imports
     ###########################################################################
-    from .constants import HOME_INFRA
+    from .constants import HOME_INFRA, HOME_PUBLIC
     from .lib import (
         add_to_known_hosts,
         install_age,
@@ -206,7 +206,7 @@ def _post_install(settings: _Settings, /) -> None:
     install_fzf()
     install_jq()
     install_just()
-    install_neovim(nvim_dir=_get_repo_root() / "neovim")
+    install_neovim(nvim_dir=HOME_PUBLIC / "neovim")
     install_ripgrep()
     install_rsync()
     install_starship(starship_toml=configs / "starship.toml")
@@ -256,10 +256,10 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
             "git pull",
             "git submodule update --init --recursive",
             """git submodule foreach --recursive '
-            git checkout -- . &&
-            git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-            git pull --ff-only
-        '""",
+                git checkout -- . &&
+                git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
+                git pull --ff-only
+            '""",
             cwd=target,
         )
     else:
@@ -299,13 +299,16 @@ def _run_command(
 
 
 def _get_configs() -> Path:
-    return _get_repo_root() / "configs"
+    from .constants import HOME_PUBLIC
+
+    return HOME_PUBLIC / "configs"
 
 
-def _get_repo_root() -> Path:
-    path_public = Path(__file__).parent
-    path_src = path_public.parent
-    return path_src.parent
+def _get_qrt_share() -> Path:
+    from .storage import STORAGE_CONFIG
+
+    nfs = STORAGE_CONFIG.nfs
+    return nfs.path if _is_proxmox() else nfs.mount_point
 
 
 def _get_subnet() -> Literal["main", "test"]:
@@ -373,11 +376,10 @@ def _setup_resolv_conf() -> None:
 
 def _setup_ssh_deploy_key() -> None:
     from .constants import SSH
-    from .storage import STORAGE_CONFIG
     from .utilities import cp
 
     _LOGGER.info("Setting up Proxmox sources'...")
-    cp(STORAGE_CONFIG.nfs.secrets / "deploy-key/infra", SSH / "infra")
+    cp(_get_qrt_share() / "secrets/deploy-key/infra", SSH / "infra")
 
 
 def _setup_subnet_env_var() -> None:

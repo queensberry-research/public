@@ -49,6 +49,7 @@ class _StorageNFSConfig:
         "vztmpl",
     )
     nodes: tuple[str, ...] = ("proxmox",)
+    mount_point: Path = Path("/mnt/qrt-share")
 
     @override
     def __repr__(self) -> str:
