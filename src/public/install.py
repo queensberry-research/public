@@ -119,7 +119,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.124")
+    _LOGGER.info("'public' version: 0.4.125")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -222,7 +222,9 @@ def _post_install(settings: _Settings, /) -> None:
     install_yq()  # after curl, jq
     if settings.docker:
         install_docker()
-    _clone_infra_mirror()
+    _clone_repo(
+        "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
+    )
     run_commands(settings.python3_infra, cwd=HOME_INFRA)
     _LOGGER.info("Finished post installation")
 
@@ -383,19 +385,6 @@ def _setup_subnet_env_var() -> None:
     path_to = HOME / ".bashrc.d/subnet.sh"
     subnet = _get_subnet()
     write_template(path_from, path_to, subnet=subnet)
-
-
-def _clone_infra_mirror() -> None:
-    from .constants import HOME_INFRA
-    from .utilities import git_pull, update_submodules
-
-    if HOME_INFRA.exists():
-        git_pull(cwd=HOME_INFRA)
-        update_submodules(cwd=HOME_INFRA)
-        return
-    _clone_repo(
-        "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
-    )
 
 
 # remote
