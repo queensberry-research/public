@@ -124,7 +124,7 @@ def _main() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.132")
+    _LOGGER.info("'public' version: 0.4.133")
     settings = _Settings.parse()
     if not settings.post:
         _initial_install(settings)
@@ -174,7 +174,6 @@ def _post_install(settings: _Settings, /) -> None:
         setup_ssh_keys,
         setup_sshd,
     )
-    from .storage import STORAGE_CONFIG
     from .utilities import log_installer_version, run_commands, update_submodules
 
     _LOGGER.info("Post installation...")
@@ -220,7 +219,7 @@ def _post_install(settings: _Settings, /) -> None:
     install_delta()  # after curl, jq
     if settings.proxmox or _is_proxmox():
         install_sops(  # after curl, jq
-            age_secret_key=STORAGE_CONFIG.nfs.secrets / "age/secret-key.txt"
+            age_secret_key=_get_qrt_secrets() / "age/secret-key.txt"
         )
     else:
         install_sops()
@@ -304,6 +303,10 @@ def _get_configs() -> Path:
     return HOME_PUBLIC / "configs"
 
 
+def _get_qrt_secrets() -> Path:
+    return _get_qrt_share() / "qrt/secrets"
+
+
 def _get_qrt_share() -> Path:
     from .storage import STORAGE_CONFIG
 
@@ -379,7 +382,7 @@ def _setup_ssh_deploy_key() -> None:
     from .utilities import cp
 
     _LOGGER.info("Setting up Proxmox sources'...")
-    cp(_get_qrt_share() / "secrets/deploy-key/infra", SSH / "infra")
+    cp(_get_qrt_secrets() / "deploy-key/infra", SSH / "infra")
 
 
 def _setup_subnet_env_var() -> None:
