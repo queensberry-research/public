@@ -101,7 +101,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.164")
+    _LOGGER.info("'public' version: 0.4.165")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -482,7 +482,7 @@ def _update_code(*, cwd: _PathLike | None = None) -> None:
         """git submodule foreach --recursive '
             git checkout -- . &&
             git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-            git pull --ff-only
+            git pull --all --ff-only --force --prune --tags
         '""",
         cwd=cwd,
     )
