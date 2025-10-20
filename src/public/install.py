@@ -101,7 +101,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.160")
+    _LOGGER.info("'public' version: 0.4.161")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -190,6 +190,7 @@ def _core_install_in_repo(*, docker: bool = False) -> None:
         install_rsync,
         install_sops,
         install_starship,
+        install_sudo,
         install_tmux,
         install_uv,
         install_vim,
@@ -199,22 +200,21 @@ def _core_install_in_repo(*, docker: bool = False) -> None:
         setup_ssh_keys,
         setup_sshd,
     )
-    from .utilities import log_installer_version
+    from .utilities import is_root, log_installer_version
 
     _LOGGER.info("Running core installation...")
     log_installer_version()
-    configs, subnet = _get_configs(), _get_subnet()
     if _is_proxmox():
         _setup_proxmox_sources()
         _setup_resolv_conf()
         _setup_subnet_env_var()
     add_to_known_hosts()
-    setup_bashrc(bashrc=configs / ".bashrc")
+    setup_bashrc(bashrc=_get_configs() / ".bashrc")
     setup_ssh(
-        symlinks=[(configs / "github-infra-mirror", "github-infra-mirror")],
+        symlinks=[(_get_configs() / "github-infra-mirror", "github-infra-mirror")],
         templates=[
-            (configs / "gitlab-full", {"subnet": subnet}),
-            (configs / "gitlab-infra", {"subnet": subnet}),
+            (_get_configs() / "gitlab-full", {"subnet": _get_subnet()}),
+            (_get_configs() / "gitlab-infra", {"subnet": _get_subnet()}),
         ],
     )
     _setup_ssh_deploy_key()
@@ -224,7 +224,7 @@ def _core_install_in_repo(*, docker: bool = False) -> None:
     setup_sshd(permit_root_login=True)
     install_age()
     install_curl()
-    install_direnv(direnv_toml=configs / "direnv.toml")
+    install_direnv(direnv_toml=_get_configs() / "direnv.toml")
     install_fd()
     install_fzf()
     install_jq()
@@ -232,21 +232,22 @@ def _core_install_in_repo(*, docker: bool = False) -> None:
     install_neovim(nvim_dir=HOME_PUBLIC / "neovim")
     install_ripgrep()
     install_rsync()
-    install_starship(starship_toml=configs / "starship.toml")
+    install_starship(starship_toml=_get_configs() / "starship.toml")
+    if is_root():
+        install_sudo()
     install_tmux(
-        tmux_conf_oh_my_tmux=configs / ".tmux.conf",
-        tmux_conf_local=configs / "tmux.conf.local",
+        tmux_conf_oh_my_tmux=_get_configs() / ".tmux.conf",
+        tmux_conf_local=_get_configs() / "tmux.conf.local",
     )
     install_vim()
     install_uv()  # after curl
     install_bottom()  # after curl, jq
     install_delta()  # after curl, jq
-    if _is_proxmox():
-        install_sops(  # after curl, jq
-            age_secret_key=_get_qrt_secrets() / "age/secret-key.txt"
-        )
-    else:
-        install_sops()
+    install_sops(  # after curl, jq
+        age_secret_key=_get_qrt_secrets() / "age/secret-key.txt"
+        if _is_proxmox()
+        else None
+    )
     install_yq()  # after curl, jq
     if docker:
         install_docker()
