@@ -3,13 +3,13 @@ default_install_hook_types: [pre-commit, pre-push]
 repos:
   # fixers
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
+    rev: v0.14.1
     hooks:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.9.3
+    rev: 0.9.4
     hooks:
       - id: uv-lock
         args: [--upgrade]
@@ -27,7 +27,7 @@ repos:
             reorder_keys=true,
           ]
   - repo: https://github.com/dycw/pre-commit-hooks
-    rev: 0.13.18
+    rev: 0.13.19
     hooks:
       - id: check-submodules-updated
         args: [--run-every=PT5M]
