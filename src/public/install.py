@@ -9,7 +9,7 @@ from pathlib import Path
 from re import search
 from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
-from subprocess import check_call
+from subprocess import check_output
 from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 if TYPE_CHECKING:
@@ -101,7 +101,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.168")
+    _LOGGER.info("'public' version: 0.4.169")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -167,8 +167,9 @@ def _core_install(*, docker: bool = False) -> None:
     parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
     if docker:
         parts.append(_FLAG_DOCKER)
+    cmd = " ".join(parts)
     _update_code(cwd=_HOME_PUBLIC)
-    _run_commands(" ".join(parts), env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
+    _ = _run_command(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
 
 
 def _core_install_in_repo(*, docker: bool = False) -> None:
@@ -286,8 +287,9 @@ def _infra_install(
         parts.append(FLAG_REDIS)
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
+    cmd = " ".join(parts)
     _update_code(cwd=_HOME_INFRA)
-    _run_commands(" ".join(parts), direnv=True, cwd=_HOME_INFRA)
+    _ = _run_command(cmd, direnv=True, cwd=_HOME_INFRA)
     _LOGGER.info("Finished running 'infra.install'")
 
 
@@ -296,7 +298,7 @@ def _setup_root_password(password: str, /) -> None:
     # standard library imports only
     ###########################################################################
     _LOGGER.info("Setting root password...")
-    _run_commands(f"echo 'root:{password}' | chpasswd", skip_log=True)
+    _ = _run_command(f"echo 'root:{password}' | chpasswd", skip_log=True)
     _LOGGER.info("Finished setting root password")
 
 
@@ -309,23 +311,14 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
     ###########################################################################
     if which("git") is None:
         _LOGGER.info("Installing 'git'...")
-        _run_commands("apt -y update && apt install -y git")
+        _ = _run_command("apt -y update && apt install -y git")
     target = Path(target)
     if target.exists():
         _LOGGER.info("Cloning %r to %r...", url, str(target))
-        _run_commands(
-            "git pull",
-            "git submodule update --init --recursive",
-            """git submodule foreach --recursive '
-                git checkout -- . &&
-                git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-                git pull --ff-only --force --prune --tags
-            '""",
-            cwd=target,
-        )
+        _update_code(cwd=target)
     else:
         _LOGGER.info("Cloning %r to %r...", url, str(target))
-        _run_commands(f"git clone --recurse-submodules {url} {target}")
+        _ = _run_command(f"git clone --recurse-submodules {url} {target}")
 
 
 def _run_commands(
@@ -334,12 +327,14 @@ def _run_commands(
     env: Mapping[str, str] | None = None,
     cwd: _PathLike | None = None,
     skip_log: bool = False,
-) -> None:
+) -> list[str]:
     ###########################################################################
     # standard library imports only
     ###########################################################################
-    for cmd in cmds:
+    return [
         _run_command(cmd, direnv=direnv, env=env, cwd=cwd, skip_log=skip_log)
+        for cmd in cmds
+    ]
 
 
 def _run_command(
@@ -350,7 +345,7 @@ def _run_command(
     env: Mapping[str, str] | None = None,
     cwd: _PathLike | None = None,
     skip_log: bool = False,
-) -> None:
+) -> str:
     ###########################################################################
     # standard library imports only
     ###########################################################################
@@ -367,7 +362,9 @@ def _run_command(
         desc = f"{desc} [cwd={cwd}]"
     if not skip_log:
         _LOGGER.info("%s...", desc)
-    _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env_use)
+    return check_output(
+        cmd, executable=which("bash"), shell=True, cwd=cwd, env=env_use, text=True
+    )
 
 
 # utilities - standard library & public
@@ -476,7 +473,7 @@ def _update_code(*, cwd: _PathLike | None = None) -> None:
     if cwd is not None:
         desc = f"{desc} in {str(cwd)!r}"
     _LOGGER.info("%s...", desc)
-    _run_commands(
+    _ = _run_commands(
         "git pull",
         "git submodule update --init --recursive",
         """git submodule foreach --recursive '
