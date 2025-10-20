@@ -101,7 +101,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.164")
+    _LOGGER.info("'public' version: 0.4.165")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
