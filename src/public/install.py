@@ -102,7 +102,7 @@ def _install() -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
-    _LOGGER.info("'public' version: 0.4.170")
+    _LOGGER.info("'public' version: 0.4.171")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -516,6 +516,7 @@ def curl_public_install(
     *,
     mode: _Mode | None = None,
     docker: bool = False,
+    dev: bool = False,
     password: str | None = None,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
@@ -530,6 +531,8 @@ def curl_public_install(
         parts.extend([_FLAG_MODE, mode])
     if docker:
         parts.append(_FLAG_DOCKER)
+    if dev:
+        parts.append(_FLAG_DEV)
     if password:
         parts.extend([_FLAG_PASSWORD, password])
     if ib_gateway_docker:
