@@ -101,7 +101,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.166")
+    _LOGGER.info("'public' version: 0.4.167")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -319,7 +319,7 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
             """git submodule foreach --recursive '
                 git checkout -- . &&
                 git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-                git pull --ff-only
+                git pull --ff-only --force --prune --tags
             '""",
             cwd=target,
         )
