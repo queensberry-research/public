@@ -73,7 +73,7 @@ gsu() {
 	git submodule foreach --recursive '
         git checkout -- . &&
         git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-		git pull --ff-only --force --prune --tags
+        git pull --ff-only
     '
 }
 __git_branch_purge_local() { git branch -vv | awk '/: gone]/{print $1}' | xargs -r git branch -D; }

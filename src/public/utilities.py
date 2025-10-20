@@ -30,8 +30,8 @@ from .installer_utilities import (
     replace_line,
     replace_lines,
     rm,
-    run_command,
     run_commands,
+    run_one_command,
     symlink,
     symlink_if_given,
     symlink_many_if_given,
@@ -51,7 +51,7 @@ _LOGGER = getLogger(__name__)
 
 
 def log_public_version() -> None:
-    _LOGGER.info("'public' version: 0.4.172")
+    _LOGGER.info("'public' version: 0.5.0")
 
 
 __all__ = [
@@ -82,8 +82,8 @@ __all__ = [
     "replace_line",
     "replace_lines",
     "rm",
-    "run_command",
     "run_commands",
+    "run_one_command",
     "symlink",
     "symlink_if_given",
     "symlink_many_if_given",
