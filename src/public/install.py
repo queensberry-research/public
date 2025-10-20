@@ -482,7 +482,7 @@ def _update_code(*, cwd: _PathLike | None = None) -> None:
         """git submodule foreach --recursive '
             git checkout -- . &&
             git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-            git pull --ff-only
+            git pull --all --ff-only --force --prune --tags
         '""",
         cwd=cwd,
     )
