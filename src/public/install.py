@@ -110,7 +110,7 @@ def _install() -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
-    _LOGGER.info("'public' version: 0.4.173")
+    _LOGGER.info("'public' version: 0.5.0")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
