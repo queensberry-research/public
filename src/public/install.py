@@ -319,7 +319,7 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
             """git submodule foreach --recursive '
                 git checkout -- . &&
                 git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-                git pull --ff-only
+                git pull --ff-only --force --prune --tags
             '""",
             cwd=target,
         )
