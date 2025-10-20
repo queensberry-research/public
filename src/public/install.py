@@ -20,7 +20,9 @@ if TYPE_CHECKING:
 ###############################################################################
 
 
-type _Mode = Literal["public", "core", "core-in-repo", "infra", "password"]
+type _Mode = Literal[
+    "public", "core", "core-in-repo", "dev", "dev-in-repo", "infra", "password"
+]
 type _PathLike = Path | str
 _LOGGER = getLogger(__name__)
 _HOME_PUBLIC = Path("~/public").expanduser()
@@ -28,6 +30,7 @@ _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
 _PYTHON3_M_PUBLIC = f"{_PYTHON3_M} public.install"
 _FLAG_MODE = "--mode"
+_FLAG_DEV = "--dev"
 _FLAG_DOCKER = "--docker"
 _FLAG_PASSWORD = "--password"  # noqa: S105
 FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
@@ -46,6 +49,7 @@ FLAG_FORCE_RECREATE = "--force-recreate"
 class _PublicInstallerSettings:
     mode: _Mode | None = None
     docker: bool = False
+    dev: bool = False
     password: str | None = None
     ib_gateway_docker: bool = False
     gitlab: bool = False
@@ -66,6 +70,9 @@ class _PublicInstallerSettings:
         )
         _ = parser.add_argument(
             _FLAG_DOCKER, action="store_true", help="Install 'docker'"
+        )
+        _ = parser.add_argument(
+            _FLAG_DEV, action="store_true", help="Install development dependencies"
         )
         _ = parser.add_argument(_FLAG_PASSWORD, type=str, help="Root password")
         _ = parser.add_argument(
@@ -93,7 +100,7 @@ class _PublicInstallerSettings:
 
 def _install() -> None:
     ###########################################################################
-    # this installer may only contain standard library imports
+    # standard library imports only
     ###########################################################################
     basicConfig(
         format=f"[{{asctime}} ❯ {gethostname()} ❯ {{module}}:{{funcName}}:{{lineno}}] {{message}}",  # noqa: RUF001
@@ -101,7 +108,7 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.4.169")
+    _LOGGER.info("'public' version: 0.4.170")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -112,6 +119,10 @@ def _install() -> None:
             _core_install(docker=settings.docker)
         case "core-in-repo":
             _core_install_in_repo(docker=settings.docker)
+        case "dev":
+            _dev_install()
+        case "dev-in-repo":
+            _dev_install_in_repo()
         case "infra":
             _infra_install(
                 ib_gateway_docker=settings.ib_gateway_docker,
@@ -164,7 +175,7 @@ def _core_install(*, docker: bool = False) -> None:
     # standard library imports only
     ###########################################################################
     mode: _Mode = "core-in-repo"
-    parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
+    parts: list[str] = [f"{_PYTHON3_M_PUBLIC} {_FLAG_MODE} {mode}"]
     if docker:
         parts.append(_FLAG_DOCKER)
     cmd = " ".join(parts)
@@ -173,35 +184,24 @@ def _core_install(*, docker: bool = False) -> None:
 
 
 def _core_install_in_repo(*, docker: bool = False) -> None:
-    from .constants import HOME_INFRA, HOME_PUBLIC
+    from .constants import HOME_INFRA
     from .lib import (
         add_to_known_hosts,
         install_age,
-        install_bottom,
         install_curl,
-        install_delta,
         install_direnv,
         install_docker,
-        install_fd,
-        install_fzf,
         install_jq,
-        install_just,
-        install_neovim,
-        install_ripgrep,
-        install_rsync,
         install_sops,
         install_starship,
-        install_sudo,
-        install_tmux,
         install_uv,
-        install_vim,
         install_yq,
         setup_bashrc,
         setup_ssh,
         setup_ssh_keys,
         setup_sshd,
     )
-    from .utilities import is_root, log_installer_version
+    from .utilities import log_installer_version
 
     _LOGGER.info("Running core installation...")
     log_installer_version()
@@ -226,24 +226,9 @@ def _core_install_in_repo(*, docker: bool = False) -> None:
     install_age()
     install_curl()
     install_direnv(direnv_toml=_get_configs() / "direnv.toml")
-    install_fd()
-    install_fzf()
     install_jq()
-    install_just()
-    install_neovim(nvim_dir=HOME_PUBLIC / "neovim")
-    install_ripgrep()
-    install_rsync()
     install_starship(starship_toml=_get_configs() / "starship.toml")
-    if is_root():
-        install_sudo()
-    install_tmux(
-        tmux_conf_oh_my_tmux=_get_configs() / ".tmux.conf",
-        tmux_conf_local=_get_configs() / "tmux.conf.local",
-    )
-    install_vim()
     install_uv()  # after curl
-    install_bottom()  # after curl, jq
-    install_delta()  # after curl, jq
     install_sops(  # after curl, jq
         age_secret_key=_get_qrt_secrets() / "age/secret-key.txt"
         if _is_proxmox()
@@ -256,6 +241,50 @@ def _core_install_in_repo(*, docker: bool = False) -> None:
         "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
     )
     _LOGGER.info("Finished running core installation")
+
+
+def _dev_install() -> None:
+    ###########################################################################
+    # standard library imports only
+    ###########################################################################
+    mode: _Mode = "dev-in-repo"
+    cmd = f"{_PYTHON3_M_PUBLIC} {_FLAG_MODE} {mode}"
+    _update_code(cwd=_HOME_PUBLIC)
+    _ = _run_command(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
+
+
+def _dev_install_in_repo() -> None:
+    from .constants import HOME_PUBLIC
+    from .lib import (
+        install_bottom,
+        install_delta,
+        install_fd,
+        install_fzf,
+        install_just,
+        install_neovim,
+        install_ripgrep,
+        install_rsync,
+        install_tmux,
+        install_vim,
+    )
+    from .utilities import log_installer_version
+
+    _LOGGER.info("Running dev installation...")
+    log_installer_version()
+    install_bottom()  # after curl, jq
+    install_delta()  # after curl, jq
+    install_fd()
+    install_fzf()
+    install_just()
+    install_neovim(nvim_dir=HOME_PUBLIC / "neovim")
+    install_ripgrep()
+    install_rsync()
+    install_tmux(
+        tmux_conf_oh_my_tmux=_get_configs() / ".tmux.conf",
+        tmux_conf_local=_get_configs() / "tmux.conf.local",
+    )
+    install_vim()
+    _LOGGER.info("Finished running dev installation")
 
 
 def _infra_install(
