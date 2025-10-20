@@ -42,6 +42,14 @@ FLAG_REDIS = "--redis"
 FLAG_FORCE_RECREATE = "--force-recreate"
 
 
+basicConfig(
+    format=f"[{{asctime}} ❯ {gethostname()} ❯ {{module}}:{{funcName}}:{{lineno}}] {{message}}",  # noqa: RUF001
+    datefmt="%Y-%m-%d %H:%M:%S",
+    style="{",
+    level="INFO",
+)
+
+
 # classes
 
 
@@ -102,7 +110,7 @@ def _install() -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
-    _LOGGER.info("'public' version: 0.4.171")
+    _LOGGER.info("'public' version: 0.4.172")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
@@ -566,10 +574,4 @@ __all__ = [
 
 
 if __name__ == "__main__":
-    basicConfig(
-        format=f"[{{asctime}} ❯ {gethostname()} ❯ {{module}}:{{funcName}}:{{lineno}}] {{message}}",  # noqa: RUF001
-        datefmt="%Y-%m-%d %H:%M:%S",
-        style="{",
-        level="INFO",
-    )
     _install()
