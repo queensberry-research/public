@@ -409,9 +409,7 @@ def _clone_repo(
         _LOGGER.info("Installing 'git'...")
         _run_commands("apt -y update && apt install -y git")
     target = Path(target)
-    if target.exists():
-        _LOGGER.info("Cloning %r to %r...", url, str(target))
-    else:
+    if not target.exists():
         _LOGGER.info("Cloning %r to %r...", url, str(target))
         _run_commands(f"git clone --recurse-submodules {url} {target}")
     _update_code(cwd=target, version=version, submodule_versions=submodule_versions)
@@ -518,7 +516,6 @@ def _setup_proxmox_sources() -> None:
         if path.exists():
             rm(path)
             return True
-        _LOGGER.debug("%r is already removed", str(path))
         return False
 
     removed = list(map(func, ["ceph", "pve-enterprise"]))  # run both
@@ -568,7 +565,13 @@ def _update_code(
 ) -> None:
     desc = "Updating code"
     if cwd is not None:
-        desc = f"{desc} in {str(cwd)!r}"
+        desc = f"{desc} [cwd={cwd}]"
+    if version is not None:
+        desc = f"{desc} [version={version}]"
+    if submodule_versions is not None:
+        for sub_name, sub_version in submodule_versions.items():
+            if sub_version is not None:
+                desc = f"{desc} [{sub_name}={sub_version}]"
     _LOGGER.info("%s...", desc)
     reset_pull = "git reset --hard $(git symbolic-ref refs/remotes/origin/HEAD --short) && git pull --ff-only --force --prune --tags"
     _run_commands(
