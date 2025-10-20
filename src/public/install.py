@@ -9,7 +9,7 @@ from pathlib import Path
 from re import search
 from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
-from subprocess import check_call
+from subprocess import check_call, check_output
 from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 if TYPE_CHECKING:
@@ -27,6 +27,9 @@ _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
 _PYTHON3_M_PUBLIC = f"{_PYTHON3_M} public.install"
+FLAG_INFRA_VERSION = "--infra-version"
+FLAG_PUBLIC_VERSION = "--public-version"
+FLAG_INSTALLER_VERSION = "--installer-version"
 _FLAG_MODE = "--mode"
 _FLAG_DOCKER = "--docker"
 _FLAG_PASSWORD = "--password"  # noqa: S105
@@ -44,6 +47,9 @@ FLAG_FORCE_RECREATE = "--force-recreate"
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _PublicInstallerSettings:
+    infra_version: str | None = None
+    public_version: str | None = None
+    installer_version: str | None = None
     mode: _Mode | None = None
     docker: bool = False
     password: str | None = None
@@ -58,6 +64,11 @@ class _PublicInstallerSettings:
     @classmethod
     def parse(cls) -> _PublicInstallerSettings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        _ = parser.add_argument(FLAG_INFRA_VERSION, type=str, help="'infra' version")
+        _ = parser.add_argument(FLAG_PUBLIC_VERSION, type=str, help="'public' version")
+        _ = parser.add_argument(
+            FLAG_INSTALLER_VERSION, type=str, help="'installer' version"
+        )
         _ = parser.add_argument(
             _FLAG_MODE,
             type=str,
@@ -101,19 +112,46 @@ def _install() -> None:
         style="{",
         level="INFO",
     )
-    _LOGGER.info("'public' version: 0.5.0")
+    _LOGGER.info("'public' version: 0.5.1")
     settings = _PublicInstallerSettings.parse()
     match settings.mode:
         case None:
-            _initial_install(settings)
+            _initial_install(
+                infra_version=settings.infra_version,
+                public_version=settings.public_version,
+                installer_version=settings.installer_version,
+                docker=settings.docker,
+                ib_gateway_docker=settings.ib_gateway_docker,
+                gitlab=settings.gitlab,
+                gitlab_runner=settings.gitlab_runner,
+                postgres=settings.postgres,
+                pypi=settings.pypi,
+                redis=settings.redis,
+                force_recreate=settings.force_recreate,
+            )
         case "public":
-            _public_install()
+            _public_install(
+                public_version=settings.public_version,
+                installer_version=settings.installer_version,
+            )
         case "core":
-            _core_install(docker=settings.docker)
+            _core_install(
+                docker=settings.docker,
+                public_version=settings.public_version,
+                installer_version=settings.installer_version,
+            )
         case "core-in-repo":
-            _core_install_in_repo(docker=settings.docker)
+            _core_install_in_repo(
+                docker=settings.docker,
+                infra_version=settings.infra_version,
+                public_version=settings.public_version,
+                installer_version=settings.installer_version,
+            )
         case "infra":
             _infra_install(
+                infra_version=settings.infra_version,
+                public_version=settings.public_version,
+                installer_version=settings.installer_version,
                 ib_gateway_docker=settings.ib_gateway_docker,
                 gitlab=settings.gitlab,
                 gitlab_runner=settings.gitlab_runner,
@@ -131,35 +169,67 @@ def _install() -> None:
             assert_never(never)
 
 
-def _initial_install(settings: _PublicInstallerSettings, /) -> None:
+def _initial_install(
+    *,
+    infra_version: str | None = None,
+    public_version: str | None = None,
+    installer_version: str | None = None,
+    docker: bool = False,
+    ib_gateway_docker: bool = False,
+    gitlab: bool = False,
+    gitlab_runner: bool = False,
+    postgres: bool = False,
+    pypi: bool = False,
+    redis: bool = False,
+    force_recreate: bool = False,
+) -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
     _LOGGER.info("Running initial installation...")
-    _public_install()
-    _core_install(docker=settings.docker)
+    _public_install(public_version=public_version, installer_version=installer_version)
+    _core_install(
+        docker=docker,
+        public_version=public_version,
+        installer_version=installer_version,
+    )
     _LOGGER.info("Finished running initial installation")
     _infra_install(
-        ib_gateway_docker=settings.ib_gateway_docker,
-        gitlab=settings.gitlab,
-        gitlab_runner=settings.gitlab_runner,
-        postgres=settings.postgres,
-        pypi=settings.pypi,
-        redis=settings.redis,
-        force_recreate=settings.force_recreate,
+        infra_version=infra_version,
+        public_version=public_version,
+        installer_version=installer_version,
+        ib_gateway_docker=ib_gateway_docker,
+        gitlab=gitlab,
+        gitlab_runner=gitlab_runner,
+        postgres=postgres,
+        pypi=pypi,
+        redis=redis,
+        force_recreate=force_recreate,
     )
 
 
-def _public_install() -> None:
+def _public_install(
+    *, public_version: str | None = None, installer_version: str | None = None
+) -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
     _LOGGER.info("Cloning 'public'...")
-    _clone_repo("https://github.com/queensberry-research/public.git", _HOME_PUBLIC)
+    _clone_repo(
+        "https://github.com/queensberry-research/public.git",
+        _HOME_PUBLIC,
+        version=public_version,
+        submodule_versions={"installer": installer_version},
+    )
     _LOGGER.info("Finished cloning 'public'")
 
 
-def _core_install(*, docker: bool = False) -> None:
+def _core_install(
+    *,
+    docker: bool = False,
+    public_version: str | None = None,
+    installer_version: str | None = None,
+) -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
@@ -167,11 +237,22 @@ def _core_install(*, docker: bool = False) -> None:
     parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
     if docker:
         parts.append(_FLAG_DOCKER)
-    _update_code(cwd=_HOME_PUBLIC)
-    _run_commands(" ".join(parts), env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
+    cmd = " ".join(parts)
+    _update_code(
+        cwd=_HOME_PUBLIC,
+        version=public_version,
+        submodule_versions={"installer": installer_version},
+    )
+    _run_commands(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
 
 
-def _core_install_in_repo(*, docker: bool = False) -> None:
+def _core_install_in_repo(
+    *,
+    docker: bool = False,
+    infra_version: str | None = None,
+    public_version: str | None = None,
+    installer_version: str | None = None,
+) -> None:
     from .constants import HOME_INFRA, HOME_PUBLIC
     from .lib import (
         add_to_known_hosts,
@@ -251,13 +332,19 @@ def _core_install_in_repo(*, docker: bool = False) -> None:
     if docker:
         install_docker()
     _clone_repo(
-        "ssh://git@github-infra-mirror/queensberry-research/infra-mirror", HOME_INFRA
+        "ssh://git@github-infra-mirror/queensberry-research/infra-mirror",
+        HOME_INFRA,
+        version=infra_version,
+        submodule_versions={"public": public_version, "installer": installer_version},
     )
     _LOGGER.info("Finished running core installation")
 
 
 def _infra_install(
     *,
+    infra_version: str | None = None,
+    public_version: str | None = None,
+    installer_version: str | None = None,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
     gitlab_runner: bool = False,
@@ -285,8 +372,13 @@ def _infra_install(
         parts.append(FLAG_REDIS)
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
-    _update_code(cwd=_HOME_INFRA)
-    _run_commands(" ".join(parts), direnv=True, cwd=_HOME_INFRA)
+    cmd = " ".join(parts)
+    _update_code(
+        cwd=_HOME_INFRA,
+        version=infra_version,
+        submodule_versions={"public": public_version, "installer": installer_version},
+    )
+    _run_commands(cmd, direnv=True, cwd=_HOME_INFRA)
     _LOGGER.info("Finished running 'infra.install'")
 
 
@@ -302,7 +394,14 @@ def _setup_root_password(password: str, /) -> None:
 # utilities - standard library
 
 
-def _clone_repo(url: str, target: _PathLike, /) -> None:
+def _clone_repo(
+    url: str,
+    target: _PathLike,
+    /,
+    *,
+    version: str | None = None,
+    submodule_versions: Mapping[str, str | None] | None = None,
+) -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
@@ -312,19 +411,10 @@ def _clone_repo(url: str, target: _PathLike, /) -> None:
     target = Path(target)
     if target.exists():
         _LOGGER.info("Cloning %r to %r...", url, str(target))
-        _run_commands(
-            "git pull",
-            "git submodule update --init --recursive",
-            """git submodule foreach --recursive '
-                git checkout -- . &&
-                git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-                git pull --ff-only
-            '""",
-            cwd=target,
-        )
     else:
         _LOGGER.info("Cloning %r to %r...", url, str(target))
         _run_commands(f"git clone --recurse-submodules {url} {target}")
+    _update_code(cwd=target, version=version, submodule_versions=submodule_versions)
 
 
 def _run_commands(
@@ -470,22 +560,36 @@ def _setup_subnet_env_var() -> None:
     write_template(path_from, path_to, subnet=subnet)
 
 
-def _update_code(*, cwd: _PathLike | None = None) -> None:
+def _update_code(
+    *,
+    cwd: _PathLike | None = None,
+    version: str | None = None,
+    submodule_versions: Mapping[str, str | None] | None = None,
+) -> None:
     desc = "Updating code"
     if cwd is not None:
         desc = f"{desc} in {str(cwd)!r}"
     _LOGGER.info("%s...", desc)
+    reset_pull = "git reset --hard $(git symbolic-ref refs/remotes/origin/HEAD --short) && git pull --ff-only --force --prune --tags"
     _run_commands(
-        "git pull",
+        reset_pull,
         "git submodule update --init --recursive",
-        """git submodule foreach --recursive '
-            git checkout -- . &&
-            git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-            git pull --ff-only
-        '""",
+        f"git submodule foreach --recursive '{reset_pull}'",
         cwd=cwd,
     )
-    _LOGGER.info("Finished updating repo & submodules")
+    if version is not None:
+        _run_commands(f"git checkout {version}", cwd=cwd)
+    if submodule_versions is not None:
+        for sub_name, sub_version in submodule_versions.items():
+            if sub_version is not None:
+                sub_path = check_output(
+                    f"git submodule status --recursive | awk '$2 ~ /{sub_name}/ {{print $2}}'",
+                    shell=True,
+                    cwd=cwd,
+                    text=True,
+                ).strip("\n")
+                _run_command(f"git -C {sub_path} checkout {sub_version}", cwd=cwd)
+    _LOGGER.info("Finished updating code")
 
 
 # remote
@@ -493,6 +597,8 @@ def _update_code(*, cwd: _PathLike | None = None) -> None:
 
 def curl_public_install(
     *,
+    public_version: str | None = None,
+    installer_version: str | None = None,
     mode: _Mode | None = None,
     docker: bool = False,
     password: str | None = None,
@@ -505,6 +611,10 @@ def curl_public_install(
     force_recreate: bool = False,
 ) -> str:
     parts: list[str] = []
+    if public_version is not None:
+        parts.extend([FLAG_PUBLIC_VERSION, public_version])
+    if installer_version is not None:
+        parts.extend([FLAG_INSTALLER_VERSION, installer_version])
     if mode is not None:
         parts.extend([_FLAG_MODE, mode])
     if docker:
@@ -534,7 +644,10 @@ __all__ = [
     "FLAG_GITLAB",
     "FLAG_GITLAB_RUNNER",
     "FLAG_IB_GATEWAY_DOCKER",
+    "FLAG_INFRA_VERSION",
+    "FLAG_INSTALLER_VERSION",
     "FLAG_POSTGRES",
+    "FLAG_PUBLIC_VERSION",
     "FLAG_PYPI",
     "FLAG_REDIS",
     "curl_public_install",
