@@ -34,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.3"
+__version__ = "0.5.4"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -659,7 +659,7 @@ def _update_code(
         for sub_name, sub_version in submodule_versions.items():
             if sub_version is not None:
                 sub_path = check_output(
-                    f"git submodule status --recursive | awk '$2 ~ /{sub_name}/ {{print $2}}'",
+                    f"git submodule status | awk '$2 ~ /{sub_name}/ {{print $2}}'",
                     shell=True,
                     cwd=cwd,
                     text=True,
