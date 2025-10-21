@@ -39,13 +39,13 @@ _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
 _PYTHON3_M_PUBLIC = f"{_PYTHON3_M} public.install"
-FLAG_PUBLIC_VERSION = "--public-version"
-FLAG_INSTALLER_VERSION = "--installer-version"
-FLAG_INFRA_VERSION = "--infra-version"
+_FLAG_PUBLIC_VERSION = "--public-version"
+_FLAG_INSTALLER_VERSION = "--installer-version"
+_FLAG_INFRA_VERSION = "--infra-version"
 _FLAG_MODE = "--mode"
 _FLAG_DOCKER = "--docker"
-FLAG_SKIP_DEV = "--skip-dev"
 _FLAG_PASSWORD = "--password"  # noqa: S105
+FLAG_SKIP_DEV = "--skip-dev"
 FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
 FLAG_GITLAB = "--gitlab"
 FLAG_GITLAB_RUNNER = "--gitlab-runner"
@@ -65,8 +65,8 @@ class _PublicInstallerSettings:
     infra_version: str | None = None
     mode: _Mode | None = None
     docker: bool = False
-    skip_dev: bool = False
     password: str | None = None
+    skip_dev: bool = False
     ib_gateway_docker: bool = False
     gitlab: bool = False
     gitlab_runner: bool = False
@@ -79,12 +79,12 @@ class _PublicInstallerSettings:
     def parse(cls) -> _PublicInstallerSettings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         _ = parser.add_argument(
-            FLAG_PUBLIC_VERSION, default=__version__, type=str, help="'public' version"
+            _FLAG_PUBLIC_VERSION, default=__version__, type=str, help="'public' version"
         )
         _ = parser.add_argument(
-            FLAG_INSTALLER_VERSION, type=str, help="'installer' version"
+            _FLAG_INSTALLER_VERSION, type=str, help="'installer' version"
         )
-        _ = parser.add_argument(FLAG_INFRA_VERSION, type=str, help="'infra' version")
+        _ = parser.add_argument(_FLAG_INFRA_VERSION, type=str, help="'infra' version")
         _ = parser.add_argument(
             _FLAG_MODE,
             type=str,
@@ -94,10 +94,10 @@ class _PublicInstallerSettings:
         _ = parser.add_argument(
             _FLAG_DOCKER, action="store_true", help="Install 'docker'"
         )
+        _ = parser.add_argument(_FLAG_PASSWORD, type=str, help="Root password")
         _ = parser.add_argument(
             FLAG_SKIP_DEV, action="store_true", help="Skip dev dependencies"
         )
-        _ = parser.add_argument(_FLAG_PASSWORD, type=str, help="Root password")
         _ = parser.add_argument(
             FLAG_IB_GATEWAY_DOCKER, action="store_true", help="Setup IB Gateway Docker"
         )
@@ -278,13 +278,13 @@ def _core_install(
         _PYTHON3_M_PUBLIC,
         _FLAG_MODE,
         mode,
-        FLAG_PUBLIC_VERSION,
+        _FLAG_PUBLIC_VERSION,
         public_version,
     ]
     if installer_version is not None:
-        parts.extend([FLAG_INSTALLER_VERSION, installer_version])
+        parts.extend([_FLAG_INSTALLER_VERSION, installer_version])
     if infra_version is not None:
-        parts.extend([FLAG_INFRA_VERSION, infra_version])
+        parts.extend([_FLAG_INFRA_VERSION, infra_version])
     if docker:
         parts.append(_FLAG_DOCKER)
     if skip_dev:
@@ -703,11 +703,11 @@ def curl_public_install(
     redis: bool = False,
     force_recreate: bool = False,
 ) -> str:
-    parts: list[str] = [FLAG_PUBLIC_VERSION, public_version]
+    parts: list[str] = [_FLAG_PUBLIC_VERSION, public_version]
     if installer_version is not None:
-        parts.extend([FLAG_INSTALLER_VERSION, installer_version])
+        parts.extend([_FLAG_INSTALLER_VERSION, installer_version])
     if infra_version is not None:
-        parts.extend([FLAG_INFRA_VERSION, infra_version])
+        parts.extend([_FLAG_INFRA_VERSION, infra_version])
     if mode is not None:
         parts.extend([_FLAG_MODE, mode])
     if docker:
@@ -739,13 +739,13 @@ __all__ = [
     "FLAG_GITLAB",
     "FLAG_GITLAB_RUNNER",
     "FLAG_IB_GATEWAY_DOCKER",
-    "FLAG_INFRA_VERSION",
-    "FLAG_INSTALLER_VERSION",
     "FLAG_POSTGRES",
-    "FLAG_PUBLIC_VERSION",
     "FLAG_PYPI",
     "FLAG_REDIS",
     "FLAG_SKIP_DEV",
+    "_FLAG_INFRA_VERSION",
+    "_FLAG_INSTALLER_VERSION",
+    "_FLAG_PUBLIC_VERSION",
     "curl_public_install",
 ]
 
