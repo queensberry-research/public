@@ -590,7 +590,7 @@ def _update_code(
                     shell=True,
                     cwd=cwd,
                     text=True,
-                ).strip("\n")
+                ).rstrip("\n")
                 _run_command(f"git -C {sub_path} checkout {sub_version}", cwd=cwd)
     _LOGGER.info("Finished updating code")
 
