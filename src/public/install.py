@@ -569,7 +569,7 @@ def _update_code(
             if sub_version is not None:
                 desc = f"{desc} [{sub_name}={sub_version}]"
     _LOGGER.info("%s...", desc)
-    reset_pull = "branch=$(git symbolic-ref refs/remotes/origin/HEAD --short | sed ''s#origin/##'') && git checkout --force $branch && git reset --hard origin/$branch && git pull --ff-only --force --prune --tags"
+    reset_pull = "git submodule foreach --recursive 'git checkout --force $(git symbolic-ref refs/remotes/origin/HEAD --short | sed ''s#origin/##'') && git pull --ff-only --force --prune --tags'"
     _run_commands(
         reset_pull,
         "git submodule update --init --recursive",
