@@ -70,11 +70,7 @@ alias __git_fetch_and_purge='git fetch --all --force && __git_branch_purge_local
 gsu() {
 	git submodule update --init --recursive || return $?
 	# shellcheck disable=SC2016
-	git submodule foreach --recursive '
-        git checkout -- . &&
-        git checkout $(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##") &&
-        git pull --ff-only
-    '
+	git submodule foreach --recursive 'branch=$(git symbolic-ref refs/remotes/origin/HEAD --short | sed ''s#origin/##'') && git checkout --force $branch && git reset --hard origin/$branch && git pull --ff-only --force --prune --tags'
 }
 __git_branch_purge_local() { git branch -vv | awk '/: gone]/{print $1}' | xargs -r git branch -D; }
 
