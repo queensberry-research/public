@@ -226,23 +226,23 @@ def _public_install(
 
 def _core_install(
     *,
-    docker: bool = False,
     public_version: str | None = None,
     installer_version: str | None = None,
+    docker: bool = False,
 ) -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
-    mode: _Mode = "core-in-repo"
-    parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
-    if docker:
-        parts.append(_FLAG_DOCKER)
-    cmd = " ".join(parts)
     _update_code(
         cwd=_HOME_PUBLIC,
         version=public_version,
         submodule_versions={"installer": installer_version},
     )
+    mode: _Mode = "core-in-repo"
+    parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
+    if docker:
+        parts.append(_FLAG_DOCKER)
+    cmd = " ".join(parts)
     _run_commands(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
 
 
