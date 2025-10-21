@@ -245,13 +245,17 @@ def _core_install(
     *,
     public_version: str = __version__,
     installer_version: str | None = None,
+    infra_version: str | None = None,
     docker: bool = False,
 ) -> None:
     ###########################################################################
     # standard library imports only
     ###########################################################################
     desc = _append_version_descs(
-        "Running core installation", public=public_version, installer=installer_version
+        "Running core installation",
+        public=public_version,
+        installer=installer_version,
+        infra=infra_version,
     )
     _LOGGER.info("%s...", desc)
     _update_code(
@@ -260,7 +264,17 @@ def _core_install(
         submodule_versions={"installer": installer_version},
     )
     mode: _Mode = "core-in-repo"
-    parts: list[str] = [_PYTHON3_M_PUBLIC, _FLAG_MODE, mode]
+    parts: list[str] = [
+        _PYTHON3_M_PUBLIC,
+        _FLAG_MODE,
+        mode,
+        FLAG_PUBLIC_VERSION,
+        public_version,
+    ]
+    if installer_version is not None:
+        parts.extend([FLAG_INSTALLER_VERSION, installer_version])
+    if infra_version is not None:
+        parts.extend([FLAG_INFRA_VERSION, infra_version])
     if docker:
         parts.append(_FLAG_DOCKER)
     cmd = " ".join(parts)
@@ -649,6 +663,7 @@ def curl_public_install(
     *,
     public_version: str = __version__,
     installer_version: str | None = None,
+    infra_version: str | None = None,
     mode: _Mode | None = None,
     docker: bool = False,
     password: str | None = None,
@@ -663,6 +678,8 @@ def curl_public_install(
     parts: list[str] = [FLAG_PUBLIC_VERSION, public_version]
     if installer_version is not None:
         parts.extend([FLAG_INSTALLER_VERSION, installer_version])
+    if infra_version is not None:
+        parts.extend([FLAG_INFRA_VERSION, infra_version])
     if mode is not None:
         parts.extend([_FLAG_MODE, mode])
     if docker:
