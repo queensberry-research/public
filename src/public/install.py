@@ -357,6 +357,11 @@ def _infra_install(
     # standard library imports only
     ###########################################################################
     _LOGGER.info("Running 'infra.install'...")
+    _update_code(
+        cwd=_HOME_INFRA,
+        version=infra_version,
+        submodule_versions={"public": public_version, "installer": installer_version},
+    )
     parts: list[str] = [_PYTHON3_M, "infra.install"]
     if ib_gateway_docker:
         parts.append(FLAG_IB_GATEWAY_DOCKER)
@@ -373,11 +378,6 @@ def _infra_install(
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
     cmd = " ".join(parts)
-    _update_code(
-        cwd=_HOME_INFRA,
-        version=infra_version,
-        submodule_versions={"public": public_version, "installer": installer_version},
-    )
     _run_commands(cmd, direnv=True, cwd=_HOME_INFRA)
     _LOGGER.info("Finished running 'infra.install'")
 
