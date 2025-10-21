@@ -76,13 +76,13 @@ class _PublicInstallerSettings:
     @classmethod
     def parse(cls) -> _PublicInstallerSettings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-        _ = parser.add_argument(FLAG_INFRA_VERSION, type=str, help="'infra' version")
         _ = parser.add_argument(
             FLAG_PUBLIC_VERSION, default=__version__, type=str, help="'public' version"
         )
         _ = parser.add_argument(
             FLAG_INSTALLER_VERSION, type=str, help="'installer' version"
         )
+        _ = parser.add_argument(FLAG_INFRA_VERSION, type=str, help="'infra' version")
         _ = parser.add_argument(
             _FLAG_MODE,
             type=str,
