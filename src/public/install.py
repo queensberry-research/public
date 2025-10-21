@@ -693,6 +693,7 @@ def curl_public_install(
     infra_version: str | None = None,
     mode: _Mode | None = None,
     docker: bool = False,
+    skip_dev: bool = False,
     password: str | None = None,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
@@ -711,6 +712,8 @@ def curl_public_install(
         parts.extend([_FLAG_MODE, mode])
     if docker:
         parts.append(_FLAG_DOCKER)
+    if skip_dev:
+        parts.append(FLAG_SKIP_DEV)
     if password:
         parts.extend([_FLAG_PASSWORD, password])
     if ib_gateway_docker:
