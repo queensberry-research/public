@@ -193,7 +193,6 @@ def _initial_install(
         public_version=public_version,
         installer_version=installer_version,
     )
-    _LOGGER.info("Finished running initial installation")
     _infra_install(
         infra_version=infra_version,
         public_version=public_version,
@@ -214,14 +213,12 @@ def _public_install(
     ###########################################################################
     # standard library imports only
     ###########################################################################
-    _LOGGER.info("Cloning 'public'...")
     _clone_repo(
         "https://github.com/queensberry-research/public.git",
         _HOME_PUBLIC,
         version=public_version,
         submodule_versions={"installer": installer_version},
     )
-    _LOGGER.info("Finished cloning 'public'")
 
 
 def _core_install(
@@ -337,7 +334,6 @@ def _core_install_in_repo(
         version=infra_version,
         submodule_versions={"public": public_version, "installer": installer_version},
     )
-    _LOGGER.info("Finished running core installation")
 
 
 def _infra_install(
@@ -379,7 +375,6 @@ def _infra_install(
         parts.append(FLAG_FORCE_RECREATE)
     cmd = " ".join(parts)
     _run_commands(cmd, direnv=True, cwd=_HOME_INFRA)
-    _LOGGER.info("Finished running 'infra.install'")
 
 
 def _setup_root_password(password: str, /) -> None:
@@ -388,7 +383,6 @@ def _setup_root_password(password: str, /) -> None:
     ###########################################################################
     _LOGGER.info("Setting root password...")
     _run_commands(f"echo 'root:{password}' | chpasswd", skip_log=True)
-    _LOGGER.info("Finished setting root password")
 
 
 # utilities - standard library
@@ -409,7 +403,9 @@ def _clone_repo(
         _LOGGER.info("Installing 'git'...")
         _run_commands("apt -y update && apt install -y git")
     target = Path(target)
-    if not target.exists():
+    if target.exists():
+        _LOGGER.info("%r already exists", str(target))
+    else:
         _LOGGER.info("Cloning %r to %r...", url, str(target))
         _run_commands(f"git clone --recurse-submodules {url} {target}")
     _update_code(cwd=target, version=version, submodule_versions=submodule_versions)
@@ -592,7 +588,6 @@ def _update_code(
                     text=True,
                 ).rstrip("\n")
                 _run_command(f"git -C {sub_path} checkout {sub_version}", cwd=cwd)
-    _LOGGER.info("Finished updating code")
 
 
 # remote
