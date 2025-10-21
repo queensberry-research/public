@@ -9,7 +9,7 @@ from pathlib import Path
 from re import search
 from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
-from subprocess import check_call, check_output
+from subprocess import check_output
 from typing import TYPE_CHECKING, Literal, assert_never, get_args
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.11"
+__version__ = "0.5.12"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -295,7 +295,7 @@ def _core_install(
     if skip_dev:
         parts.append(FLAG_SKIP_DEV)
     cmd = " ".join(parts)
-    _run_commands(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
+    _ = _run_command(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
 
 
 def _core_install_in_repo(
@@ -454,7 +454,7 @@ def _infra_install(
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
     cmd = " ".join(parts)
-    _run_commands(cmd, direnv=True, cwd=_HOME_INFRA)
+    _ = _run_command(cmd, direnv=True, cwd=_HOME_INFRA)
 
 
 def _setup_root_password(password: str, /) -> None:
@@ -462,7 +462,7 @@ def _setup_root_password(password: str, /) -> None:
     # standard library imports only
     ###########################################################################
     _LOGGER.info("Setting root password...")
-    _run_commands(f"echo 'root:{password}' | chpasswd", skip_log=True)
+    _ = _run_command(f"echo 'root:{password}' | chpasswd", skip_log=True)
 
 
 # utilities - standard library
@@ -481,13 +481,13 @@ def _clone_repo(
     ###########################################################################
     if which("git") is None:
         _LOGGER.info("Installing 'git'...")
-        _run_commands("apt -y update && apt install -y git")
+        _ = _run_commands("apt -y update", "apt install -y git")
     target = Path(target)
     if target.exists():
         _LOGGER.info("%r already exists", str(target))
     else:
         _LOGGER.info("Cloning %r to %r...", url, str(target))
-        _run_commands(f"git clone --recurse-submodules {url} {target}")
+        _ = _run_command(f"git clone --recurse-submodules {url} {target}")
     _update_code(cwd=target, version=version, submodule_versions=submodule_versions)
 
 
@@ -497,12 +497,14 @@ def _run_commands(
     env: Mapping[str, str] | None = None,
     cwd: _PathLike | None = None,
     skip_log: bool = False,
-) -> None:
+) -> list[str]:
     ###########################################################################
     # standard library imports only
     ###########################################################################
-    for cmd in cmds:
+    return [
         _run_command(cmd, direnv=direnv, env=env, cwd=cwd, skip_log=skip_log)
+        for cmd in cmds
+    ]
 
 
 def _run_command(
@@ -513,7 +515,7 @@ def _run_command(
     env: Mapping[str, str] | None = None,
     cwd: _PathLike | None = None,
     skip_log: bool = False,
-) -> None:
+) -> str:
     ###########################################################################
     # standard library imports only
     ###########################################################################
@@ -530,7 +532,9 @@ def _run_command(
         desc = f"{desc} [cwd={cwd}]"
     if not skip_log:
         _LOGGER.info("%s...", desc)
-    _ = check_call(cmd, executable=which("bash"), shell=True, cwd=cwd, env=env_use)
+    return check_output(
+        cmd, executable=which("bash"), shell=True, cwd=cwd, env=env_use, text=True
+    ).rstrip("\n")
 
 
 # utilities - standard library & public
@@ -677,24 +681,22 @@ def _update_code(
                 desc = f"{desc} [{sub_name}={sub_version}]"
     _LOGGER.info("%s...", desc)
     reset_pull = "git checkout --force $(git symbolic-ref refs/remotes/origin/HEAD --short | sed ''s#origin/##'') && git pull --ff-only --force --prune --tags"
-    _run_commands(
+    _ = _run_commands(
         reset_pull,
         "git submodule update --init --recursive",
         f"git submodule foreach --recursive '{reset_pull}'",
         cwd=cwd,
     )
     if version is not None:
-        _run_commands(f"git checkout {version}", cwd=cwd)
+        _ = _run_command(f"git checkout {version}", cwd=cwd)
     if submodule_versions is not None:
         for sub_name, sub_version in submodule_versions.items():
             if sub_version is not None:
-                sub_path = check_output(
+                sub_path = _run_command(
                     f"git submodule status | awk '$2 ~ /{sub_name}/ {{print $2}}'",
-                    shell=True,
                     cwd=cwd,
-                    text=True,
                 ).rstrip("\n")
-                _run_command(f"git -C {sub_path} checkout {sub_version}", cwd=cwd)
+                _ = _run_command(f"git -C {sub_path} checkout {sub_version}", cwd=cwd)
 
 
 # remote
