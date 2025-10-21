@@ -34,17 +34,18 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.4"
+__version__ = "0.5.5"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
 _PYTHON3_M_PUBLIC = f"{_PYTHON3_M} public.install"
-FLAG_PUBLIC_VERSION = "--public-version"
-FLAG_INSTALLER_VERSION = "--installer-version"
-FLAG_INFRA_VERSION = "--infra-version"
+_FLAG_PUBLIC_VERSION = "--public-version"
+_FLAG_INSTALLER_VERSION = "--installer-version"
+_FLAG_INFRA_VERSION = "--infra-version"
 _FLAG_MODE = "--mode"
 _FLAG_DOCKER = "--docker"
 _FLAG_PASSWORD = "--password"  # noqa: S105
+FLAG_SKIP_DEV = "--skip-dev"
 FLAG_IB_GATEWAY_DOCKER = "--ib-gateway-docker"
 FLAG_GITLAB = "--gitlab"
 FLAG_GITLAB_RUNNER = "--gitlab-runner"
@@ -65,6 +66,7 @@ class _PublicInstallerSettings:
     mode: _Mode | None = None
     docker: bool = False
     password: str | None = None
+    skip_dev: bool = False
     ib_gateway_docker: bool = False
     gitlab: bool = False
     gitlab_runner: bool = False
@@ -77,12 +79,12 @@ class _PublicInstallerSettings:
     def parse(cls) -> _PublicInstallerSettings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         _ = parser.add_argument(
-            FLAG_PUBLIC_VERSION, default=__version__, type=str, help="'public' version"
+            _FLAG_PUBLIC_VERSION, default=__version__, type=str, help="'public' version"
         )
         _ = parser.add_argument(
-            FLAG_INSTALLER_VERSION, type=str, help="'installer' version"
+            _FLAG_INSTALLER_VERSION, type=str, help="'installer' version"
         )
-        _ = parser.add_argument(FLAG_INFRA_VERSION, type=str, help="'infra' version")
+        _ = parser.add_argument(_FLAG_INFRA_VERSION, type=str, help="'infra' version")
         _ = parser.add_argument(
             _FLAG_MODE,
             type=str,
@@ -93,6 +95,9 @@ class _PublicInstallerSettings:
             _FLAG_DOCKER, action="store_true", help="Install 'docker'"
         )
         _ = parser.add_argument(_FLAG_PASSWORD, type=str, help="Root password")
+        _ = parser.add_argument(
+            FLAG_SKIP_DEV, action="store_true", help="Skip dev dependencies"
+        )
         _ = parser.add_argument(
             FLAG_IB_GATEWAY_DOCKER, action="store_true", help="Setup IB Gateway Docker"
         )
@@ -129,6 +134,7 @@ def _install() -> None:
                 public_version=settings.public_version,
                 installer_version=settings.installer_version,
                 docker=settings.docker,
+                skip_dev=settings.skip_dev,
                 ib_gateway_docker=settings.ib_gateway_docker,
                 gitlab=settings.gitlab,
                 gitlab_runner=settings.gitlab_runner,
@@ -183,6 +189,7 @@ def _initial_install(
     installer_version: str | None = None,
     infra_version: str | None = None,
     docker: bool = False,
+    skip_dev: bool = False,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
     gitlab_runner: bool = False,
@@ -204,6 +211,7 @@ def _initial_install(
     _public_install(public_version=public_version, installer_version=installer_version)
     _core_install(
         docker=docker,
+        skip_dev=skip_dev,
         public_version=public_version,
         installer_version=installer_version,
     )
@@ -211,6 +219,7 @@ def _initial_install(
         infra_version=infra_version,
         public_version=public_version,
         installer_version=installer_version,
+        skip_dev=skip_dev,
         ib_gateway_docker=ib_gateway_docker,
         gitlab=gitlab,
         gitlab_runner=gitlab_runner,
@@ -247,6 +256,7 @@ def _core_install(
     installer_version: str | None = None,
     infra_version: str | None = None,
     docker: bool = False,
+    skip_dev: bool = False,
 ) -> None:
     ###########################################################################
     # standard library imports only
@@ -268,15 +278,17 @@ def _core_install(
         _PYTHON3_M_PUBLIC,
         _FLAG_MODE,
         mode,
-        FLAG_PUBLIC_VERSION,
+        _FLAG_PUBLIC_VERSION,
         public_version,
     ]
     if installer_version is not None:
-        parts.extend([FLAG_INSTALLER_VERSION, installer_version])
+        parts.extend([_FLAG_INSTALLER_VERSION, installer_version])
     if infra_version is not None:
-        parts.extend([FLAG_INFRA_VERSION, infra_version])
+        parts.extend([_FLAG_INFRA_VERSION, infra_version])
     if docker:
         parts.append(_FLAG_DOCKER)
+    if skip_dev:
+        parts.append(FLAG_SKIP_DEV)
     cmd = " ".join(parts)
     _run_commands(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
 
@@ -284,6 +296,7 @@ def _core_install(
 def _core_install_in_repo(
     *,
     docker: bool = False,
+    skip_dev: bool = False,
     public_version: str = __version__,
     installer_version: str | None = None,
     infra_version: str | None = None,
@@ -347,31 +360,31 @@ def _core_install_in_repo(
     install_age()
     install_curl()
     install_direnv(direnv_toml=configs / "direnv.toml")
-    install_fd()
-    install_fzf()
     install_jq()
-    install_just()
-    install_neovim(nvim_dir=HOME_PUBLIC / "neovim")
-    install_ripgrep()
-    install_rsync()
-    install_starship(starship_toml=configs / "starship.toml")
-    install_tmux(
-        tmux_conf_oh_my_tmux=configs / ".tmux.conf",
-        tmux_conf_local=configs / "tmux.conf.local",
-    )
-    install_vim()
     install_uv()  # after curl
-    install_bottom()  # after curl, jq
-    install_delta()  # after curl, jq
-    if _is_proxmox():
-        install_sops(  # after curl, jq
-            age_secret_key=_get_qrt_secrets() / "age/secret-key.txt"
-        )
-    else:
-        install_sops()
+    install_sops(  # after curl, jq
+        age_secret_key=_get_qrt_secrets() / "age/secret-key.txt"
+        if _is_proxmox()
+        else None
+    )
     install_yq()  # after curl, jq
     if docker:
         install_docker()
+    if not skip_dev:
+        install_fd()
+        install_fzf()
+        install_just()
+        install_neovim(nvim_dir=HOME_PUBLIC / "neovim")
+        install_ripgrep()
+        install_rsync()
+        install_starship(starship_toml=configs / "starship.toml")
+        install_tmux(
+            tmux_conf_oh_my_tmux=configs / ".tmux.conf",
+            tmux_conf_local=configs / "tmux.conf.local",
+        )
+        install_vim()
+        install_bottom()  # after curl, jq
+        install_delta()  # after curl, jq
     _clone_repo(
         "ssh://git@github-infra-mirror/queensberry-research/infra-mirror",
         HOME_INFRA,
@@ -385,6 +398,7 @@ def _infra_install(
     public_version: str = __version__,
     installer_version: str | None = None,
     infra_version: str | None = None,
+    skip_dev: bool = False,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
     gitlab_runner: bool = False,
@@ -409,6 +423,8 @@ def _infra_install(
         submodule_versions={"public": public_version, "installer": installer_version},
     )
     parts: list[str] = [_PYTHON3_M, "infra.install"]
+    if skip_dev:
+        parts.append(FLAG_SKIP_DEV)
     if ib_gateway_docker:
         parts.append(FLAG_IB_GATEWAY_DOCKER)
     if gitlab:
@@ -677,6 +693,7 @@ def curl_public_install(
     infra_version: str | None = None,
     mode: _Mode | None = None,
     docker: bool = False,
+    skip_dev: bool = False,
     password: str | None = None,
     ib_gateway_docker: bool = False,
     gitlab: bool = False,
@@ -686,15 +703,17 @@ def curl_public_install(
     redis: bool = False,
     force_recreate: bool = False,
 ) -> str:
-    parts: list[str] = [FLAG_PUBLIC_VERSION, public_version]
+    parts: list[str] = [_FLAG_PUBLIC_VERSION, public_version]
     if installer_version is not None:
-        parts.extend([FLAG_INSTALLER_VERSION, installer_version])
+        parts.extend([_FLAG_INSTALLER_VERSION, installer_version])
     if infra_version is not None:
-        parts.extend([FLAG_INFRA_VERSION, infra_version])
+        parts.extend([_FLAG_INFRA_VERSION, infra_version])
     if mode is not None:
         parts.extend([_FLAG_MODE, mode])
     if docker:
         parts.append(_FLAG_DOCKER)
+    if skip_dev:
+        parts.append(FLAG_SKIP_DEV)
     if password:
         parts.extend([_FLAG_PASSWORD, password])
     if ib_gateway_docker:
@@ -720,12 +739,13 @@ __all__ = [
     "FLAG_GITLAB",
     "FLAG_GITLAB_RUNNER",
     "FLAG_IB_GATEWAY_DOCKER",
-    "FLAG_INFRA_VERSION",
-    "FLAG_INSTALLER_VERSION",
     "FLAG_POSTGRES",
-    "FLAG_PUBLIC_VERSION",
     "FLAG_PYPI",
     "FLAG_REDIS",
+    "FLAG_SKIP_DEV",
+    "_FLAG_INFRA_VERSION",
+    "_FLAG_INSTALLER_VERSION",
+    "_FLAG_PUBLIC_VERSION",
     "curl_public_install",
 ]
 
