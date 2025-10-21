@@ -361,7 +361,6 @@ def _core_install_in_repo(
     install_curl()
     install_direnv(direnv_toml=configs / "direnv.toml")
     install_jq()
-    install_just()
     install_uv()  # after curl
     install_sops(  # after curl, jq
         age_secret_key=_get_qrt_secrets() / "age/secret-key.txt"
@@ -374,6 +373,7 @@ def _core_install_in_repo(
     if not skip_dev:
         install_fd()
         install_fzf()
+        install_just()
         install_neovim(nvim_dir=HOME_PUBLIC / "neovim")
         install_ripgrep()
         install_rsync()
