@@ -34,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.8"
+__version__ = "0.5.9"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -214,15 +214,16 @@ def _initial_install(
     _LOGGER.info("%s...", desc)
     _public_install(public_version=public_version, installer_version=installer_version)
     _core_install(
+        public_version=public_version,
+        installer_version=installer_version,
+        infra_version=infra_version,
         docker=docker,
         skip_dev=skip_dev,
-        public_version=public_version,
-        installer_version=installer_version,
     )
     _infra_install(
-        infra_version=infra_version,
         public_version=public_version,
         installer_version=installer_version,
+        infra_version=infra_version,
         skip_dev=skip_dev,
         ib_gateway_docker=ib_gateway_docker,
         gitlab=gitlab,
