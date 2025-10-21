@@ -34,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.5"
+__version__ = "0.5.6"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -743,9 +743,6 @@ __all__ = [
     "FLAG_PYPI",
     "FLAG_REDIS",
     "FLAG_SKIP_DEV",
-    "_FLAG_INFRA_VERSION",
-    "_FLAG_INSTALLER_VERSION",
-    "_FLAG_PUBLIC_VERSION",
     "curl_public_install",
 ]
 
