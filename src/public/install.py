@@ -34,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.7"
+__version__ = "0.5.8"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -150,22 +150,26 @@ def _install() -> None:
             )
         case "core":
             _core_install(
-                docker=settings.docker,
                 public_version=settings.public_version,
                 installer_version=settings.installer_version,
+                infra_version=settings.infra_version,
+                docker=settings.docker,
+                skip_dev=settings.skip_dev,
             )
         case "core-in-repo":
             _core_install_in_repo(
-                docker=settings.docker,
-                infra_version=settings.infra_version,
                 public_version=settings.public_version,
                 installer_version=settings.installer_version,
+                infra_version=settings.infra_version,
+                docker=settings.docker,
+                skip_dev=settings.skip_dev,
             )
         case "infra":
             _infra_install(
-                infra_version=settings.infra_version,
                 public_version=settings.public_version,
                 installer_version=settings.installer_version,
+                infra_version=settings.infra_version,
+                skip_dev=settings.skip_dev,
                 ib_gateway_docker=settings.ib_gateway_docker,
                 gitlab=settings.gitlab,
                 gitlab_runner=settings.gitlab_runner,
@@ -295,11 +299,11 @@ def _core_install(
 
 def _core_install_in_repo(
     *,
-    docker: bool = False,
-    skip_dev: bool = False,
     public_version: str = __version__,
     installer_version: str | None = None,
     infra_version: str | None = None,
+    docker: bool = False,
+    skip_dev: bool = False,
 ) -> None:
     from .constants import HOME_INFRA, HOME_PUBLIC
     from .installer_init import __version__ as installer_orig
