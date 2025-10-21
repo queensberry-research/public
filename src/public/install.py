@@ -197,7 +197,7 @@ def _initial_install(
     desc = _append_version_descs(
         "Running initial installation",
         public=public_version,
-        installer=installer_version,
+        installer_use=installer_version,
         infra=infra_version,
     )
     _LOGGER.info("%s...", desc)
@@ -230,7 +230,7 @@ def _public_install(
     desc = _append_version_descs(
         "Running public installation",
         public=public_version,
-        installer=installer_version,
+        installer_use=installer_version,
     )
     _LOGGER.info("%s...", desc)
     _clone_repo(
@@ -254,7 +254,7 @@ def _core_install(
     desc = _append_version_descs(
         "Running core installation",
         public=public_version,
-        installer=installer_version,
+        installer_use=installer_version,
         infra=infra_version,
     )
     _LOGGER.info("%s...", desc)
@@ -289,7 +289,7 @@ def _core_install_in_repo(
     infra_version: str | None = None,
 ) -> None:
     from .constants import HOME_INFRA, HOME_PUBLIC
-    from .installer_init import __version__ as installer_version
+    from .installer_init import __version__ as installer_orig
     from .lib import (
         add_to_known_hosts,
         install_age,
@@ -320,7 +320,8 @@ def _core_install_in_repo(
     desc = _append_version_descs(
         "Running core installation in repo",
         public=public_version,
-        installer=installer_version,
+        installer_orig=installer_orig,
+        installer_use=installer_version,
         infra=infra_version,
     )
     _LOGGER.info("%s...", desc)
@@ -398,7 +399,7 @@ def _infra_install(
     desc = _append_version_descs(
         "Running 'infra.install'",
         public=public_version,
-        installer=installer_version,
+        installer_use=installer_version,
         infra=infra_version,
     )
     _LOGGER.info("%s...", desc)
@@ -510,13 +511,23 @@ def _append_version_descs(
     /,
     *,
     public: str = __version__,
-    installer: str | None = None,
+    installer_orig: str | None = None,
+    installer_use: str | None = None,
     infra: str | None = None,
 ) -> str:
     override = "" if public == __version__ else f"->{public}"
     text = f"{text} [public={__version__}{override}]"
-    if installer is not None:
-        text = f"{text} [installer={installer}]"
+    match installer_orig, installer_use:
+        case None, None:
+            pass
+        case str(), None:
+            text = f"{text} [installer={installer_orig}]"
+        case None, str():
+            text = f"{text} [installer={installer_use}]"
+        case str(), str():
+            text = f"{text} [installer={installer_orig}->{installer_use}]"
+        case never:
+            assert_never(never)
     if infra is not None:
         text = f"{text} [infra={infra}]"
     return text
