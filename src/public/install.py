@@ -34,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.14"
+__version__ = "0.5.15"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -357,7 +357,7 @@ def _core_install_in_repo(
             (configs / "gitlab-infra", {"subnet": subnet}),
         ],
     )
-    _setup_ssh_deploy_key()
+    _setup_ssh_deploy_keys()
     setup_ssh_keys(
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/ssh/keys.txt"
     )
@@ -646,12 +646,13 @@ def _setup_resolv_conf() -> None:
     write_template(path_from, RESOLV_CONF, immutable=True, n=n, subnet=subnet)
 
 
-def _setup_ssh_deploy_key() -> None:
+def _setup_ssh_deploy_keys() -> None:
     from .constants import SSH
     from .utilities import cp
 
-    _LOGGER.info("Setting up Proxmox sources'...")
-    cp(_get_qrt_secrets() / "deploy-key/infra", SSH / "infra")
+    _LOGGER.info("Setting up deploy keys'...")
+    for name in ["infra", "settings"]:
+        cp(_get_qrt_secrets() / f"deploy-keys/{name}", SSH / name)
 
 
 def _setup_subnet_env_var() -> None:
