@@ -650,7 +650,7 @@ def _setup_ssh_deploy_keys() -> None:
     from .constants import SSH
     from .utilities import cp
 
-    _LOGGER.info("Setting up Proxmox sources'...")
+    _LOGGER.info("Setting up deploy keys'...")
     for name in ["infra", "settings"]:
         cp(_get_qrt_secrets() / f"deploy-keys/{name}", SSH / name)
 
