@@ -1,4 +1,0 @@
-Host github-settings-mirror
-    HostName github.com
-    IdentityFile /root/.ssh/settings
-    User git
