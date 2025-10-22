@@ -34,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.16"
+__version__ = "0.5.17"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -650,9 +650,8 @@ def _setup_ssh_deploy_keys() -> None:
     from .constants import SSH
     from .utilities import cp
 
-    _LOGGER.info("Setting up deploy keys'...")
-    for name in ["infra", "settings"]:
-        cp(_get_qrt_secrets() / f"deploy-keys/{name}", SSH / name)
+    _LOGGER.info("Setting up deploy keys...")
+    cp(_get_qrt_secrets() / "deploy-keys/infra", SSH / "infra")
 
 
 def _setup_subnet_env_var() -> None:
