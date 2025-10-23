@@ -72,7 +72,7 @@ def get_subnet() -> Subnet:
     raise RuntimeError(msg)
 
 
-def _to_field[**P, T](func: Callable[P, T], /) -> Callable[P, T]:
+def to_dataclass_field[**P, T](func: Callable[P, T], /) -> Callable[P, T]:
     @wraps(func)
     def wrapped(*args: P.args, **kwargs: P.kwargs) -> T:
         return field(default_factory=lambda: func(*args, **kwargs))
@@ -84,7 +84,7 @@ def field_df[T](default_factory: Callable[[], type[T]], /) -> T:
     return field(default_factory=lambda: default_factory()())
 
 
-@_to_field
+@to_dataclass_field
 def yq_bool(path: PathLike, expression: str, /) -> bool:
     match _run_yq(path, expression):
         case "true":
@@ -96,27 +96,27 @@ def yq_bool(path: PathLike, expression: str, /) -> bool:
             raise ValueError(msg)
 
 
-@_to_field
+@to_dataclass_field
 def yq_float(path: PathLike, expression: str, /) -> float:
     return float(_run_yq(path, expression))
 
 
-@_to_field
+@to_dataclass_field
 def yq_int(path: PathLike, expression: str, /) -> int:
     return int(_run_yq(path, expression))
 
 
-@_to_field
+@to_dataclass_field
 def yq_path(path: PathLike, expression: str, /) -> Path:
     return Path(_run_yq(path, expression))
 
 
-@_to_field
+@to_dataclass_field
 def yq_str(path: PathLike, expression: str, /) -> str:
     return _run_yq(path, expression)
 
 
-@_to_field
+@to_dataclass_field
 def yq_strs(path: PathLike, expression: str, /) -> tuple[str, ...]:
     return tuple(loads(_run_yq(path, expression, format_="json")))
 
@@ -164,6 +164,7 @@ __all__ = [
     "run_commands",
     "symlink",
     "temp_environ",
+    "to_dataclass_field",
     "touch",
     "update_submodules",
     "uv_tool_install",
