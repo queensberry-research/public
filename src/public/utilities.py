@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import field
+from functools import wraps
+from json import loads
+from pathlib import Path
+from re import search
+from typing import TYPE_CHECKING, Literal
+
 from .installer_utilities import (
     EVAL_DIRENV_EXPORT,
     SOURCE_BASHRC,
@@ -40,6 +47,72 @@ from .installer_utilities import (
     yield_tar_gz_contents,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .types import PathLike
+
+
+type _Format = Literal["yaml", "json"]
+
+
+def _to_field[**P, T](func: Callable[P, T], /) -> Callable[P, T]:
+    @wraps(func)
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> T:
+        return field(default_factory=lambda: func(*args, **kwargs))
+
+    return wrapped
+
+
+def field_df[T](default_factory: Callable[[], type[T]], /) -> T:
+    return field(default_factory=lambda: default_factory()())
+
+
+@_to_field
+def yq_bool(path: PathLike, expression: str, /) -> bool:
+    match _read(path, expression):
+        case "true":
+            return True
+        case "false":
+            return False
+        case result:
+            msg = f"Invalid boolean; got {result!r}"
+            raise ValueError(msg)
+
+
+@_to_field
+def yq_float(path: PathLike, expression: str, /) -> float:
+    return float(_read(path, expression))
+
+
+@_to_field
+def yq_int(path: PathLike, expression: str, /) -> int:
+    return int(_read(path, expression))
+
+
+@_to_field
+def yq_path(path: PathLike, expression: str, /) -> Path:
+    return Path(_read(path, expression))
+
+
+@_to_field
+def yq_strs(path: PathLike, expression: str, /) -> tuple[str, ...]:
+    return tuple(loads(_read(path, expression, format_="json")))
+
+
+def _read(path: PathLike, expression: str, /, *, format_: _Format = "yaml") -> str:
+    result = run_command(
+        f"yq --input-format toml --output-format {format_} {expression} {path}"
+    )
+    if search("null", result):
+        msg = f"Expression {expression!r} not found in {str(path)!r}"
+        raise ValueError(msg)
+    return result
+
+
+yq_str = _to_field(_read)
+
+
 __all__ = [
     "EVAL_DIRENV_EXPORT",
     "SOURCE_BASHRC",
@@ -78,4 +151,10 @@ __all__ = [
     "yield_download",
     "yield_github_latest_download",
     "yield_tar_gz_contents",
+    "yq_bool",
+    "yq_float",
+    "yq_int",
+    "yq_path",
+    "yq_str",
+    "yq_strs",
 ]
