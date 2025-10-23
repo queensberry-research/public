@@ -5,7 +5,7 @@ from functools import wraps
 from os import environ
 from pathlib import Path
 from tomllib import loads
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never, overload
 
 from .installer_utilities import (
     EVAL_DIRENV_EXPORT,
@@ -87,7 +87,7 @@ def toml_bool(path: PathLike, expression: str, /) -> bool:
 
 @to_dataclass_field
 def toml_float(path: PathLike, expression: str, /) -> float:
-    return _toml_read(path, expression, float)
+    return float(_toml_read(path, expression, (float, int)))
 
 
 @to_dataclass_field
@@ -114,7 +114,15 @@ def toml_strs(path: PathLike, expression: str, /) -> tuple[str, ...]:
     raise TypeError(msg)
 
 
-def _toml_read[T](path: PathLike, expression: str, cls: type[T], /) -> T:
+@overload
+def _toml_read[T](path: PathLike, expression: str, cls: type[T], /) -> T: ...
+@overload
+def _toml_read[T, U](
+    path: PathLike, expression: str, cls: tuple[type[T], type[U]], /
+) -> T | U: ...
+def _toml_read[T, T1, T2](
+    path: PathLike, expression: str, cls: type[T] | tuple[type[T1], type[T2]], /
+) -> T | T1 | T2:
     data = loads(full_path(path).read_text())
     keys = expression.split(".")
     while len(keys) >= 1:
@@ -122,7 +130,14 @@ def _toml_read[T](path: PathLike, expression: str, cls: type[T], /) -> T:
         data, keys = data[first], rest
     if isinstance(data, cls):
         return data
-    msg = f"Expected an object of type {cls.__name__!r} at {expression!r}; got {type(data).__name__!r}"
+    match cls:
+        case type():
+            desc = f"{cls.__name__!r}"
+        case type() as cls1, type() as cls2:
+            desc = f"{cls1.__name__!r} or {cls2.__name__!r}"
+        case never:
+            assert_never(never)
+    msg = f"Expected an object of type {desc} at {expression!r}; got {type(data).__name__!r}"
     raise TypeError(msg)
 
 
