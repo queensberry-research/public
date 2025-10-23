@@ -123,7 +123,8 @@ def yq_strs(path: PathLike, expression: str, /) -> tuple[str, ...]:
 
 def _run_yq(path: PathLike, expression: str, /, *, format_: _Format = "yaml") -> str:
     result = run_command(
-        f"yq --input-format toml --output-format {format_} {expression} {path}"
+        f"yq --input-format toml --output-format {format_} {expression} {path}",
+        skip_log=True,
     )
     if search("null", result):
         msg = f"Expression {expression!r} not found in {str(path)!r}"
