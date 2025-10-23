@@ -4,21 +4,30 @@
   path = "/var/lib/vz"
 
 [nfs]
-  content = [
-    "backup",
-    "images",
-    "import",
-    "iso",
-    "rootdir",
-    "snippets",
-    "vztmpl",
-  ]
-  export = "/mnt/qrt-pool/qrt-dataset"
-  mount_point = "/mnt/qrt-share"
-  name = "qrt-share"
-  nodes = ["proxmox"]
-  path = "/mnt/pve/qrt-share"
-  server = "truenas.qrt"
+  [nfs.common]
+    content = [
+      "backup",
+      "images",
+      "import",
+      "iso",
+      "rootdir",
+      "snippets",
+      "vztmpl",
+    ]
+    export_template = "/mnt/qrt-pool/${name}"
+    nodes = ["proxmox"]
+    path_template = "/mnt/${name}"
+    server = "truenas.qrt"
+
+  [nfs.qrt_dataset]
+    name = "qrt-dataset"
+
+  [nfs.qrt_dropbox]
+    name = "qrt-dropbox"
+
+  [nfs.isos]
+    name = "isos"
+
 
 [zfspool]
   content = ["images", "rootdir"]
