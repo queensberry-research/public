@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from dataclasses import field
 from functools import wraps
-from json import loads
 from os import environ
 from pathlib import Path
-from re import search
-from typing import TYPE_CHECKING, Literal
+from tomllib import loads
+from typing import TYPE_CHECKING
 
 from .installer_utilities import (
     EVAL_DIRENV_EXPORT,
@@ -55,9 +54,6 @@ if TYPE_CHECKING:
     from .types import PathLike, Subnet
 
 
-type _Format = Literal["yaml", "json"]
-
-
 def get_subnet() -> Subnet:
     try:
         subnet = environ["SUBNET"]
@@ -85,51 +81,49 @@ def field_df[T](default_factory: Callable[[], type[T]], /) -> T:
 
 
 @to_dataclass_field
-def yq_bool(path: PathLike, expression: str, /) -> bool:
-    match _run_yq(path, expression):
-        case "true":
-            return True
-        case "false":
-            return False
-        case result:
-            msg = f"Invalid boolean; got {result!r}"
-            raise ValueError(msg)
+def toml_bool(path: PathLike, expression: str, /) -> bool:
+    return _toml_read(path, expression, bool)
 
 
 @to_dataclass_field
-def yq_float(path: PathLike, expression: str, /) -> float:
-    return float(_run_yq(path, expression))
+def toml_float(path: PathLike, expression: str, /) -> float:
+    return _toml_read(path, expression, float)
 
 
 @to_dataclass_field
-def yq_int(path: PathLike, expression: str, /) -> int:
-    return int(_run_yq(path, expression))
+def toml_int(path: PathLike, expression: str, /) -> int:
+    return _toml_read(path, expression, int)
 
 
 @to_dataclass_field
-def yq_path(path: PathLike, expression: str, /) -> Path:
-    return Path(_run_yq(path, expression))
+def toml_path(path: PathLike, expression: str, /) -> Path:
+    return Path(_toml_read(path, expression, str))
 
 
 @to_dataclass_field
-def yq_str(path: PathLike, expression: str, /) -> str:
-    return _run_yq(path, expression)
+def toml_str(path: PathLike, expression: str, /) -> str:
+    return _toml_read(path, expression, str)
 
 
 @to_dataclass_field
-def yq_strs(path: PathLike, expression: str, /) -> tuple[str, ...]:
-    return tuple(loads(_run_yq(path, expression, format_="json")))
+def toml_strs(path: PathLike, expression: str, /) -> tuple[str, ...]:
+    result = _toml_read(path, expression, list)
+    if all(isinstance(i, str) for i in result):
+        return tuple(result)
+    msg = f"Expected a list of strings at {expression!r}"
+    raise TypeError(msg)
 
 
-def _run_yq(path: PathLike, expression: str, /, *, format_: _Format = "yaml") -> str:
-    result = run_command(
-        f"yq --input-format toml --output-format {format_} {expression} {path}",
-        skip_log=True,
-    )
-    if search("null", result):
-        msg = f"Expression {expression!r} not found in {str(path)!r}"
-        raise KeyError(msg)
-    return result
+def _toml_read[T](path: PathLike, expression: str, cls: type[T], /) -> T:
+    data = loads(full_path(path).read_text())
+    keys = expression.split(".")
+    while len(keys) >= 1:
+        first, *rest = keys
+        data, keys = data[first], rest
+    if isinstance(data, cls):
+        return data
+    msg = f"Expected an object of type {cls.__name__!r} at {expression!r}; got {type(data).__name__!r}"
+    raise TypeError(msg)
 
 
 __all__ = [
@@ -165,6 +159,12 @@ __all__ = [
     "symlink",
     "temp_environ",
     "to_dataclass_field",
+    "toml_bool",
+    "toml_float",
+    "toml_int",
+    "toml_path",
+    "toml_str",
+    "toml_strs",
     "touch",
     "update_submodules",
     "uv_tool_install",
@@ -174,10 +174,4 @@ __all__ = [
     "yield_download",
     "yield_github_latest_download",
     "yield_tar_gz_contents",
-    "yq_bool",
-    "yq_float",
-    "yq_int",
-    "yq_path",
-    "yq_str",
-    "yq_strs",
 ]

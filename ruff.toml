@@ -9,8 +9,8 @@ extend = "repo/ruff/ruff.toml"
   [lint.flake8-bugbear]
     extend-immutable-calls = [
       "public.utilities.field_df",
-      "public.utilities.yq_bool",
-      "public.utilities.yq_path",
-      "public.utilities.yq_str",
-      "public.utilities.yq_strs",
+      "public.utilities.toml_bool",
+      "public.utilities.toml_path",
+      "public.utilities.toml_str",
+      "public.utilities.toml_strs",
     ]
