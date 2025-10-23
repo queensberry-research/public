@@ -160,7 +160,6 @@ __all__ = [
     "replace_lines",
     "rm",
     "run_command",
-    "run_command",
     "run_commands",
     "symlink",
     "temp_environ",
