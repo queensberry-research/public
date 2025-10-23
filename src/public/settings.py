@@ -58,11 +58,13 @@ dir: {self.name}
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _StorageNFS:
     common: _StorageNFSCommon = field_df(lambda: _StorageNFSCommon)
-    members: _StorageNFSMembers = field_df(lambda: _StorageNFSMembers)
+    qrt_dataset: _Member = field_df(lambda: _Member.new(".storage.nfs.qrt_dataset"))
+    qrt_dropbox: _Member = field_df(lambda: _Member.new(".storage.nfs.qrt_dropbox"))
+    isos: _Member = field_df(lambda: _Member.new(".storage.nfs.isos"))
 
     @override
     def __repr__(self) -> str:
-        return repr(self.members)
+        return "\n".join(map(repr, [self.qrt_dataset, self.qrt_dropbox, self.isos]))
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
@@ -88,21 +90,6 @@ class _StorageNFSCommon:
 
     def secrets(self, name: str, /) -> Path:
         return self.qrt(name) / "secrets"
-
-
-@dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
-class _StorageNFSMembers:
-    qrt_dataset: _Member = field_df(
-        lambda: _Member.new(".storage.nfs.members.qrt_dataset")
-    )
-    qrt_dropbox: _Member = field_df(
-        lambda: _Member.new(".storage.nfs.members.qrt_dropbox")
-    )
-    isos: _Member = field_df(lambda: _Member.new(".storage.nfs.members.isos"))
-
-    @override
-    def __repr__(self) -> str:
-        return "\n".join(map(repr, [self.qrt_dataset, self.qrt_dropbox, self.isos]))
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)

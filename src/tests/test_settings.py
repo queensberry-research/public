@@ -25,21 +25,16 @@ class TestSettings:
             ),
             param(SETTINGS.storage.nfs.common.server, "truenas.qrt"),
             param(
-                SETTINGS.storage.nfs.members.qrt_dataset.export,
+                SETTINGS.storage.nfs.qrt_dataset.export,
                 Path("/mnt/qrt-pool/qrt-dataset"),
             ),
+            param(SETTINGS.storage.nfs.qrt_dataset.path, Path("/mnt/qrt-dataset")),
+            param(SETTINGS.storage.nfs.qrt_dataset.qrt, Path("/mnt/qrt-dataset/qrt")),
             param(
-                SETTINGS.storage.nfs.members.qrt_dataset.path, Path("/mnt/qrt-dataset")
-            ),
-            param(
-                SETTINGS.storage.nfs.members.qrt_dataset.qrt,
-                Path("/mnt/qrt-dataset/qrt"),
-            ),
-            param(
-                SETTINGS.storage.nfs.members.qrt_dataset.secrets,
+                SETTINGS.storage.nfs.qrt_dataset.secrets,
                 Path("/mnt/qrt-dataset/qrt/secrets"),
             ),
-            param(SETTINGS.storage.nfs.members.qrt_dataset.name, "qrt-dataset"),
+            param(SETTINGS.storage.nfs.qrt_dataset.name, "qrt-dataset"),
             param(SETTINGS.storage.zfspool.name, "local-zfs"),
         ],
     )

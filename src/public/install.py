@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Literal, assert_never, get_args
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from .types import PathLike, Subnet
+
 
 ###############################################################################
 # standard library imports only
@@ -22,7 +24,6 @@ if TYPE_CHECKING:
 
 
 type _Mode = Literal["public", "core", "core-in-repo", "infra", "password"]
-type _PathLike = Path | str
 
 
 basicConfig(
@@ -344,7 +345,7 @@ def _core_install_in_repo(
         infra=infra_version,
     )
     _LOGGER.info("%s...", desc)
-    configs, subnet = _get_configs(), _get_subnet()
+    configs, subnet = _get_configs(), _get_subnet_from_ip()
     if _is_proxmox():
         _setup_proxmox_sources()
         _setup_resolv_conf()
@@ -369,8 +370,7 @@ def _core_install_in_repo(
     install_jq()
     install_uv()  # after curl
     install_sops(  # after curl, jq
-        age_secret_key=SETTINGS.storage.nfs.members.qrt_dataset.secrets
-        / "age/secret-key.txt"
+        age_secret_key=SETTINGS.storage.nfs.qrt_dataset.secrets / "age/secret-key.txt"
         if _is_proxmox()
         else None
     )
@@ -472,7 +472,7 @@ def _setup_root_password(password: str, /) -> None:
 
 def _clone_repo(
     url: str,
-    target: _PathLike,
+    target: PathLike,
     /,
     *,
     version: str | None = None,
@@ -497,7 +497,7 @@ def _run_commands(
     *cmds: str,
     direnv: bool = False,
     env: Mapping[str, str] | None = None,
-    cwd: _PathLike | None = None,
+    cwd: PathLike | None = None,
     skip_log: bool = False,
 ) -> list[str]:
     ###########################################################################
@@ -515,7 +515,7 @@ def _run_command(
     *,
     direnv: bool = False,
     env: Mapping[str, str] | None = None,
-    cwd: _PathLike | None = None,
+    cwd: PathLike | None = None,
     skip_log: bool = False,
 ) -> str:
     ###########################################################################
@@ -575,7 +575,7 @@ def _get_configs() -> Path:
     return HOME_PUBLIC / "configs"
 
 
-def _get_subnet() -> Literal["main", "test"]:
+def _get_subnet_from_ip() -> Subnet:
     from .settings import SETTINGS
 
     try:
@@ -586,9 +586,9 @@ def _get_subnet() -> Literal["main", "test"]:
             ip = IPv4Address(s.getsockname()[0])
         _, _, third, _ = str(ip).split(".")
         third = int(third)
-        if third == MAIN_SUBNET:
+        if third == SETTINGS.network.vlan.main:
             return "main"
-        if third == TEST_SUBNET:
+        if third == SETTINGS.network.vlan.test:
             return "test"
         msg = f"Invalid IP; got {ip}"
         raise ValueError(msg) from None
@@ -604,7 +604,7 @@ def _is_proxmox() -> bool:
 
 def _setup_proxmox_sources() -> None:
     from .constants import ETC
-    from .utilities import apt_update, rm
+    from .installer_utilities import apt_update, rm
 
     _LOGGER.info("Setting up Proxmox sources...")
     sources = ETC / "apt/sources.list.d"
@@ -622,16 +622,17 @@ def _setup_proxmox_sources() -> None:
 
 
 def _setup_resolv_conf() -> None:
-    from .constants import MAIN_SUBNET, RESOLV_CONF, TEST_SUBNET
-    from .utilities import write_template
+    from .constants import RESOLV_CONF
+    from .installer_utilities import write_template
+    from .settings import SETTINGS
 
     _LOGGER.info("Setting up 'resolv.conf'...")
     path_from = _get_configs() / "resolv.conf"
-    match subnet := _get_subnet():
+    match subnet := _get_subnet_from_ip():
         case "main":
-            n = MAIN_SUBNET
+            n = SETTINGS.network.vlan.main
         case "test":
-            n = TEST_SUBNET
+            n = SETTINGS.network.vlan.test
         case never:
             assert_never(never)
     write_template(path_from, RESOLV_CONF, immutable=True, n=n, subnet=subnet)
@@ -639,25 +640,26 @@ def _setup_resolv_conf() -> None:
 
 def _setup_ssh_deploy_keys() -> None:
     from .constants import SSH
-    from .utilities import cp
+    from .installer_utilities import cp
+    from .settings import SETTINGS
 
     _LOGGER.info("Setting up deploy keys...")
-    cp(_get_qrt_secrets() / "deploy-keys/infra", SSH / "infra")
+    cp(SETTINGS.storage.nfs.qrt_dataset.secrets / "deploy-keys/infra", SSH / "infra")
 
 
 def _setup_subnet_env_var() -> None:
     from .constants import HOME
-    from .utilities import write_template
+    from .installer_utilities import write_template
 
     path_from = _get_configs() / "subnet.sh"
     path_to = HOME / ".bashrc.d/subnet.sh"
-    subnet = _get_subnet()
+    subnet = _get_subnet_from_ip()
     write_template(path_from, path_to, subnet=subnet)
 
 
 def _update_code(
     *,
-    cwd: _PathLike | None = None,
+    cwd: PathLike | None = None,
     version: str | None = None,
     submodule_versions: Mapping[str, str | None] | None = None,
 ) -> None:

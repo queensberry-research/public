@@ -26,15 +26,14 @@
       path_template = "/mnt/${name}"
       server = "truenas.qrt"
 
-    [storage.nfs.members]
-      [storage.nfs.members.qrt_dataset]
-        name = "qrt-dataset"
+    [storage.nfs.qrt_dataset]
+      name = "qrt-dataset"
 
-      [storage.nfs.members.qrt_dropbox]
-        name = "qrt-dropbox"
+    [storage.nfs.qrt_dropbox]
+      name = "qrt-dropbox"
 
-      [storage.nfs.members.isos]
-        name = "isos"
+    [storage.nfs.isos]
+      name = "isos"
 
   [storage.zfspool]
     content = ["images", "rootdir"]

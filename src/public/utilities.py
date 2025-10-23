@@ -8,20 +8,57 @@ from pathlib import Path
 from re import search
 from typing import TYPE_CHECKING, Literal
 
-from .installer_utilities import run_command
-from .types import Subnet
+from .installer_utilities import (
+    EVAL_DIRENV_EXPORT,
+    SOURCE_BASHRC,
+    TemporaryDirectory,
+    append_contents,
+    apt_install,
+    apt_update,
+    brew_install,
+    brew_installed,
+    check_for_commands,
+    chmod,
+    chown,
+    contains_line,
+    cp,
+    download,
+    dpkg_install,
+    full_path,
+    get_latest_tag,
+    git_pull,
+    have_command,
+    is_root,
+    luarocks_install,
+    mac_app_exists,
+    replace_line,
+    replace_lines,
+    rm,
+    run_command,
+    run_commands,
+    symlink,
+    temp_environ,
+    touch,
+    update_submodules,
+    uv_tool_install,
+    which,
+    write_template,
+    write_text,
+    yield_download,
+    yield_github_latest_download,
+    yield_tar_gz_contents,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from .types import PathLike
+    from .types import PathLike, Subnet
 
 
 type _Format = Literal["yaml", "json"]
-type Subnet = Literal["main", "test"]
 
 
-def _get_subnet() -> Subnet:
+def get_subnet() -> Subnet:
     try:
         subnet = environ["SUBNET"]
     except KeyError:
@@ -33,9 +70,6 @@ def _get_subnet() -> Subnet:
         return "test"
     msg = f"Invalid subnet; got {subnet!r}"
     raise RuntimeError(msg)
-
-
-SUBNET = _get_subnet()
 
 
 def _to_field[**P, T](func: Callable[P, T], /) -> Callable[P, T]:
@@ -98,8 +132,47 @@ def _run_yq(path: PathLike, expression: str, /, *, format_: _Format = "yaml") ->
 
 
 __all__ = [
+    "EVAL_DIRENV_EXPORT",
+    "SOURCE_BASHRC",
+    "TemporaryDirectory",
+    "append_contents",
+    "apt_install",
+    "apt_update",
+    "brew_install",
+    "brew_installed",
+    "check_for_commands",
+    "chmod",
+    "chown",
+    "contains_line",
+    "cp",
+    "download",
+    "dpkg_install",
     "field_df",
+    "full_path",
+    "get_latest_tag",
+    "get_subnet",
+    "git_pull",
+    "have_command",
+    "is_root",
+    "luarocks_install",
+    "mac_app_exists",
+    "replace_line",
+    "replace_lines",
+    "rm",
     "run_command",
+    "run_command",
+    "run_commands",
+    "symlink",
+    "temp_environ",
+    "touch",
+    "update_submodules",
+    "uv_tool_install",
+    "which",
+    "write_template",
+    "write_text",
+    "yield_download",
+    "yield_github_latest_download",
+    "yield_tar_gz_contents",
     "yq_bool",
     "yq_float",
     "yq_int",
