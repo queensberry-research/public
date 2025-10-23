@@ -35,7 +35,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.20"
+__version__ = "0.5.21"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -53,6 +53,7 @@ FLAG_GITLAB_RUNNER = "--gitlab-runner"
 FLAG_POSTGRES = "--postgres"
 FLAG_PYPI = "--pypi"
 FLAG_REDIS = "--redis"
+FLAG_DOCKER_REGISTRY = "--docker-registry"
 FLAG_FORCE_RECREATE = "--force-recreate"
 
 
@@ -74,6 +75,7 @@ class _PublicInstallerSettings:
     postgres: bool = False
     pypi: bool = False
     redis: bool = False
+    docker_registry: bool = False
     force_recreate: bool = False
 
     @classmethod
@@ -112,6 +114,9 @@ class _PublicInstallerSettings:
         _ = parser.add_argument(FLAG_PYPI, action="store_true", help="Setup PyPI")
         _ = parser.add_argument(FLAG_REDIS, action="store_true", help="Setup Redis")
         _ = parser.add_argument(
+            FLAG_DOCKER_REGISTRY, action="store_true", help="Setup Docker Registry"
+        )
+        _ = parser.add_argument(
             FLAG_FORCE_RECREATE, action="store_true", help="Force re-create containers"
         )
         settings = _PublicInstallerSettings(**vars(parser.parse_args()))
@@ -142,6 +147,7 @@ def _install() -> None:
                 postgres=settings.postgres,
                 pypi=settings.pypi,
                 redis=settings.redis,
+                docker_registry=settings.docker_registry,
                 force_recreate=settings.force_recreate,
             )
         case "public":
@@ -177,6 +183,7 @@ def _install() -> None:
                 postgres=settings.postgres,
                 pypi=settings.pypi,
                 redis=settings.redis,
+                docker_registry=settings.docker_registry,
                 force_recreate=settings.force_recreate,
             )
         case "password":
@@ -201,6 +208,7 @@ def _initial_install(
     postgres: bool = False,
     pypi: bool = False,
     redis: bool = False,
+    docker_registry: bool = False,
     force_recreate: bool = False,
 ) -> None:
     ###########################################################################
@@ -232,6 +240,7 @@ def _initial_install(
         postgres=postgres,
         pypi=pypi,
         redis=redis,
+        docker_registry=docker_registry,
         force_recreate=force_recreate,
     )
 
@@ -412,6 +421,7 @@ def _infra_install(
     postgres: bool = False,
     pypi: bool = False,
     redis: bool = False,
+    docker_registry: bool = False,
     force_recreate: bool = False,
 ) -> None:
     ###########################################################################
@@ -453,6 +463,8 @@ def _infra_install(
         parts.append(FLAG_PYPI)
     if redis:
         parts.append(FLAG_REDIS)
+    if docker_registry:
+        parts.append(FLAG_DOCKER_REGISTRY)
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
     cmd = " ".join(parts)
@@ -710,6 +722,7 @@ def curl_public_install(
     postgres: bool = False,
     pypi: bool = False,
     redis: bool = False,
+    docker_registry: bool = False,
     force_recreate: bool = False,
 ) -> str:
     parts: list[str] = [FLAG_PUBLIC_VERSION, public_version]
@@ -737,6 +750,8 @@ def curl_public_install(
         parts.append(FLAG_PYPI)
     if redis:
         parts.append(FLAG_REDIS)
+    if docker_registry:
+        parts.append(FLAG_DOCKER_REGISTRY)
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
     cmd = " ".join(parts)
@@ -744,6 +759,7 @@ def curl_public_install(
 
 
 __all__ = [
+    "FLAG_DOCKER_REGISTRY",
     "FLAG_FORCE_RECREATE",
     "FLAG_GITLAB",
     "FLAG_GITLAB_RUNNER",
