@@ -35,7 +35,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.24"
+__version__ = "0.5.25"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -344,7 +344,7 @@ def _core_install_in_repo(
         setup_ssh_keys,
         setup_sshd,
     )
-    from .settings import SETTINGS
+    from .settings import PUBLIC_SETTINGS
 
     desc = _append_version_descs(
         "Running core installation in repo",
@@ -379,7 +379,8 @@ def _core_install_in_repo(
     install_jq()
     install_uv()  # after curl
     install_sops(  # after curl, jq
-        age_secret_key=SETTINGS.storage.nfs.qrt_dataset.secrets / "age/secret-key.txt"
+        age_secret_key=PUBLIC_SETTINGS.storage.nfs.qrt_dataset.secrets
+        / "age/secret-key.txt"
         if _is_proxmox()
         else None
     )
@@ -588,7 +589,7 @@ def _get_configs() -> Path:
 
 
 def _get_subnet_from_ip() -> Subnet:
-    from .settings import SETTINGS
+    from .settings import PUBLIC_SETTINGS
 
     try:
         subnet = environ["SUBNET"]
@@ -598,9 +599,9 @@ def _get_subnet_from_ip() -> Subnet:
             ip = IPv4Address(s.getsockname()[0])
         _, _, third, _ = str(ip).split(".")
         third = int(third)
-        if third == SETTINGS.network.vlan.main:
+        if third == PUBLIC_SETTINGS.network.vlan.main:
             return "main"
-        if third == SETTINGS.network.vlan.test:
+        if third == PUBLIC_SETTINGS.network.vlan.test:
             return "test"
         msg = f"Invalid IP; got {ip}"
         raise ValueError(msg) from None
@@ -636,15 +637,15 @@ def _setup_proxmox_sources() -> None:
 def _setup_resolv_conf() -> None:
     from .constants import RESOLV_CONF
     from .installer_utilities import write_template
-    from .settings import SETTINGS
+    from .settings import PUBLIC_SETTINGS
 
     _LOGGER.info("Setting up 'resolv.conf'...")
     path_from = _get_configs() / "resolv.conf"
     match subnet := _get_subnet_from_ip():
         case "main":
-            n = SETTINGS.network.vlan.main
+            n = PUBLIC_SETTINGS.network.vlan.main
         case "test":
-            n = SETTINGS.network.vlan.test
+            n = PUBLIC_SETTINGS.network.vlan.test
         case never:
             assert_never(never)
     write_template(path_from, RESOLV_CONF, immutable=True, n=n, subnet=subnet)
@@ -653,10 +654,13 @@ def _setup_resolv_conf() -> None:
 def _setup_ssh_deploy_keys() -> None:
     from .constants import SSH
     from .installer_utilities import cp
-    from .settings import SETTINGS
+    from .settings import PUBLIC_SETTINGS
 
     _LOGGER.info("Setting up deploy keys...")
-    cp(SETTINGS.storage.nfs.qrt_dataset.secrets / "deploy-keys/infra", SSH / "infra")
+    cp(
+        PUBLIC_SETTINGS.storage.nfs.qrt_dataset.secrets / "deploy-keys/infra",
+        SSH / "infra",
+    )
 
 
 def _setup_subnet_env_var() -> None:

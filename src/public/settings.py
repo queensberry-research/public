@@ -162,7 +162,7 @@ nfs: {self.name}
 # instance
 
 
-SETTINGS = _Settings()
+PUBLIC_SETTINGS = _Settings()
 
 
-__all__ = ["SETTINGS"]
+__all__ = ["PUBLIC_SETTINGS"]
