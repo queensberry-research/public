@@ -305,7 +305,7 @@ def _core_install(
     if skip_dev:
         parts.append(FLAG_SKIP_DEV)
     cmd = " ".join(parts)
-    _ = _run_command(cmd, bashrc=True, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
+    _ = _run_command(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
 
 
 def _core_install_in_repo(
