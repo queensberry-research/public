@@ -60,11 +60,14 @@ class _StorageNFS:
     common: _StorageNFSCommon = field_df(lambda: _StorageNFSCommon)
     qrt_dataset: _Member = field_df(lambda: _Member.new("storage.nfs.qrt_dataset"))
     qrt_dropbox: _Member = field_df(lambda: _Member.new("storage.nfs.qrt_dropbox"))
+    qrt_images: _Member = field_df(lambda: _Member.new("storage.nfs.qrt_images"))
     isos: _Member = field_df(lambda: _Member.new("storage.nfs.isos"))
 
     @override
     def __repr__(self) -> str:
-        return "\n".join(map(repr, [self.qrt_dataset, self.qrt_dropbox, self.isos]))
+        return "\n".join(
+            map(repr, [self.qrt_dataset, self.qrt_dropbox, self.qrt_images, self.isos])
+        )
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)

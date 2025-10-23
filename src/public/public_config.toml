@@ -32,6 +32,9 @@
     [storage.nfs.qrt_dropbox]
       name = "qrt-dropbox"
 
+    [storage.nfs.qrt_images]
+      name = "qrt-images"
+
     [storage.nfs.isos]
       name = "isos"
 
