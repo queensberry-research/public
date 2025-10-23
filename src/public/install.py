@@ -35,7 +35,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.28"
+__version__ = "0.5.29"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -305,7 +305,7 @@ def _core_install(
     if skip_dev:
         parts.append(FLAG_SKIP_DEV)
     cmd = " ".join(parts)
-    _ = _run_command(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
+    _ = _run_command(cmd, bashrc=True, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
 
 
 def _core_install_in_repo(
@@ -508,6 +508,7 @@ def _clone_repo(
 
 def _run_commands(
     *cmds: str,
+    bashrc: bool = False,
     direnv: bool = False,
     env: Mapping[str, str] | None = None,
     cwd: PathLike | None = None,
@@ -517,7 +518,9 @@ def _run_commands(
     # standard library imports only
     ###########################################################################
     return [
-        _run_command(cmd, direnv=direnv, env=env, cwd=cwd, skip_log=skip_log)
+        _run_command(
+            cmd, bashrc=bashrc, direnv=direnv, env=env, cwd=cwd, skip_log=skip_log
+        )
         for cmd in cmds
     ]
 
@@ -526,6 +529,7 @@ def _run_command(
     cmd: str,
     /,
     *,
+    bashrc: bool = False,
     direnv: bool = False,
     env: Mapping[str, str] | None = None,
     cwd: PathLike | None = None,
@@ -535,9 +539,19 @@ def _run_command(
     # standard library imports only
     ###########################################################################
     desc = f"Running {cmd!r}"
-    if direnv:
-        desc = f"{desc} [direnv]"
-        cmd = f'if [ -f ~/.bashrc ]; then source ~/.bashrc; fi; if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)" >/dev/null 2>&1; fi; {cmd}'
+    source_bashrc = "if [ -f ~/.bashrc ]; then source ~/.bashrc; fi"
+    match bashrc, direnv:
+        case False, False:
+            ...
+        case True, False:
+            desc = f"{desc} [bashrc]"
+            cmd = f"{source_bashrc}; {cmd}"
+        case _, True:
+            desc = f"{desc} [direnv]"
+            eval_direnv_export = 'if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
+            cmd = f"{source_bashrc}; {eval_direnv_export}; {cmd}"
+        case never:
+            assert_never(never)
     if env is None:
         env_use = None
     else:
