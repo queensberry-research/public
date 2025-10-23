@@ -40,10 +40,6 @@ SSH_INFRA = SSH / "infra"
 RESOLV_CONF = ETC / "resolv.conf"
 
 
-MAIN_SUBNET = 50
-TEST_SUBNET = 60
-
-
 __all__ = [
     "AUTHORIZED_KEYS",
     "BASHRC",
@@ -68,7 +64,6 @@ __all__ = [
     "HOME_PUBLIC",
     "KNOWN_HOSTS",
     "LOCAL_BIN",
-    "MAIN_SUBNET",
     "PDBRC",
     "PSQLRC",
     "RESOLV_CONF",
@@ -76,6 +71,5 @@ __all__ = [
     "SSH_CONFIG",
     "SSH_CONFIG_D",
     "SSH_INFRA",
-    "TEST_SUBNET",
     "XDG_CONFIG_HOME",
 ]
