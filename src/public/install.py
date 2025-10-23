@@ -334,6 +334,7 @@ def _core_install_in_repo(
         setup_ssh_keys,
         setup_sshd,
     )
+    from .settings import SETTINGS
 
     desc = _append_version_descs(
         "Running core installation in repo",
@@ -368,7 +369,8 @@ def _core_install_in_repo(
     install_jq()
     install_uv()  # after curl
     install_sops(  # after curl, jq
-        age_secret_key=_get_qrt_secrets() / "age/secret-key.txt"
+        age_secret_key=SETTINGS.storage.nfs.members.qrt_dataset.secrets
+        / "age/secret-key.txt"
         if _is_proxmox()
         else None
     )
@@ -573,19 +575,8 @@ def _get_configs() -> Path:
     return HOME_PUBLIC / "configs"
 
 
-def _get_qrt_secrets() -> Path:
-    return _get_qrt_share() / "qrt/secrets"
-
-
-def _get_qrt_share() -> Path:
-    from .storage import STORAGE_CONFIG
-
-    nfs = STORAGE_CONFIG.nfs
-    return nfs.path if _is_proxmox() else nfs.mount_point
-
-
 def _get_subnet() -> Literal["main", "test"]:
-    from .constants import MAIN_SUBNET, TEST_SUBNET
+    from .settings import SETTINGS
 
     try:
         subnet = environ["SUBNET"]

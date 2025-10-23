@@ -3,11 +3,13 @@ from __future__ import annotations
 from dataclasses import field
 from functools import wraps
 from json import loads
+from os import environ
 from pathlib import Path
 from re import search
 from typing import TYPE_CHECKING, Literal
 
 from .installer_utilities import run_command
+from .types import Subnet
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -16,6 +18,24 @@ if TYPE_CHECKING:
 
 
 type _Format = Literal["yaml", "json"]
+type Subnet = Literal["main", "test"]
+
+
+def _get_subnet() -> Subnet:
+    try:
+        subnet = environ["SUBNET"]
+    except KeyError:
+        msg = "Env var 'SUBNET' not found"
+        raise RuntimeError(msg) from None
+    if subnet == "main":
+        return "main"
+    if subnet == "test":
+        return "test"
+    msg = f"Invalid subnet; got {subnet!r}"
+    raise RuntimeError(msg)
+
+
+SUBNET = _get_subnet()
 
 
 def _to_field[**P, T](func: Callable[P, T], /) -> Callable[P, T]:
