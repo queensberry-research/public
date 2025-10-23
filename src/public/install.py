@@ -35,11 +35,10 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.27"
+__version__ = "0.5.28"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
-_PYTHON3_M_PUBLIC = f"{_PYTHON3_M} public.install"
 FLAG_PUBLIC_VERSION = "--public-version"
 FLAG_INSTALLER_VERSION = "--installer-version"
 FLAG_INFRA_VERSION = "--infra-version"
@@ -290,7 +289,8 @@ def _core_install(
     )
     mode: _Mode = "core-in-repo"
     parts: list[str] = [
-        _PYTHON3_M_PUBLIC,
+        _PYTHON3_M,
+        "public.install",
         _FLAG_MODE,
         mode,
         FLAG_PUBLIC_VERSION,
