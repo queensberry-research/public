@@ -32,6 +32,7 @@ from .installer_constants import (
 )
 
 ETC = Path("/etc")
+BASHRC_SUBNET = BASHRC / ".bashrc.d/subnet.sh"
 HOME_INFRA = HOME / "infra"
 HOME_PUBLIC = HOME / "public"
 SSH_INFRA = SSH / "infra"
@@ -43,6 +44,7 @@ RESOLV_CONF = ETC / "resolv.conf"
 __all__ = [
     "AUTHORIZED_KEYS",
     "BASHRC",
+    "BASHRC_SUBNET",
     "CONFIG_BOTTOM_TOML",
     "CONFIG_DIRENV",
     "CONFIG_FD_IGNORE",
