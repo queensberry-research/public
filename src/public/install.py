@@ -338,7 +338,6 @@ def _core_install_in_repo(
         install_tmux,
         install_uv,
         install_vim,
-        install_yq,
         setup_bashrc,
         setup_ssh,
         setup_ssh_keys,
@@ -384,7 +383,6 @@ def _core_install_in_repo(
         if _is_proxmox()
         else None
     )
-    install_yq()  # after curl, jq
     if docker:
         install_docker()
     if not skip_dev:

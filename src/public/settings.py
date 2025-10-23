@@ -5,7 +5,7 @@ from pathlib import Path
 from string import Template
 from typing import override
 
-from .utilities import field_df, yq_bool, yq_int, yq_path, yq_str, yq_strs
+from .utilities import field_df, toml_bool, toml_int, toml_path, toml_str, toml_strs
 
 _CONFIG_TOML = Path(__file__).parent / "public_config.toml"
 if not _CONFIG_TOML.exists():
@@ -25,8 +25,8 @@ class _Network:
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _NetworkVLAN:
-    main: int = yq_int(_CONFIG_TOML, ".network.vlan.main")
-    test: int = yq_int(_CONFIG_TOML, ".network.vlan.test")
+    main: int = toml_int(_CONFIG_TOML, "network.vlan.main")
+    test: int = toml_int(_CONFIG_TOML, "network.vlan.test")
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
@@ -42,9 +42,9 @@ class _Storage:
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _StorageDir:
-    name: str = yq_str(_CONFIG_TOML, ".storage.dir.name")
-    path: Path = yq_path(_CONFIG_TOML, ".storage.dir.path")
-    content: tuple[str, ...] = yq_strs(_CONFIG_TOML, ".storage.dir.content")
+    name: str = toml_str(_CONFIG_TOML, "storage.dir.name")
+    path: Path = toml_path(_CONFIG_TOML, "storage.dir.path")
+    content: tuple[str, ...] = toml_strs(_CONFIG_TOML, "storage.dir.content")
 
     @override
     def __repr__(self) -> str:
@@ -58,9 +58,9 @@ dir: {self.name}
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _StorageNFS:
     common: _StorageNFSCommon = field_df(lambda: _StorageNFSCommon)
-    qrt_dataset: _Member = field_df(lambda: _Member.new(".storage.nfs.qrt_dataset"))
-    qrt_dropbox: _Member = field_df(lambda: _Member.new(".storage.nfs.qrt_dropbox"))
-    isos: _Member = field_df(lambda: _Member.new(".storage.nfs.isos"))
+    qrt_dataset: _Member = field_df(lambda: _Member.new("storage.nfs.qrt_dataset"))
+    qrt_dropbox: _Member = field_df(lambda: _Member.new("storage.nfs.qrt_dropbox"))
+    isos: _Member = field_df(lambda: _Member.new("storage.nfs.isos"))
 
     @override
     def __repr__(self) -> str:
@@ -69,11 +69,13 @@ class _StorageNFS:
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _StorageNFSCommon:
-    export_template: Path = yq_path(_CONFIG_TOML, ".storage.nfs.common.export_template")
-    path_template: Path = yq_path(_CONFIG_TOML, ".storage.nfs.common.path_template")
-    server: str = yq_str(_CONFIG_TOML, ".storage.nfs.common.server")
-    content: tuple[str, ...] = yq_strs(_CONFIG_TOML, ".storage.nfs.common.content")
-    nodes: tuple[str, ...] = yq_strs(_CONFIG_TOML, ".storage.nfs.common.nodes")
+    export_template: Path = toml_path(
+        _CONFIG_TOML, "storage.nfs.common.export_template"
+    )
+    path_template: Path = toml_path(_CONFIG_TOML, "storage.nfs.common.path_template")
+    server: str = toml_str(_CONFIG_TOML, "storage.nfs.common.server")
+    content: tuple[str, ...] = toml_strs(_CONFIG_TOML, "storage.nfs.common.content")
+    nodes: tuple[str, ...] = toml_strs(_CONFIG_TOML, "storage.nfs.common.nodes")
 
     def export(self, name: str, /) -> Path:
         common = _StorageNFSCommon()
@@ -94,10 +96,10 @@ class _StorageNFSCommon:
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _StorageZFSPool:
-    name: str = yq_str(_CONFIG_TOML, ".storage.zfspool.name")
-    pool: Path = yq_path(_CONFIG_TOML, ".storage.zfspool.pool")
-    sparse: bool = yq_bool(_CONFIG_TOML, ".storage.zfspool.sparse")
-    content: tuple[str, ...] = yq_strs(_CONFIG_TOML, ".storage.zfspool.content")
+    name: str = toml_str(_CONFIG_TOML, "storage.zfspool.name")
+    pool: Path = toml_path(_CONFIG_TOML, "storage.zfspool.pool")
+    sparse: bool = toml_bool(_CONFIG_TOML, "storage.zfspool.sparse")
+    content: tuple[str, ...] = toml_strs(_CONFIG_TOML, "storage.zfspool.content")
 
     @override
     def __repr__(self) -> str:
@@ -114,7 +116,7 @@ zfspool: {self.name}
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _Member:
-    name: str = yq_str(_CONFIG_TOML, ".name")
+    name: str = toml_str(_CONFIG_TOML, "name")
 
     @classmethod
     def new(cls, path: str, /) -> type[_Member]:
@@ -126,7 +128,7 @@ class _Member:
             slots=True,
         )
         class _Member2(_Member):
-            name: str = yq_str(_CONFIG_TOML, f"{path}.name")
+            name: str = toml_str(_CONFIG_TOML, f"{path}.name")
 
         return _Member2
 
