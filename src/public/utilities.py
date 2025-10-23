@@ -5,7 +5,7 @@ from functools import wraps
 from os import environ
 from pathlib import Path
 from tomllib import loads
-from typing import TYPE_CHECKING, assert_never, overload
+from typing import TYPE_CHECKING, Any, Literal, assert_never, overload
 
 from .installer_utilities import (
     EVAL_DIRENV_EXPORT,
@@ -106,6 +106,11 @@ def toml_str(path: PathLike, expression: str, /) -> str:
 
 
 @to_dataclass_field
+def toml_str_nullable(path: PathLike, expression: str, /) -> str | None:
+    return _toml_read(path, expression, str, nullable=True)
+
+
+@to_dataclass_field
 def toml_strs(path: PathLike, expression: str, /) -> tuple[str, ...]:
     result = _toml_read(path, expression, list)
     if all(isinstance(i, str) for i in result):
@@ -117,18 +122,27 @@ def toml_strs(path: PathLike, expression: str, /) -> tuple[str, ...]:
 @overload
 def _toml_read[T](path: PathLike, expression: str, cls: type[T], /) -> T: ...
 @overload
+def _toml_read[T](
+    path: PathLike, expression: str, cls: type[T], /, *, nullable: Literal[True]
+) -> T | None: ...
+@overload
 def _toml_read[T, U](
     path: PathLike, expression: str, cls: tuple[type[T], type[U]], /
 ) -> T | U: ...
 def _toml_read[T, T1, T2](
-    path: PathLike, expression: str, cls: type[T] | tuple[type[T1], type[T2]], /
+    path: PathLike,
+    expression: str,
+    cls: type[T] | tuple[type[T1], type[T2]],
+    /,
+    *,
+    nullable: bool = False,
 ) -> T | T1 | T2:
-    data = loads(full_path(path).read_text())
+    data: Any = loads(full_path(path).read_text())
     keys = expression.split(".")
     while len(keys) >= 1:
         first, *rest = keys
-        data, keys = data[first], rest
-    if isinstance(data, cls):
+        data, keys = data.get(first) if nullable else data[first], rest
+    if isinstance(data, cls) or (nullable and (data is None)):
         return data
     match cls:
         case type():
@@ -179,6 +193,7 @@ __all__ = [
     "toml_int",
     "toml_path",
     "toml_str",
+    "toml_str_nullable",
     "toml_strs",
     "touch",
     "update_submodules",
