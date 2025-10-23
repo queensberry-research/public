@@ -35,7 +35,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.35"
+__version__ = "0.5.36"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -676,12 +676,12 @@ def _setup_ssh_deploy_keys() -> None:
 
 
 def _setup_subnet_env_var() -> None:
-    from .constants import BASHRC_SUBNET
+    from .constants import BASHRC_D__SUBNET_SH
     from .installer_utilities import write_template
 
     path_from = _get_configs() / "subnet.sh"
     subnet = _get_subnet_from_ip()
-    write_template(path_from, BASHRC_SUBNET, subnet=subnet)
+    write_template(path_from, BASHRC_D__SUBNET_SH, subnet=subnet)
 
 
 def _update_code(
