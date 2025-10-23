@@ -73,6 +73,13 @@ nfs: qrt-dropbox
   content backup,images,import,iso,rootdir,snippets,vztmpl
   nodes proxmox
 
+nfs: qrt-images
+  path /mnt/qrt-images
+  server truenas.qrt
+  export /mnt/qrt-pool/qrt-images
+  content backup,images,import,iso,rootdir,snippets,vztmpl
+  nodes proxmox
+
 nfs: isos
   path /mnt/isos
   server truenas.qrt
