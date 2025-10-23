@@ -73,7 +73,7 @@ def _run_yq(path: PathLike, expression: str, /, *, format_: _Format = "yaml") ->
     )
     if search("null", result):
         msg = f"Expression {expression!r} not found in {str(path)!r}"
-        raise ValueError(msg)
+        raise KeyError(msg)
     return result
 
 

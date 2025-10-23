@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from string import Template
 from typing import override
 
 from .utilities import field_df, yq_bool, yq_int, yq_path, yq_str, yq_strs
 
-_CONFIG_TOML = Path(__file__) / "public_config.toml"
+_CONFIG_TOML = Path(__file__).parent / "public_config.toml"
+if not _CONFIG_TOML.exists():
+    raise FileNotFoundError(_CONFIG_TOML)
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
@@ -54,32 +57,52 @@ dir: {self.name}
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _StorageNFS:
-    name: str = yq_str(_CONFIG_TOML, ".storage.nfs.name")
-    path: Path = yq_path(_CONFIG_TOML, ".storage.nfs.path")
-    server: str = yq_str(_CONFIG_TOML, ".storage.nfs.server")
-    export: Path = yq_path(_CONFIG_TOML, ".storage.nfs.export")
-    content: tuple[str, ...] = yq_strs(_CONFIG_TOML, ".storage.nfs.content")
-    nodes: tuple[str, ...] = yq_strs(_CONFIG_TOML, ".storage.nfs.nodes")
-    mount_point: Path = yq_path(_CONFIG_TOML, ".storage.nfs.mount_point")
+    common: _StorageNFSCommon = field_df(lambda: _StorageNFSCommon)
+    members: _StorageNFSMembers = field_df(lambda: _StorageNFSMembers)
 
     @override
     def __repr__(self) -> str:
-        return f"""\
-nfs: {self.name}
-  path {self.path}
-  server {self.server}
-  export {self.export}
-  content {",".join(self.content)}
-  nodes {",".join(self.nodes)}
-"""
+        return repr(self.members)
 
-    @property
-    def qrt(self) -> Path:
-        return self.path / "qrt"
 
-    @property
-    def secrets(self) -> Path:
-        return self.qrt / "secrets"
+@dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
+class _StorageNFSCommon:
+    export_template: Path = yq_path(_CONFIG_TOML, ".storage.nfs.common.export_template")
+    path_template: Path = yq_path(_CONFIG_TOML, ".storage.nfs.common.path_template")
+    server: str = yq_str(_CONFIG_TOML, ".storage.nfs.common.server")
+    content: tuple[str, ...] = yq_strs(_CONFIG_TOML, ".storage.nfs.common.content")
+    nodes: tuple[str, ...] = yq_strs(_CONFIG_TOML, ".storage.nfs.common.nodes")
+
+    def export(self, name: str, /) -> Path:
+        common = _StorageNFSCommon()
+        path = Template(str(common.export_template)).substitute(name=name)
+        return Path(path)
+
+    def path(self, name: str, /) -> Path:
+        common = _StorageNFSCommon()
+        path = Template(str(common.path_template)).substitute(name=name)
+        return Path(path)
+
+    def qrt(self, name: str, /) -> Path:
+        return self.path(name) / "qrt"
+
+    def secrets(self, name: str, /) -> Path:
+        return self.qrt(name) / "secrets"
+
+
+@dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
+class _StorageNFSMembers:
+    qrt_dataset: _Member = field_df(
+        lambda: _Member.new(".storage.nfs.members.qrt_dataset")
+    )
+    qrt_dropbox: _Member = field_df(
+        lambda: _Member.new(".storage.nfs.members.qrt_dropbox")
+    )
+    isos: _Member = field_df(lambda: _Member.new(".storage.nfs.members.isos"))
+
+    @override
+    def __repr__(self) -> str:
+        return "\n".join(map(repr, [self.qrt_dataset, self.qrt_dropbox, self.isos]))
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
@@ -97,6 +120,59 @@ zfspool: {self.name}
   {"sparse" if self.sparse else ""}
   content {",".join(self.content)}
 """
+
+
+# private
+
+
+@dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
+class _Member:
+    name: str = yq_str(_CONFIG_TOML, ".name")
+
+    @classmethod
+    def new(cls, path: str, /) -> type[_Member]:
+        @dataclass(
+            repr=False,  # else will override `repr`
+            order=True,
+            unsafe_hash=True,
+            kw_only=True,
+            slots=True,
+        )
+        class _Member2(_Member):
+            name: str = yq_str(_CONFIG_TOML, f"{path}.name")
+
+        return _Member2
+
+    @override
+    def __repr__(self) -> str:
+        common = _StorageNFSCommon()
+        return f"""\
+nfs: {self.name}
+  path {self.path}
+  server {common.server}
+  export {self.export}
+  content {",".join(common.content)}
+  nodes {",".join(common.nodes)}
+"""
+
+    @property
+    def export(self) -> Path:
+        return _StorageNFSCommon().export(self.name)
+
+    @property
+    def path(self) -> Path:
+        return _StorageNFSCommon().path(self.name)
+
+    @property
+    def qrt(self) -> Path:
+        return _StorageNFSCommon().qrt(self.name)
+
+    @property
+    def secrets(self) -> Path:
+        return _StorageNFSCommon().secrets(self.name)
+
+
+# instance
 
 
 SETTINGS = _Settings()
