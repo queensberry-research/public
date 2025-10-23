@@ -1,36 +1,42 @@
-[dir]
-  content = ["backup", "iso", "vztmpl"]
-  name = "local"
-  path = "/var/lib/vz"
-
-[nfs]
-  [nfs.common]
-    content = [
-      "backup",
-      "images",
-      "import",
-      "iso",
-      "rootdir",
-      "snippets",
-      "vztmpl",
-    ]
-    export_template = "/mnt/qrt-pool/${name}"
-    nodes = ["proxmox"]
-    path_template = "/mnt/${name}"
-    server = "truenas.qrt"
-
-  [nfs.qrt_dataset]
-    name = "qrt-dataset"
-
-  [nfs.qrt_dropbox]
-    name = "qrt-dropbox"
-
-  [nfs.isos]
-    name = "isos"
+[network]
+  [network.vlan]
+    main = 50
+    test = 60
 
 
-[zfspool]
-  content = ["images", "rootdir"]
-  name = "local-zfs"
-  pool = "rpool/data"
-  sparse = true
+[storage]
+  [storage.dir]
+    content = ["backup", "iso", "vztmpl"]
+    name = "local"
+    path = "/var/lib/vz"
+
+  [storage.nfs]
+    [storage.nfs.common]
+      content = [
+        "backup",
+        "images",
+        "import",
+        "iso",
+        "rootdir",
+        "snippets",
+        "vztmpl",
+      ]
+      export_template = "/mnt/qrt-pool/${name}"
+      nodes = ["proxmox"]
+      path_template = "/mnt/${name}"
+      server = "truenas.qrt"
+
+    [storage.nfs.qrt_dataset]
+      name = "qrt-dataset"
+
+    [storage.nfs.qrt_dropbox]
+      name = "qrt-dropbox"
+
+    [storage.nfs.isos]
+      name = "isos"
+
+  [storage.zfspool]
+    content = ["images", "rootdir"]
+    name = "local-zfs"
+    pool = "rpool/data"
+    sparse = true

@@ -5,3 +5,12 @@ extend = "repo/ruff/ruff.toml"
   extend-ignore = [
     "TID252", # relative-imports
   ]
+
+  [lint.flake8-bugbear]
+    extend-immutable-calls = [
+      "public.utilities.field_df",
+      "public.utilities.yq_bool",
+      "public.utilities.yq_path",
+      "public.utilities.yq_str",
+      "public.utilities.yq_strs",
+    ]
