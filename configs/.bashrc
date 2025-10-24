@@ -98,7 +98,7 @@ if command -v starship >/dev/null 2>&1; then
 fi
 
 # tail
-alias tf='tail -F'
+alias tf='tail -F --lines=100'
 
 # uv
 if command -v uv >/dev/null 2>&1; then
