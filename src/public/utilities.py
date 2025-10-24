@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import field
+from enum import StrEnum
 from functools import wraps
 from os import environ
 from pathlib import Path
@@ -83,6 +84,12 @@ def field_df[T](default_factory: Callable[[], type[T]], /) -> T:
 @to_dataclass_field
 def toml_bool(path: PathLike, expression: str, /) -> bool:
     return _toml_read(path, expression, bool)
+
+
+@to_dataclass_field
+def toml_enum[E: StrEnum](path: PathLike, expression: str, cls: type[E], /) -> E:
+    (member,) = [e for e in cls if e.value == _toml_read(path, expression, str)]
+    return member
 
 
 @to_dataclass_field
@@ -189,6 +196,7 @@ __all__ = [
     "temp_environ",
     "to_dataclass_field",
     "toml_bool",
+    "toml_enum",
     "toml_float",
     "toml_int",
     "toml_path",
