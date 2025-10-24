@@ -58,6 +58,7 @@ fi
 # git
 alias gb='git branch --all --list --sort=-committerdate --verbose'
 alias gc='git checkout'
+alias gcm='git checkout master'
 alias gd='git diff'
 alias gdc='git diff --cached'
 alias gdm='git diff --origin/$(git symbolic-ref refs/remotes/origin/HEAD | sed "s#.*/##")'
