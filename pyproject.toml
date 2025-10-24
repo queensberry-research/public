@@ -14,7 +14,7 @@
   name = "public"
   readme = "README.md"
   requires-python = ">= 3.13"
-  version = "0.5.36"
+  version = "0.5.37"
 
   [project.scripts]
     install-public = "public.install:_install"
