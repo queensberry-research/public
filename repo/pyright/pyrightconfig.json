@@ -9,7 +9,6 @@
     "submodules"
   ],
   "pythonVersion": "3.13",
-  "reportAny": false,
   "reportCallInDefaultInitializer": true,
   "reportImplicitOverride": true,
   "reportImplicitStringConcatenation": true,
@@ -20,7 +19,6 @@
   "reportPrivateImportUsage": false,
   "reportPrivateUsage": false,
   "reportPropertyTypeMismatch": true,
-  "reportShadowedImports": true,
   "reportUninitializedInstanceVariable": true,
   "reportUnknownArgumentType": false,
   "reportUnknownMemberType": false,
