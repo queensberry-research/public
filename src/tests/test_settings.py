@@ -80,6 +80,13 @@ nfs: qrt-images
   content backup,images,import,iso,rootdir,snippets,vztmpl
   nodes proxmox
 
+nfs: python-packages
+  path /mnt/python-packages
+  server truenas.qrt
+  export /mnt/qrt-pool/python-packages
+  content backup,images,import,iso,rootdir,snippets,vztmpl
+  nodes proxmox
+
 nfs: isos
   path /mnt/isos
   server truenas.qrt
