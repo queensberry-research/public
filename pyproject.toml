@@ -14,40 +14,43 @@
   name = "public"
   readme = "README.md"
   requires-python = ">= 3.13"
-  version = "0.5.42"
+  version = "0.5.43"
 
   [project.scripts]
     install-public = "public.install:_install"
 
-# coverage
-[tool.coverage.html]
-  directory = ".coverage/html"
+# tool
+[tool]
 
-[tool.coverage.report]
-  exclude_also = ["@overload", "if TYPE_CHECKING:"]
-  fail_under = 100.0
-  skip_covered = true
-  skip_empty = true
+  # coverage
+  [tool.coverage.html]
+    directory = ".coverage/html"
 
-[tool.coverage.run]
-  branch = true
-  data_file = ".coverage/data"
-  parallel = true
+  [tool.coverage.report]
+    exclude_also = ["@overload", "if TYPE_CHECKING:"]
+    fail_under = 100.0
+    skip_covered = true
+    skip_empty = true
 
-# nitpick
-[tool.nitpick]
-  style = [
-    "https://raw.githubusercontent.com/dycw/nitpick/master/styles/3.13.toml",
-    "https://raw.githubusercontent.com/dycw/nitpick/master/styles/common.toml",
-  ]
+  [tool.coverage.run]
+    branch = true
+    data_file = ".coverage/data"
+    parallel = true
 
-# pytest
-[tool.pytest.ini_options]
-  addopts = ["-ra", "-vv", "--color=auto", "--strict-markers"]
-  asyncio_default_fixture_loop_scope = "function"
-  asyncio_mode = "auto"
-  collect_imported_tests = false
-  filterwarnings = ["error"]
-  minversion = "8.0"
-  testpaths = ["src/tests"]
-  xfail_strict = true
+  # nitpick
+  [tool.nitpick]
+    style = [
+      "https://raw.githubusercontent.com/dycw/nitpick/master/styles/3.13.toml",
+      "https://raw.githubusercontent.com/dycw/nitpick/master/styles/common.toml",
+    ]
+
+  # pytest
+  [tool.pytest.ini_options]
+    addopts = ["-ra", "-vv", "--color=auto", "--strict-markers"]
+    asyncio_default_fixture_loop_scope = "function"
+    asyncio_mode = "auto"
+    collect_imported_tests = false
+    filterwarnings = ["error"]
+    minversion = "8.0"
+    testpaths = ["src/tests"]
+    xfail_strict = true
