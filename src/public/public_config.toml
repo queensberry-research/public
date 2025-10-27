@@ -26,6 +26,9 @@
       path_template = "/mnt/${name}"
       server = "truenas.qrt"
 
+    [storage.nfs.python_packages]
+      name = "python-packages"
+
     [storage.nfs.qrt_dataset]
       name = "qrt-dataset"
 
