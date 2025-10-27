@@ -434,7 +434,7 @@ wheels = [
 
 [[package]]
 name = "public"
-version = "0.5.49"
+version = "0.5.50"
 source = { editable = "." }
 
 [package.dev-dependencies]
