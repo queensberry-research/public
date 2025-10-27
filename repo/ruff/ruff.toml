@@ -55,12 +55,12 @@ unsafe-fixes = true
   ]
 
   [lint.extend-per-file-ignores]
-    "**/tests/**/*.py" = [
+    "notebooks/*.py" = ["INP001"] # implicit-namespace-package
+    "src/dts/data/static.py" = ["RUF001"] # ambiguous-unicode-character-string
+    "test_*.py" = [
       "S101",   # assert
       "SLF001", # private-member-access
     ]
-    "notebooks/*.py" = ["INP001"] # implicit-namespace-package
-    "src/dts/data/static.py" = ["RUF001"] # ambiguous-unicode-character-string
 
   [lint.flake8-bugbear]
     extend-immutable-calls = ["typing.cast"]
