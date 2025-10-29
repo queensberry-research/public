@@ -35,7 +35,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.56"
+__version__ = "0.5.57"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -611,6 +611,8 @@ def _get_subnet_from_ip() -> Subnet:
             ip = IPv4Address(s.getsockname()[0])
         _, _, third, _ = str(ip).split(".")
         third = int(third)
+        if third == PUBLIC_SETTINGS.network.vlan.qrt:
+            return "qrt"
         if third == PUBLIC_SETTINGS.network.vlan.main:
             return "main"
         if third == PUBLIC_SETTINGS.network.vlan.test:
@@ -654,6 +656,8 @@ def _setup_resolv_conf() -> None:
     _LOGGER.info("Setting up 'resolv.conf'...")
     path_from = _get_configs() / "resolv.conf"
     match subnet := _get_subnet_from_ip():
+        case "qrt":
+            n = PUBLIC_SETTINGS.network.vlan.qrt
         case "main":
             n = PUBLIC_SETTINGS.network.vlan.main
         case "test":
