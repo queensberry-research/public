@@ -50,6 +50,7 @@ from .installer_utilities import (
     yield_github_latest_download,
     yield_tar_gz_contents,
 )
+from .types import SUBNETS
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -63,10 +64,8 @@ def get_subnet() -> Subnet:
     except KeyError:
         msg = "Env var 'SUBNET' not found"
         raise RuntimeError(msg) from None
-    if subnet == "main":
-        return "main"
-    if subnet == "test":
-        return "test"
+    if subnet in SUBNETS:
+        return subnet
     msg = f"Invalid subnet; got {subnet!r}"
     raise RuntimeError(msg)
 
