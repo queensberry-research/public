@@ -25,6 +25,7 @@ class _Network:
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _NetworkVLAN:
+    qrt: int = toml_int(_CONFIG_TOML, "network.vlan.qrt")
     main: int = toml_int(_CONFIG_TOML, "network.vlan.main")
     test: int = toml_int(_CONFIG_TOML, "network.vlan.test")
 

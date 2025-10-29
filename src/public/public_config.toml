@@ -1,6 +1,7 @@
 [network]
   [network.vlan]
     main = 50
+    qrt = 20
     test = 60
 
 

@@ -4,7 +4,7 @@ from typing import Literal
 
 from .installer_types import PathLike
 
-type Subnet = Literal["main", "test"]
+type Subnet = Literal["qrt", "main", "test"]
 
 
 __all__ = ["PathLike", "Subnet"]
