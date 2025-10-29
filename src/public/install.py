@@ -35,7 +35,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.57"
+__version__ = "0.5.58"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -602,6 +602,7 @@ def _get_configs() -> Path:
 
 def _get_subnet_from_ip() -> Subnet:
     from .settings import PUBLIC_SETTINGS
+    from .types import SUBNETS
 
     try:
         subnet = environ["SUBNET"]
@@ -619,7 +620,7 @@ def _get_subnet_from_ip() -> Subnet:
             return "test"
         msg = f"Invalid IP; got {ip}"
         raise ValueError(msg) from None
-    if (subnet == "main") or (subnet == "test"):  #  noqa: PLR1714
+    if subnet in SUBNETS:
         return subnet
     msg = f"Invalid subnet; got {subnet!r}"
     raise ValueError(msg)
