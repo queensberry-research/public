@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from .installer_constants import (
     AUTHORIZED_KEYS,
     BASHRC,
@@ -20,25 +18,23 @@ from .installer_constants import (
     CONFIG_TMUX_CONF_LOCAL,
     CONFIG_TMUX_CONF_OH_MY_TMUX,
     CONFIG_WEZTERM_LUA,
+    ETC,
     HOME,
     KNOWN_HOSTS,
     LOCAL_BIN,
     PDBRC,
     PSQLRC,
+    RESOLV_CONF,
     SSH,
     SSH_CONFIG,
     SSH_CONFIG_D,
     XDG_CONFIG_HOME,
 )
 
-ETC = Path("/etc")
 BASHRC_D__SUBNET_SH = HOME / ".bashrc.d/subnet.sh"
 HOME_INFRA = HOME / "infra"
 HOME_PUBLIC = HOME / "public"
 SSH_INFRA = SSH / "infra"
-
-
-RESOLV_CONF = ETC / "resolv.conf"
 
 
 __all__ = [
