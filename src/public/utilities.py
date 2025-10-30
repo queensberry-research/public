@@ -119,7 +119,10 @@ def toml_str_nullable(path: PathLike, expression: str, /) -> str | None:
 
 
 @to_dataclass_field
-def toml_strs(path: PathLike, expression: str, /) -> tuple[str, ...]:
+def toml_strs[T](
+    path: PathLike, expression: str, /, *, cls: type[T] = str
+) -> tuple[T, ...]:
+    _ = cls
     result = _toml_read(path, expression, list)
     if all(isinstance(i, str) for i in result):
         return tuple(result)
