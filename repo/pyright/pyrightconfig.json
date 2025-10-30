@@ -1,12 +1,8 @@
 {
   "deprecateTypingAliases": true,
   "enableReachabilityAnalysis": false,
-  "exclude": [
-    "**/.uv-cache",
-    "**/.venv",
-    "**/__pycache__",
-    "**/node_modules",
-    "submodules"
+  "include": [
+    "src"
   ],
   "pythonVersion": "3.13",
   "reportCallInDefaultInitializer": true,
