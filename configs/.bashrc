@@ -56,24 +56,18 @@ if command -v fzf >/dev/null 2>&1; then
 fi
 
 # git
-alias gb='git branch --all --list --sort=-committerdate --verbose'
+alias gb='git branch-defaut'
 alias gc='git checkout'
 alias gcm='git checkout master'
 alias gd='git diff'
 alias gdc='git diff --cached'
-alias gdm='git diff $(git symbolic-ref refs/remotes/origin/HEAD --short)'
-alias gf='git fetch --all --force --prune --prune-tags --recurse-submodules=yes --tags'
+alias gdm='git diff $(default-branch)'
+alias gf='git fetch-all'
 alias gl='git log --abbrev-commit --decorate=short --pretty="format:%C(red)%h%C(reset) | %C(yellow)%d%C(reset) | %s | %Cgreen%cr%C(reset)"'
-alias gpl='__git_branch_purge_local && git pull --all --ff-only --force --prune --tags'
-alias gpw='watch -n2 "git pull --all --ff-only --force --prune --tags || git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)"'
+alias gpl='git pull-all && git-purge-local'
 alias gs='git status'
-alias __git_fetch_and_purge='git fetch --all --force && __git_branch_purge_local'
-gsu() {
-	git submodule update --init --recursive || return $?
-	# shellcheck disable=SC2016
-	git submodule foreach --recursive 'git checkout --force $(git symbolic-ref refs/remotes/origin/HEAD --short | sed ''s#origin/##'') && git pull --ff-only --force --prune --tags'
-}
-__git_branch_purge_local() { git branch -vv | awk '/: gone]/{print $1}' | xargs -r git branch -D; }
+alias gsu='git submodules-update'
+alias wgp='watch -n1 "git purge-local && git pull-all && git log-short -n10"'
 
 # ls
 alias l='ls -al --color=auto'
