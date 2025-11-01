@@ -5,6 +5,7 @@
   purge-local = "!git branch -vv | awk '/: gone]/{print $1}' | xargs -r git branch -D"
 
   # diff
+  diff-remote = "!git diff $(git default-remote-branch)"
   is-clean = "!git diff --quiet && git diff --cached --quiet"
 
   # fetch
@@ -16,20 +17,24 @@
   # pull
   pull-default = "!git pull --all --force --prune --recurse-submodules=yes --tags"
 
-  # show-ref
-  is-valid-ref = "!f() { git is-valid-ref1 $1 || git is-valid-ref1 heads/$1 || git is-valid-ref1 remotes/$1 || git is-valid-ref1 tags/$1 >/dev/null; }; f"
-  is-valid-ref1 = "!f() { git show-ref --verify --quiet refs/$1; }; f"
+  # remote
+  remote-name = "!git remote get-url origin"
+  repo-name = "!basename -s .git $(git remote-name)"
 
   # rev-parse
   current-branch = "!git rev-parse --abbrev-ref HEAD"
   repo-root = "!git rev-parse --show-toplevel"
 
-  # symbolic-ref
-  default-remote-branch = "!git symbolic-ref refs/remotes/origin/HEAD --short"
-  default-local-branch = "!git default-remote-branch | sed \"s#origin/##\""
+  # show-ref
+  is-valid-ref = "!f() { git is-valid-ref1 $1 || git is-valid-ref1 heads/$1 || git is-valid-ref1 remotes/$1 || git is-valid-ref1 tags/$1 >/dev/null; }; f"
+  is-valid-ref1 = "!f() { git show-ref --verify --quiet refs/$1; }; f"
 
   # submodule
   submodules-update = "!git submodule update --init --recursive && git submodule foreach --recursive 'git checkout --force $(git default-local-branch) && git pull-default'"
+
+  # symbolic-ref
+  default-remote-branch = "!git symbolic-ref refs/remotes/origin/HEAD --short"
+  default-local-branch = "!git default-remote-branch | sed \"s#origin/##\""
 
   # tag
   tag-add = "!f() { git tag -a $1 $2 -m $1 && git push --tags --force --set-upstream origin && git log-default -n10; }; f"
