@@ -35,7 +35,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.72"
+__version__ = "0.5.73"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -328,6 +328,7 @@ def _core_install_in_repo(
         install_docker,
         install_fd,
         install_fzf,
+        install_git,
         install_jq,
         install_just,
         install_neovim,
@@ -375,6 +376,7 @@ def _core_install_in_repo(
     install_age()
     install_curl()
     install_direnv(direnv_toml=configs / "direnv.toml")
+    install_git(config=configs / "git-config")
     install_jq()
     install_uv()  # after curl
     install_sops(  # after curl, jq
