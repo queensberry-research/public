@@ -34,7 +34,11 @@ from .installer_constants import (
 BASHRC_D__SUBNET_SH = HOME / ".bashrc.d/subnet.sh"
 HOME_INFRA = HOME / "infra"
 HOME_PUBLIC = HOME / "public"
+PVE = ETC / "pve"
 SSH_INFRA = SSH / "infra"
+
+
+PVE_STORAGE_CFG = PVE / "storage.cfg"
 
 
 __all__ = [
@@ -64,6 +68,8 @@ __all__ = [
     "LOCAL_BIN",
     "PDBRC",
     "PSQLRC",
+    "PVE",
+    "PVE_STORAGE_CFG",
     "RESOLV_CONF",
     "SSH",
     "SSH_CONFIG",
