@@ -5,6 +5,8 @@ from enum import StrEnum
 from functools import wraps
 from os import environ
 from pathlib import Path
+from re import search
+from socket import gethostname
 from tomllib import loads
 from typing import TYPE_CHECKING, Any, Literal, assert_never, overload
 
@@ -68,6 +70,10 @@ def get_subnet() -> Subnet:
         return subnet
     msg = f"Invalid subnet; got {subnet!r}"
     raise RuntimeError(msg)
+
+
+def is_proxmox() -> bool:
+    return bool(search("proxmox", gethostname()))
 
 
 def to_dataclass_field[**P, T](func: Callable[P, T], /) -> Callable[P, T]:
@@ -188,6 +194,7 @@ __all__ = [
     "get_subnet",
     "git_pull",
     "have_command",
+    "is_proxmox",
     "is_root",
     "luarocks_install",
     "mac_app_exists",
