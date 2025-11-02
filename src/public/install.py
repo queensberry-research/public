@@ -35,7 +35,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.76"
+__version__ = "0.5.77"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -358,6 +358,7 @@ def _core_install_in_repo(
     if _is_proxmox():
         _setup_proxmox_sources()
         _setup_resolv_conf()
+        _setup_storage_cfg()
         _setup_subnet_env_var()
     add_to_known_hosts()
     setup_bashrc(bashrc=configs / ".bashrc")
@@ -680,6 +681,14 @@ def _setup_ssh_deploy_keys() -> None:
         PUBLIC_SETTINGS.storage.nfs.qrt_dataset.secrets / "deploy-keys/infra",
         SSH / "infra",
     )
+
+
+def _setup_storage_cfg() -> None:
+    from .constants import PVE_STORAGE_CFG
+    from .settings import PUBLIC_SETTINGS
+    from .utilities import write_text
+
+    write_text(str(PUBLIC_SETTINGS.storage), PVE_STORAGE_CFG)
 
 
 def _setup_subnet_env_var() -> None:

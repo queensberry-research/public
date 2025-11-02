@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pytest import mark, param
 
 from public.settings import PUBLIC_SETTINGS
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class TestSettings:
@@ -52,8 +55,9 @@ class TestSettings:
     def test_hashable(self) -> None:
         _ = hash(PUBLIC_SETTINGS)
 
-    def test_repr(self) -> None:
-        result = repr(PUBLIC_SETTINGS.storage)
+    @mark.parametrize("func", [param(repr), param(str)])
+    def test_repr(self, *, func: Callable[[Any], str]) -> None:
+        result = func(PUBLIC_SETTINGS.storage)
         expected = """\
 dir: local
   path /var/lib/vz
