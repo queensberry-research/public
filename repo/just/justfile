@@ -5,7 +5,7 @@ set positional-arguments := true
   git clean -fdx
   uv sync
 
-cli *args:
+@cli *args:
   #!/usr/bin/env sh
   name=$(yq -p toml -o json '.' pyproject.toml | jq -r '.project.scripts | keys[]? | select(test("-cli$"))')
   if [ -n "${name}" ]; then
@@ -13,3 +13,6 @@ cli *args:
   else
     echo "Project has no '*-cli' executable"
   fi
+
+@upw *args:
+  docker compose up --watch "$@"
