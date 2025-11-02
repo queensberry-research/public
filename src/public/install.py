@@ -6,7 +6,6 @@ from ipaddress import IPv4Address
 from logging import basicConfig, getLogger
 from os import environ
 from pathlib import Path
-from re import search
 from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from subprocess import check_output
@@ -35,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.78"
+__version__ = "0.5.79"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -345,6 +344,7 @@ def _core_install_in_repo(
         setup_sshd,
     )
     from .settings import PUBLIC_SETTINGS
+    from .utilities import is_proxmox
 
     desc = _append_version_descs(
         "Running core installation in repo",
@@ -355,7 +355,7 @@ def _core_install_in_repo(
     )
     _LOGGER.info("%s...", desc)
     configs, subnet = _get_configs(), _get_subnet_from_ip()
-    if _is_proxmox():
+    if is_proxmox():
         _setup_proxmox_sources()
         _setup_resolv_conf()
         _setup_storage_cfg()
@@ -383,7 +383,7 @@ def _core_install_in_repo(
     install_sops(  # after curl, jq
         age_secret_key=PUBLIC_SETTINGS.storage.nfs.qrt_dataset.secrets
         / "age/secret-key.txt"
-        if _is_proxmox()
+        if is_proxmox()
         else None
     )
     if docker:
@@ -627,10 +627,6 @@ def _get_subnet_from_ip() -> Subnet:
         return subnet
     msg = f"Invalid subnet; got {subnet!r}"
     raise ValueError(msg)
-
-
-def _is_proxmox() -> bool:
-    return bool(search("proxmox", gethostname()))
 
 
 def _setup_proxmox_sources() -> None:
