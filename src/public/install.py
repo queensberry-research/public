@@ -34,9 +34,10 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.85"
+__version__ = "0.5.86"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
+_PYTHONPATH_SRC = {"PYTHONPATH": "src"}
 _PYTHON3_M = "python3 -m"
 FLAG_PUBLIC_VERSION = "--public-version"
 FLAG_INSTALLER_VERSION = "--installer-version"
@@ -304,7 +305,7 @@ def _core_install(
     if skip_dev:
         parts.append(FLAG_SKIP_DEV)
     cmd = " ".join(parts)
-    _ = _run_command(cmd, env={"PYTHONPATH": "src"}, cwd=_HOME_PUBLIC)
+    _ = _run_command(cmd, env=_PYTHONPATH_SRC, cwd=_HOME_PUBLIC)
 
 
 def _core_install_in_repo(
@@ -474,7 +475,7 @@ def _infra_install(
     if force_recreate:
         parts.append(FLAG_FORCE_RECREATE)
     cmd = " ".join(parts)
-    _ = _run_command(cmd, direnv=True, cwd=_HOME_INFRA)
+    _ = _run_command(cmd, direnv=True, env=_PYTHONPATH_SRC, cwd=_HOME_INFRA)
 
 
 def _setup_root_password(password: str, /) -> None:
