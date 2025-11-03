@@ -15,4 +15,4 @@ set positional-arguments := true
   fi
 
 @upw *args:
-  docker compose up --watch "$@"
+  docker compose up -f docker/docker-compose.yml --watch "$@"
