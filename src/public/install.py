@@ -34,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.84"
+__version__ = "0.5.85"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHON3_M = "python3 -m"
@@ -321,6 +321,7 @@ def _core_install_in_repo(
         add_to_known_hosts,
         install_age,
         install_bottom,
+        install_bump_my_version,
         install_curl,
         install_delta,
         install_direnv,
@@ -338,6 +339,7 @@ def _core_install_in_repo(
         install_tmux,
         install_uv,
         install_vim,
+        install_yq,
         setup_bashrc,
         setup_ssh,
         setup_ssh_keys,
@@ -386,6 +388,8 @@ def _core_install_in_repo(
         if is_proxmox()
         else None
     )
+    install_yq()  # after curl, jq
+    install_bump_my_version()  # after uv
     if docker:
         install_docker()
     if not skip_dev:
