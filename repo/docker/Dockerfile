@@ -15,7 +15,16 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
 
-RUN --mount=type=cache,target=/root/.cache/uv --mount=type=bind,source=pyproject.toml,target=pyproject.toml --mount=type=bind,source=uv.lock,target=uv.lock --mount=type=bind,source=pyproject.toml,target=pyproject.toml --mount=type=bind,source=uv.lock,target=uv.lock --mount=type=bind,source=uv.lock,target=uv.lock uv sync --locked --no-install-project --no-dev
+RUN echo '' \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends age \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo ''
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    uv sync --locked --no-install-project --no-dev
 
 COPY src/${PACKAGE_NAME} /app/src/${PACKAGE_NAME}
 COPY pyproject.toml /app/pyproject.toml
@@ -32,7 +41,11 @@ FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION} ##########################
 
 COPY --from=builder /app /app
 
-ENV PATH="/app/.venv/bin:${PATH}"
+COPY --from=ghcr.io/getsops/sops:v3.11.0 /usr/local/bin/sops /usr/local/bin/
+# https://github.com/getsops/sops/pkgs/container/sops
+
+ENV PATH=/app/.venv/bin:${PATH}
+ENV PATH=/root/.local/bin:${PATH}
 
 WORKDIR /app
 
