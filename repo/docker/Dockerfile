@@ -27,8 +27,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 ###############################################################################
 
-ARG DEBIAN_VERSION
-ARG PYTHON_VERSION
+ARG DEBIAN_VERSION=''
+ARG PYTHON_VERSION=''
 
 FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
 
