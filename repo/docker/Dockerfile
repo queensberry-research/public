@@ -23,7 +23,6 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
 
 ARG DEBIAN_VERSION
 ARG PYTHON_VERSION
-ARG PACKAGE_NAME
 
 FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
 
@@ -33,4 +32,4 @@ ENV PATH="/app/.venv/bin:${PATH}"
 
 WORKDIR /app
 
-CMD ["${PACKAGE_NAME}-cli"]
+CMD ["cli"]
