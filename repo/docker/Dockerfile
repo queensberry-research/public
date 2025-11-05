@@ -1,6 +1,7 @@
 ARG DEBIAN_VERSION
 ARG PYTHON_VERSION
 ARG PACKAGE_NAME
+ARG SCRIPTS=""
 
 FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${DEBIAN_VERSION}-slim AS builder
 
@@ -17,7 +18,12 @@ COPY src/${PACKAGE_NAME} /app/src/${PACKAGE_NAME}
 COPY pyproject.toml /app/pyproject.toml
 COPY uv.lock /app/uv.lock
 
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    if [ -n "$SCRIPTS" ]; then \
+      uv sync --extra scripts --no-dev --locked \
+    else \
+      uv sync --no-dev --locked \
+    fi
 
 ###############################################################################
 
