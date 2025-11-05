@@ -6,7 +6,6 @@ clean:
   uv sync
 
 cli *args:
-  #!/usr/bin/env sh
   name=$(yq -p toml -o json '.' pyproject.toml | jq -r '.project.scripts | keys[]? | select(test("-cli$"))')
   if [ -n "${name}" ]; then
     "${name}" "$@"
@@ -14,8 +13,20 @@ cli *args:
     echo "Project has no '*-cli' executable"
   fi
 
+release *args:
+  docker buildx build \
+    --build-arg DEBIAN_VERSION=$DEBIAN_VERSION \
+    --build-arg PYTHON_VERSION=$PYTHON_VERSION \
+    --build-arg PACKAGE_NAME=$PACKAGE_NAME \
+    --file docker/Dockerfile \
+    --push \
+    --tag=$DOCKER_REGISTRY_URL:$DOCKER_REGISTRY_PORT/$PACKAGE_NAME:latest \
+    --tag=$DOCKER_REGISTRY_URL:$DOCKER_REGISTRY_PORT/$PACKAGE_NAME:$PACKAGE_VERSION \
+    --tag=$DOCKER_REGISTRY_URL:$DOCKER_REGISTRY_PORT/$PACKAGE_NAME:$PACKAGE_VERSION_MAJOR \
+    --tag=$DOCKER_REGISTRY_URL:$DOCKER_REGISTRY_PORT/$PACKAGE_NAME:$PACKAGE_VERSION_MAJOR_MINOR \
+    .
+
 registry *args:
-  #!/usr/bin/env sh
   url='https://docker-registry.main:5000/v2'
   if [ $# -eq 0 ]; then
     curl -sS "$url/_catalog" | jq
