@@ -20,9 +20,9 @@ COPY uv.lock /app/uv.lock
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     if [ "$PACKAGE_HAS_SCRIPTS" = "1" ]; then \
-      uv sync --extra scripts --no-dev --locked \
+      uv sync --extra scripts --no-dev --locked; \
     else \
-      uv sync --no-dev --locked \
+      uv sync --no-dev --locked; \
     fi
 
 ###############################################################################
