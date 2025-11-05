@@ -2,7 +2,7 @@ ARG DEBIAN_VERSION
 ARG PYTHON_VERSION
 ARG PACKAGE_NAME
 
-FROM ghcr.io/astral-sh/uv:python$PYTHON_VERSION-$DEBIAN_VERSION-slim AS builder
+FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${DEBIAN_VERSION}-slim AS builder
 
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
@@ -13,7 +13,7 @@ WORKDIR /app
 
 RUN --mount=type=cache,target=/root/.cache/uv --mount=type=bind,source=pyproject.toml,target=pyproject.toml --mount=type=bind,source=uv.lock,target=uv.lock --mount=type=bind,source=pyproject.toml,target=pyproject.toml --mount=type=bind,source=uv.lock,target=uv.lock --mount=type=bind,source=uv.lock,target=uv.lock uv sync --locked --no-install-project --no-dev
 
-COPY src/$PACKAGE_NAME /app/src/$PACKAGE_NAME
+COPY src/${PACKAGE_NAME} /app/src/${PACKAGE_NAME}
 COPY pyproject.toml /app/pyproject.toml
 COPY uv.lock /app/uv.lock
 
@@ -23,13 +23,14 @@ RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
 
 ARG DEBIAN_VERSION
 ARG PYTHON_VERSION
+ARG PACKAGE_NAME
 
-FROM python:$PYTHON_VERSION-slim-$DEBIAN_VERSION
+FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
 
 COPY --from=builder /app /app
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:${PATH}"
 
 WORKDIR /app
 
-CMD ["cli"]
+CMD ["${PACKAGE_NAME}-cli"]
