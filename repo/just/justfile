@@ -14,5 +14,13 @@ set positional-arguments := true
     echo "Project has no '*-cli' executable"
   fi
 
+registry-list *args:
+  #!/usr/bin/env sh
+  if [ $# -eq 0 ]; then
+    curl -sS https://docker-registry.main:5000/v2/_catalog | jq
+  else
+    echo hi
+  fi
+
 @upw *args:
   docker compose up -f docker/docker-compose.yml --watch "$@"
