@@ -7,7 +7,13 @@ services:
         DEBIAN_VERSION: ${DEBIAN_VERSION:?}
         PYTHON_VERSION: ${PYTHON_VERSION:?}
         PACKAGE_NAME: ${PACKAGE_NAME:?}
+        PACKAGE_HAS_SCRIPTS: ${PACKAGE_HAS_SCRIPTS:?}
     container_name: ${PACKAGE_NAME:?}
+    environment:
+      DEBIAN_VERSION: ${DEBIAN_VERSION:?}
+      PYTHON_VERSION: ${PYTHON_VERSION:?}
+      PACKAGE_NAME: ${PACKAGE_NAME:?}
+      PACKAGE_HAS_SCRIPTS: ${PACKAGE_HAS_SCRIPTS:?}
     restart: always
     stdin_open: true
     tty: true
