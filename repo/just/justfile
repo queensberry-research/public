@@ -22,5 +22,5 @@ registry-list *args:
     echo hi
   fi
 
-@upw *args:
+upw *args:
   docker compose up -f docker/docker-compose.yml --watch "$@"
