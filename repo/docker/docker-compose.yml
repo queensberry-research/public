@@ -1,5 +1,5 @@
 services:
-  ${PACKAGE_NAME:?}:
+  app:
     build:
       context: ..
       dockerfile: docker/Dockerfile
