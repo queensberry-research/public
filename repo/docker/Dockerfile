@@ -1,10 +1,13 @@
 ARG DEBIAN_VERSION=''
 ARG PYTHON_VERSION=''
-ARG PACKAGE_NAME=''
-ARG PACKAGE_HAS_SCRIPTS=0
 
 FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${DEBIAN_VERSION}-slim AS builder
+    ###########################################################################
 
+ARG DEBIAN_VERSION=''
+ARG PYTHON_VERSION=''
+ARG PACKAGE_NAME=''
+ARG PACKAGE_HAS_SCRIPTS=0
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE='copy'
 ENV UV_PRERELEASE='disallow'
@@ -25,12 +28,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
       uv sync --no-dev --locked; \
     fi
 
-###############################################################################
-
-ARG DEBIAN_VERSION=''
-ARG PYTHON_VERSION=''
-
 FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
+    ###########################################################################
 
 COPY --from=builder /app /app
 
