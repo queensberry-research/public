@@ -1,8 +1,8 @@
 ARG DEBIAN_VERSION=''
 ARG PYTHON_VERSION=''
 
-FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${DEBIAN_VERSION}-slim AS builder
-    ###########################################################################
+FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${DEBIAN_VERSION}-slim \
+    AS builder ################################################################
 
 ARG DEBIAN_VERSION=''
 ARG PYTHON_VERSION=''
@@ -28,8 +28,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
       uv sync --no-dev --locked; \
     fi
 
-FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
-    ###########################################################################
+FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION} ##########################
 
 COPY --from=builder /app /app
 
