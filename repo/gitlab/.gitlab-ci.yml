@@ -137,20 +137,24 @@ publish-docker:
       if [ -n "$DEBUG_PUBLISH_DOCKER" ]; then
         echo "Sleeping for $DEBUG_PUBLISH_DOCKER..." && sleep "$DEBUG_PUBLISH_DOCKER"
       fi
-    - |
-      if ! [ -s '.env' ]; then
-        ln -s submodules/public/repo/env/.env .env
-      fi
     - . .env
-    - PACKAGE_NAME=$(yq '.project.name' pyproject.toml)
     - PACKAGE_VERSION=$(bump-my-version show current_version)
     - PACKAGE_VERSION_MAJOR=$(echo "$PACKAGE_VERSION" | cut -d. -f1)
     - PACKAGE_VERSION_MAJOR_MINOR=$(echo "$PACKAGE_VERSION" | cut -d. -f1,2)
+    - PACKAGE_NAME=$(yq '.project.name' pyproject.toml)
+    - |
+      if yq --exit-status --input-format toml --output-format yaml \
+        '.project."optional-dependencies".scripts' pyproject.toml >/dev/null 2>&1; then
+        export PACKAGE_HAS_SCRIPTS=1
+      else
+        export PACKAGE_HAS_SCRIPTS=0
+      fi
     - |
       docker buildx build \
         --build-arg DEBIAN_VERSION=$DEBIAN_VERSION \
         --build-arg PYTHON_VERSION=$PYTHON_VERSION \
         --build-arg PACKAGE_NAME=$PACKAGE_NAME \
+        --build-arg PACKAGE_HAS_SCRIPTS=$PACKAGE_HAS_SCRIPTS \
         --file docker/Dockerfile \
         --push \
         --tag $DOCKER_REGISTRY_URL:$DOCKER_REGISTRY_PORT/$PACKAGE_NAME:latest \
