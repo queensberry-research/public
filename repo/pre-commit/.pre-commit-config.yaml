@@ -36,6 +36,10 @@ repos:
       - id: mirror-files
         args:
           [
+            submodules/public/repo/docker/Dockerfile,
+            docker/Dockerfile,
+            submodules/public/repo/docker/docker-compose.yml,
+            docker/docker-compose.yml,
             submodules/public/repo/gitlab/.gitlab-ci.yml,
             .gitlab-ci.yml,
             submodules/public/repo/git/.gitignore,
