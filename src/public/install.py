@@ -34,7 +34,7 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
-__version__ = "0.5.98"
+__version__ = "0.5.99"
 _HOME_PUBLIC = Path("~/public").expanduser()
 _HOME_INFRA = Path("~/infra").expanduser()
 _PYTHONPATH_SRC = {"PYTHONPATH": "src"}
