@@ -16,12 +16,6 @@ ENV UV_PYTHON_DOWNLOADS=0
 
 WORKDIR /app
 
-RUN echo '' \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends age \
-    && rm -rf /var/lib/apt/lists/* \
-    && echo ''
-
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=uv.lock,target=uv.lock \
@@ -41,6 +35,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 ###############################################################################
 FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
 ###############################################################################
+
+RUN echo '' \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends age \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo ''
 
 COPY --from=builder /app /app
 

@@ -10,11 +10,10 @@ services:
         PACKAGE_HAS_SCRIPTS: ${PACKAGE_HAS_SCRIPTS:?}
     container_name: ${PACKAGE_NAME:?}
     environment:
-      DEBIAN_VERSION: ${DEBIAN_VERSION:?}
-      PYTHON_VERSION: ${PYTHON_VERSION:?}
-      PACKAGE_NAME: ${PACKAGE_NAME:?}
-      PACKAGE_HAS_SCRIPTS: ${PACKAGE_HAS_SCRIPTS:?}
+      SOPS_AGE_KEY_FILE: /run/secrets/age_key.txt
     restart: always
+    secrets:
+      - age_key.txt
     stdin_open: true
     tty: true
     develop:
@@ -26,3 +25,7 @@ services:
             - .venv/
         - action: rebuild
           path: ./pyproject.toml
+
+secrets:
+  age_key.txt:
+    file: ~/.config/sops/age/keys.txt
