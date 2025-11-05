@@ -6,6 +6,7 @@ clean:
   uv sync
 
 cli *args:
+  #!/usr/bin/env sh
   name=$(yq -p toml -o json '.' pyproject.toml | jq -r '.project.scripts | keys[]? | select(test("-cli$"))')
   if [ -n "${name}" ]; then
     "${name}" "$@"
@@ -27,6 +28,7 @@ release *args:
     .
 
 registry *args:
+  #!/usr/bin/env sh
   url='https://docker-registry.main:5000/v2'
   if [ $# -eq 0 ]; then
     curl -sS "$url/_catalog" | jq
@@ -35,4 +37,4 @@ registry *args:
   fi
 
 upw *args:
-  docker compose up -f docker/docker-compose.yml --watch "$@"
+  docker compose --file docker/docker-compose.yml up --watch "$@"
