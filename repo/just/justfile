@@ -1,11 +1,11 @@
 set dotenv-load := true
 set positional-arguments := true
 
-@clean:
+clean:
   git clean -fdx
   uv sync
 
-@cli *args:
+cli *args:
   #!/usr/bin/env sh
   name=$(yq -p toml -o json '.' pyproject.toml | jq -r '.project.scripts | keys[]? | select(test("-cli$"))')
   if [ -n "${name}" ]; then
@@ -14,5 +14,14 @@ set positional-arguments := true
     echo "Project has no '*-cli' executable"
   fi
 
-@upw *args:
+registry *args:
+  #!/usr/bin/env sh
+  url='https://docker-registry.main:5000/v2'
+  if [ $# -eq 0 ]; then
+    curl -sS "$url/_catalog" | jq
+  else
+    curl -sS "$url/$1/tags/list" | jq
+  fi
+
+upw *args:
   docker compose up -f docker/docker-compose.yml --watch "$@"
