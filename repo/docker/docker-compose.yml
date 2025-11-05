@@ -1,0 +1,23 @@
+services:
+  ${PACKAGE_NAME:?}:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        DEBIAN_VERSION: ${DEBIAN_VERSION:?}
+        PYTHON_VERSION: ${PYTHON_VERSION:?}
+        PACKAGE_NAME: ${PACKAGE_NAME:?}
+    container_name: ${PACKAGE_NAME:?}
+    image: ${PACKAGE_NAME:?}:latest
+    restart: always
+    stdin_open: true
+    tty: true
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+          ignore:
+            - .venv/
+        - action: rebuild
+          path: ./pyproject.toml
