@@ -4,7 +4,7 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import basicConfig, getLogger
-from os import PathLike, environ
+from os import environ
 from pathlib import Path
 from shutil import which
 from socket import gethostname
@@ -208,31 +208,34 @@ class _Settings:
             _LOGGER.info("'nvim' is already installed for %r", desc)
         else:
             _LOGGER.info("Installing 'nvim' for %r...", desc)
-            filename = "nvim-linux-x86_64.appimage"
+            appimage = "nvim-linux-x86_64.appimage"
             with (
-                self._github_binary("neovim", "neovim", filename) as binary,
+                self._github_binary("neovim", "neovim", appimage) as binary,
                 self._temp_dir(non_root=non_root) as temp_dir,
             ):
-                self._mv(binary, temp_dir / filename)
-                # z = self._run(f"echo $(pwd)", non_root=non_root, cwd=temp_dir)
-                # print(z)
+                self._mv(binary, temp_dir / appimage)
                 _ = self._run(
-                    f"./{filename} --appimage-extract", non_root=non_root, cwd=temp_dir
+                    f"./{appimage} --appimage-extract", non_root=non_root, cwd=temp_dir
                 )
                 self._mkdir(self.path_local_bin, non_root=non_root)
+                squashfs_root = "squashfs-root"
+                path_squashfs_root = self.path_local_bin / squashfs_root
                 self._mv(
-                    temp_dir / "squashfs-root/usr/bin/nvim",
-                    self.path_local_bin / "nvim",
-                    non_root=non_root,
+                    temp_dir / squashfs_root, path_squashfs_root, non_root=non_root
                 )
-        path = "~/.config/nvim"
-        if self._is_dir(path, non_root=non_root):
+            self._symlink(
+                path_squashfs_root / "usr/bin/nvim",
+                self.path_local_bin / "nvim",
+                non_root=non_root,
+            )
+        config_nvim = "~/.config/nvim"
+        if self._is_dir(config_nvim, non_root=non_root):
             _LOGGER.info("'lazyvim' is already installed for %r", desc)
         else:
             _LOGGER.info("Installing 'lazyvim' for %r...", desc)
             url = "https://github.com/LazyVim/starter"
             _ = self._run(
-                f"git clone {url} {path}",
+                f"git clone {url} {config_nvim}",
                 "nvim --headless '+Lazy! sync' +qa",
                 non_root=non_root,
             )
@@ -333,28 +336,19 @@ class _Settings:
     def _desc(self, *, non_root: bool = False) -> str:
         return self.non_root_username if non_root else "root"
 
-    def _download_binary(
-        self, url: str, name: str, /, *, non_root: bool = False
-    ) -> None:
-        self._mkdir(self.path_local_bin, non_root=non_root)
-        path = self.path_local_bin / name
-        _LOGGER.info("Downloading from %r to %r...", url, str(path))
-        self._download_binary(url, path, non_root=non_root)
-        _LOGGER.info("Setting %r to be executable...", str(path))
-        _ = self._run(f"chmod +x {path}", non_root=non_root)
-
-    # def _dpkg_install(self, path: _PathLike, /, *, non_root: bool = False) -> None:
-    #     _LOGGER.info("Installing %r...", path)
-    #     cmd = f"dpkg -i {path}"
-    #     if non_root:
-    #         cmd = f"sudo {cmd}"
-    #     _ = self._run(cmd, non_root=non_root)
-
     @contextmanager
     def _github_binary(
         self, owner: str, repo: str, filename: str, /, *, non_root: bool = False
     ) -> Iterator[Path]:
-        url = self._github_url(owner, repo, filename, non_root=non_root)
+        releases = f"{owner}/{repo}/releases"
+        tag = self._run(
+            f"curl -s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
+            non_root=non_root,
+        )
+        filename_use = Template(filename).substitute(
+            tag=tag, tag_without=tag.lstrip("v")
+        )
+        url = f"https://github.com/{releases}/download/{tag}/{filename_use}"
         with self._temp_dir(non_root=non_root) as temp:
             path = temp / filename
             _ = self._run(
@@ -380,19 +374,6 @@ class _Settings:
         with self._github_binary(owner, repo, filename, non_root=non_root) as binary:
             self._mkdir(self.path_local_bin, non_root=non_root)
             self._mv(binary, self.path_local_bin / cmd, non_root=non_root)
-
-    def _github_url(
-        self, owner: str, repo: str, filename: str, /, *, non_root: bool = False
-    ) -> str:
-        releases = f"{owner}/{repo}/releases"
-        tag = self._run(
-            f"curl -s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
-            non_root=non_root,
-        )
-        filename_use = Template(filename).substitute(
-            tag=tag, tag_without=tag.lstrip("v")
-        )
-        return f"https://github.com/{releases}/download/{tag}/{filename_use}"
 
     def _grep(self, text: str, path: _PathLike, /, *, non_root: bool = False) -> bool:
         return self._predicate(f"grep -q {text} {path}", non_root=non_root)
