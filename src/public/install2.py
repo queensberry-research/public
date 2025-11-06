@@ -42,6 +42,7 @@ class _Settings:
     default_url: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
     )
+    default_authorized_keys: ClassVar[str] = "$url/ssh/keys.txt"
     default_bashrc: ClassVar[str] = "$url/configs/.bashrc"
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
 
@@ -52,6 +53,7 @@ class _Settings:
     non_root_password: str | None = None
     path_local_bin: Path = default_path_bin
     url: str = default_url
+    authorized_keys: str = default_authorized_keys
     bashrc: str = default_bashrc
     starship_toml: str = default_starship_toml
     runtime: bool = False
@@ -80,6 +82,12 @@ class _Settings:
             "--url", default=cls.default_url, type=str, help="Config repo URL"
         )
         _ = parser.add_argument(
+            "--authorized-keys",
+            default=cls.default_authorized_keys,
+            type=str,
+            help="'authorized_keys' file or URL",
+        )
+        _ = parser.add_argument(
             "--bashrc",
             default=cls.default_bashrc,
             type=str,
@@ -98,8 +106,8 @@ class _Settings:
         return _Settings(**vars(parser.parse_args()))
 
     @property
-    def non_root_home(self) -> Path:
-        return Path(f"/home/{self.non_root_username}")
+    def authorized_keys_use(self) -> str:
+        return Template(self.authorized_keys).substitute(url=self.url)
 
     @property
     def bashrc_use(self) -> str:
@@ -117,6 +125,7 @@ class _Settings:
         _install_apt()
         for non_root in [False, True]:
             self._setup_bashrc(non_root=non_root)
+            self._setup_authorized_keys(non_root=non_root)
             self._setup_known_hosts(non_root=non_root)
             self._install_starship(non_root=non_root)
         self._install_runtime_tools()
@@ -149,8 +158,12 @@ class _Settings:
     def _setup_bashrc(self, *, non_root: bool = False) -> None:
         self._copy_file_or_url(self.bashrc_use, "~/.bashrc", non_root=non_root)
 
+    def _setup_authorized_keys(self, *, non_root: bool = False) -> None:
+        self._copy_file_or_url(
+            self.authorized_keys_use, "~/.ssh/authorized_keys", non_root=non_root
+        )
+
     def _setup_known_hosts(self, *, non_root: bool = False) -> None:
-        self._mkdir("~/.ssh", non_root=non_root)
         known_hosts = "~/.ssh/known_hosts"
         desc = self._desc(non_root=non_root)
         if self._is_file(known_hosts, non_root=non_root) and self._grep(
@@ -159,6 +172,7 @@ class _Settings:
             _LOGGER.info("GitHub is already a known host for %r", desc)
             return
         _LOGGER.info("Adding GitHub to known hosts for %r...", desc)
+        self._mkdir("~/.ssh", non_root=non_root)
         _ = self._run("ssh-keyscan github.com >> ~/.ssh/known_hosts", non_root=non_root)
 
     def _install_starship(self, *, non_root: bool = False) -> None:
@@ -244,7 +258,7 @@ class _Settings:
             case None, False:
                 cwd_use = None
             case None, True:
-                cwd_use = self.non_root_home
+                cwd_use = Path(f"/home/{self.non_root_username}")
             case never:
                 assert_never(never)
         for cmd in cmds:
