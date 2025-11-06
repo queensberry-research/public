@@ -63,7 +63,7 @@ class _Settings:
     git_config: str = default_git_config
     sshd_config: str = default_sshd_config
     starship_toml: str = default_starship_toml
-    runtime: bool = False
+    tools: bool = False
     docker: bool = False
 
     @classmethod
@@ -124,9 +124,7 @@ class _Settings:
             type=str,
             help="'starship.toml' file or URL",
         )
-        _ = parser.add_argument(
-            "--runtime", action="store_true", help="Install runtime tools"
-        )
+        _ = parser.add_argument("--tools", action="store_true", help="Install tools")
         _ = parser.add_argument("--docker", action="store_true", help="Install Docker")
         return _Settings(**vars(parser.parse_args()))
 
@@ -143,7 +141,7 @@ class _Settings:
             self._setup_bashrc(non_root=non_root)
             self._setup_git_config(non_root=non_root)
             self._install_starship(non_root=non_root)
-        self._install_runtime_tools()
+        self._install_tools()
 
     def _set_root_password(self) -> None:
         if (password := self.root_password) is None:
@@ -219,19 +217,20 @@ class _Settings:
             non_root=non_root,
         )
 
-    def _install_runtime_tools(self) -> None:
-        if not self.runtime:
-            _LOGGER.info("Skipping runtime tools...")
+    def _install_tools(self) -> None:
+        if not self.tools:
+            _LOGGER.info("Skipping tools...")
             return
-        _LOGGER.info("Installing runtime tools...")
+        _LOGGER.info("Installing tools...")
         for cmd in ["age", "git", "jq", "just"]:
             _apt_install(cmd)
         for cmd, owner, repo, filename in [
-            ("yq", "mikefarah", "yq", "yq_linux_amd64"),
             ("sops", "getsops", "sops", "sops-${tag}.linux.amd64"),
+            ("yq", "mikefarah", "yq", "yq_linux_amd64"),
         ]:
             self._install_from_github(cmd, owner, repo, filename, non_root=True)
         self._install_direnv()
+        self._install_fd()
         self._install_uv()
 
     def _install_direnv(self) -> None:
@@ -249,6 +248,14 @@ class _Settings:
             "~/.config/direnv/direnv.toml",
             non_root=True,
         )
+
+    def _install_fd(self) -> None:
+        if self._which("fd", non_root=True):
+            _LOGGER.info("'fd' is already installed for %r", self.non_root_username)
+        else:
+            _LOGGER.info("Installing 'fd' for %r...", self.non_root_username)
+            _apt_install("fd-find")
+        self._symlink("/bin/fdfind", "/bin/fd")
 
     def _install_uv(self) -> None:
         if self._which("uv", non_root=True):
@@ -327,12 +334,18 @@ class _Settings:
     def _is_file(self, path: _PathLike, /, *, non_root: bool = False) -> bool:
         return self._predicate(f"[ -f {path} ]", non_root=non_root)
 
+    def _is_symlink(self, path: _PathLike, /, *, non_root: bool = False) -> bool:
+        return self._predicate(f"[ -L {path} ]", non_root=non_root)
+
     def _mkdir(self, path: _PathLike, /, *, non_root: bool = False) -> None:
         _ = self._run(f"mkdir -p {path}", non_root=non_root)
 
     def _predicate(self, predicate: str, /, *, non_root: bool = False) -> bool:
         result = self._run(f"if {predicate}; then echo 1; fi", non_root=non_root)
         return result == "1"
+
+    def _read_link(self, path: _PathLike, /, *, non_root: bool = False) -> Path:
+        return Path(self._run(f"readlink {path}", non_root=non_root))
 
     def _read_text(self, path: _PathLike, /, *, non_root: bool = False) -> str:
         return self._run(f"cat {path}", non_root=non_root)
@@ -360,6 +373,17 @@ class _Settings:
             case never:
                 assert_never(never)
         return _run(*cmds_use, cwd=cwd_use, env=env, input_=input_)
+
+    def _symlink(
+        self, from_: _PathLike, to: _PathLike, /, *, non_root: bool = False
+    ) -> None:
+        if self._is_symlink(to, non_root=non_root) and (
+            self._read_link(to, non_root=non_root)
+        ) == Path(from_):
+            _LOGGER.info("%r -> %r is already symlinked", str(from_), str(to))
+            return
+        _LOGGER.info("Symlinking %r -> %r...", str(from_), str(to))
+        _ = self._run(f"ln -s {from_} {to}", non_root=non_root)
 
     @contextmanager
     def _temp_dir(self, *, non_root: bool = False) -> Iterator[Path]:
