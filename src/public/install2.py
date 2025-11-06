@@ -11,7 +11,15 @@ from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from string import Template
 from subprocess import CalledProcessError, check_output
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, assert_never, get_args
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Literal,
+    assert_never,
+    get_args,
+    override,
+)
 from urllib.request import urlopen
 
 if TYPE_CHECKING:
@@ -149,8 +157,10 @@ class Operator:
             else:
                 self._dpkg_install(binary, user=user)
 
-    def _grep(self, text: str, path: _PathLike, /, *, user: bool = False) -> bool:
-        return self._predicate(f"grep -q {text} {path}", user=user)
+    def _grep(self, path: _PathLike, text: str, /, *, user: bool = False) -> bool:
+        return self._is_file(path, user=user) and self._predicate(
+            f"grep -q {text} {path}", user=user
+        )
 
     def _is_dir(self, path: _PathLike, /, *, user: bool = False) -> bool:
         return self._predicate(f"[ -d {path} ]", user=user)
@@ -251,8 +261,10 @@ class _Settings(Operator):
     default_bashrc: ClassVar[str] = "$url/configs/.bashrc"
     default_direnv_toml: ClassVar[str] = "$url/configs/direnv.toml"
     default_git_config: ClassVar[str] = "$url/configs/git-config"
+    default_resolv_conf: ClassVar[str] = "$url/configs/resolv.conf"
     default_sshd_config: ClassVar[str] = "$url/configs/sshd_config"
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
+    default_storage_cfg: ClassVar[str] = "$url/ssh/storage.cfg"
     default_subnet_sh: ClassVar[str] = "$url/ssh/subnet.sh"
 
     # fields
@@ -264,8 +276,10 @@ class _Settings(Operator):
     bashrc: str = default_bashrc
     direnv_toml: str = default_direnv_toml
     git_config: str = default_git_config
+    resolv_conf: str = default_resolv_conf
     sshd_config: str = default_sshd_config
     starship_toml: str = default_starship_toml
+    storage_cfg: str = default_storage_cfg
     subnet_sh: str = default_subnet_sh
     tools: bool = False
     docker: bool = False
@@ -316,6 +330,12 @@ class _Settings(Operator):
             help="'git' config file or URL",
         )
         _ = parser.add_argument(
+            "--resolv-conf",
+            default=cls.default_resolv_conf,
+            type=str,
+            help="'resolv.conf' file or URL",
+        )
+        _ = parser.add_argument(
             "--sshd-config",
             default=cls.default_sshd_config,
             type=str,
@@ -326,6 +346,12 @@ class _Settings(Operator):
             default=cls.default_starship_toml,
             type=str,
             help="'starship.toml' file or URL",
+        )
+        _ = parser.add_argument(
+            "--storage-cfg",
+            default=cls.default_storage_cfg,
+            type=str,
+            help="'storage.cfg' file or URL",
         )
         _ = parser.add_argument(
             "--subnet-sh",
@@ -347,31 +373,40 @@ class _Settings(Operator):
             _apt_install(cmd)
         self._setup_sshd_config()
         self._install_sudo()
-        for non_root in [False, True]:
-            self._setup_authorized_keys(user=non_root)
-            self._setup_known_hosts(user=non_root)
-            self._setup_bashrc(user=non_root)
-            self._setup_git_config(user=non_root)
-            self._install_neovim(user=non_root)
-            self._install_starship(user=non_root)
+        for user in [False, True]:
+            self._setup_authorized_keys(user=user)
+            self._setup_known_hosts(user=user)
+            self._setup_bashrc(user=user)
+            self._setup_git_config(user=user)
+            self._install_neovim(user=user)
+            self._install_starship(user=user)
         self._install_tools()
         self._install_docker()
 
     def _setup_proxmox(self) -> None:
         if not self.proxmox:
             return
-        removed = any(
+        if any(
             self._rm(f"/etc/apt/sources.list.d/{name}.sources")
             for name in ["ceph", "pve-enterprise"]
-        )
-        if removed:
+        ):
             _apt_update()
         subnet = self._get_subnet()
         self._copy_file_or_url(
-            self._with_url(self.subnet_sh),
-            "~/.bashrc.d/subnet.sh",
-            substitute={"subnet": subnet},
+            self.resolv_conf,
+            "/etc/resolv.conf",
+            substitute={"n": self.default_subnets[subnet], "subnet": subnet},
         )
+        self._copy_file_or_url(
+            self.storage_cfg, "/etc/pve/storage.cfg", substitute={"subnet": subnet}
+        )
+        for user in [False, True]:
+            self._copy_file_or_url(
+                self.subnet_sh,
+                "~/.bashrc.d/subnet.sh",
+                user=user,
+                substitute={"subnet": subnet},
+            )
 
     def _get_subnet(self) -> _Subnet:
         try:
@@ -416,7 +451,7 @@ class _Settings(Operator):
         _ = self._run(f"echo '{username}:{password}' | chpasswd")
 
     def _setup_sshd_config(self) -> None:
-        self._copy_file_or_url(self._with_url(self.sshd_config), "/etc/ssh/sshd_config")
+        self._copy_file_or_url(self.sshd_config, "/etc/ssh/sshd_config")
 
     def _install_sudo(self) -> None:
         if which("sudo") is not None:
@@ -428,15 +463,13 @@ class _Settings(Operator):
 
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
         self._copy_file_or_url(
-            self._with_url(self.authorized_keys), "~/.ssh/authorized_keys", user=user
+            self.authorized_keys, "~/.ssh/authorized_keys", user=user
         )
 
     def _setup_known_hosts(self, *, user: bool = False) -> None:
         known_hosts = "~/.ssh/known_hosts"
         desc = self._desc(user=user)
-        if self._is_file(known_hosts, user=user) and self._grep(
-            "github.com", known_hosts, user=user
-        ):
+        if self._grep(known_hosts, "github.com", user=user):
             _LOGGER.info("GitHub is already a known host for %r", desc)
             return
         _LOGGER.info("Adding GitHub to known hosts for %r...", desc)
@@ -444,12 +477,10 @@ class _Settings(Operator):
         _ = self._run("ssh-keyscan github.com >> ~/.ssh/known_hosts", user=user)
 
     def _setup_bashrc(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self._with_url(self.bashrc), "~/.bashrc", user=user)
+        self._copy_file_or_url(self.bashrc, "~/.bashrc", user=user)
 
     def _setup_git_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(
-            self._with_url(self.git_config), "~/.config/git/config", user=user
-        )
+        self._copy_file_or_url(self.git_config, "~/.config/git/config", user=user)
 
     def _install_neovim(self, *, user: bool = False) -> None:
         desc = self._desc(user=user)
@@ -498,9 +529,7 @@ class _Settings(Operator):
                 f"-sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 user=user,
             )
-        self._copy_file_or_url(
-            self._with_url(self.starship_toml), "~/.config/starship.toml", user=user
-        )
+        self._copy_file_or_url(self.starship_toml, "~/.config/starship.toml", user=user)
 
     def _install_tools(self) -> None:
         if not self.tools:
@@ -551,7 +580,7 @@ class _Settings(Operator):
                 env={"bin_path": str(self.path_local_bin)},
             )
         self._copy_file_or_url(
-            self._with_url(self.direnv_toml), "~/.config/direnv/direnv.toml", user=user
+            self.direnv_toml, "~/.config/direnv/direnv.toml", user=user
         )
 
     def _install_uv(self, *, user: bool = False) -> None:
@@ -593,8 +622,24 @@ DOCKEREOF""",
 
     # utilities
 
-    def _with_url(self, text: str, /) -> str:
-        return Template(text).substitute(url=self.url)
+    @override
+    def _copy_file_or_url(
+        self,
+        from_: _PathLike,
+        to: _PathLike,
+        /,
+        *,
+        user: bool = False,
+        substitute: Mapping[str, Any] | None = None,
+    ) -> None:
+        match from_:
+            case Path() as from_use:
+                ...
+            case str():
+                from_use = Template(from_).substitute(url=self.url)
+            case never:
+                assert_never(never)
+        super()._copy_file_or_url(from_use, to, user=user, substitute=substitute)
 
 
 # main
