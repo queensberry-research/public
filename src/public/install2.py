@@ -44,6 +44,7 @@ class _Settings:
     )
     default_authorized_keys: ClassVar[str] = "$url/ssh/keys.txt"
     default_bashrc: ClassVar[str] = "$url/configs/.bashrc"
+    default_sshd_config: ClassVar[str] = "$url/configs/sshd_config"
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
 
     # fields
@@ -55,6 +56,7 @@ class _Settings:
     url: str = default_url
     authorized_keys: str = default_authorized_keys
     bashrc: str = default_bashrc
+    sshd_config: str = default_sshd_config
     starship_toml: str = default_starship_toml
     runtime: bool = False
     docker: bool = False
@@ -94,6 +96,12 @@ class _Settings:
             help="'.bashrc' file or URL",
         )
         _ = parser.add_argument(
+            "--sshd-config",
+            default=cls.default_sshd_config,
+            type=str,
+            help="'sshd_config' file or URL",
+        )
+        _ = parser.add_argument(
             "--starship-toml",
             default=cls.default_starship_toml,
             type=str,
@@ -104,18 +112,6 @@ class _Settings:
         )
         _ = parser.add_argument("--docker", action="store_true", help="Install Docker")
         return _Settings(**vars(parser.parse_args()))
-
-    @property
-    def authorized_keys_use(self) -> str:
-        return Template(self.authorized_keys).substitute(url=self.url)
-
-    @property
-    def bashrc_use(self) -> str:
-        return Template(self.bashrc).substitute(url=self.url)
-
-    @property
-    def starship_toml_use(self) -> str:
-        return Template(self.starship_toml).substitute(url=self.url)
 
     # installer
 
@@ -156,12 +152,12 @@ class _Settings:
         _ = self._run(f"echo '{username}:{password}' | chpasswd")
 
     def _setup_bashrc(self, *, non_root: bool = False) -> None:
-        self._copy_file_or_url(self.bashrc_use, "~/.bashrc", non_root=non_root)
+        from_ = Template(self.bashrc).substitute(url=self.url)
+        self._copy_file_or_url(from_, "~/.bashrc", non_root=non_root)
 
     def _setup_authorized_keys(self, *, non_root: bool = False) -> None:
-        self._copy_file_or_url(
-            self.authorized_keys_use, "~/.ssh/authorized_keys", non_root=non_root
-        )
+        from_ = Template(self.authorized_keys).substitute(url=self.url)
+        self._copy_file_or_url(from_, "~/.ssh/authorized_keys", non_root=non_root)
 
     def _setup_known_hosts(self, *, non_root: bool = False) -> None:
         known_hosts = "~/.ssh/known_hosts"
@@ -186,9 +182,8 @@ class _Settings:
                 f"curl -sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 non_root=non_root,
             )
-        self._copy_file_or_url(
-            self.starship_toml_use, "~/.config/starship.toml", non_root=non_root
-        )
+        from_ = Template(self.starship_toml).substitute(url=self.url)
+        self._copy_file_or_url(from_, "~/.config/starship.toml", non_root=non_root)
 
     def _install_runtime_tools(self) -> None:
         if not self.runtime:
