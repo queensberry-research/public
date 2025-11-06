@@ -119,6 +119,7 @@ class _Settings:
         self._set_root_password()
         self._create_user()
         _install_apt()
+        self._setup_sshd_config()
         for non_root in [False, True]:
             self._setup_bashrc(non_root=non_root)
             self._setup_authorized_keys(non_root=non_root)
@@ -150,6 +151,10 @@ class _Settings:
             return
         _LOGGER.info("Setting %r password...", username)
         _ = self._run(f"echo '{username}:{password}' | chpasswd")
+
+    def _setup_sshd_config(self) -> None:
+        from_ = Template(self.sshd_config).substitute(url=self.url)
+        self._copy_file_or_url(from_, "/etc/ssh/sshd_config")
 
     def _setup_bashrc(self, *, non_root: bool = False) -> None:
         from_ = Template(self.bashrc).substitute(url=self.url)
