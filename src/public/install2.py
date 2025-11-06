@@ -301,9 +301,9 @@ class _Settings:
         desc = self._desc(non_root=non_root)
         if self._which("bump-my-version", non_root=non_root):
             _LOGGER.info("'bump-my-version' is already installed for %r", desc)
-            return
-        _LOGGER.info("Installing 'bump-my-version' for %r...", desc)
-        _ = self._run("uv tool install bump-my-version", non_root=non_root)
+        else:
+            _LOGGER.info("Installing 'bump-my-version' for %r...", desc)
+            _ = self._run("uv tool install bump-my-version", non_root=non_root)
 
     def _install_direnv(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
