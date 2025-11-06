@@ -144,6 +144,7 @@ class _Settings:
             self._install_neovim(non_root=non_root)
             self._install_starship(non_root=non_root)
         self._install_tools()
+        self._install_docker()
 
     def _set_root_password(self) -> None:
         if (password := self.root_password) is None:
@@ -278,6 +279,14 @@ class _Settings:
         self._install_direnv(non_root=True)
         self._install_uv(non_root=True)
 
+    def _install_fd(self) -> None:
+        if self._which("fd", non_root=True):
+            _LOGGER.info("'fd' is already installed for %r", self.non_root_username)
+        else:
+            _LOGGER.info("Installing 'fd' for %r...", self.non_root_username)
+            _apt_install("fd-find")
+        self._symlink("/bin/fdfind", "/bin/fd")
+
     def _install_direnv(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
         if self._which("direnv", non_root=non_root):
@@ -295,14 +304,6 @@ class _Settings:
             non_root=non_root,
         )
 
-    def _install_fd(self) -> None:
-        if self._which("fd", non_root=True):
-            _LOGGER.info("'fd' is already installed for %r", self.non_root_username)
-        else:
-            _LOGGER.info("Installing 'fd' for %r...", self.non_root_username)
-            _apt_install("fd-find")
-        self._symlink("/bin/fdfind", "/bin/fd")
-
     def _install_uv(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
         if self._which("uv", non_root=non_root):
@@ -313,6 +314,31 @@ class _Settings:
             "curl -LsSf https://astral.sh/uv/install.sh | sh -s",
             non_root=non_root,
             env={"UV_NO_MODIFY_PATH": "1"},
+        )
+
+    def _install_docker(self) -> None:
+        if self._which("docker"):
+            _LOGGER.debug("'docker' is already installed")
+            return
+        _LOGGER.info("Installing 'docker'...")
+        _ = self._run(
+            "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do sudo apt-get remove $pkg; done",
+            "apt-get update",
+            "apt-get install ca-certificates curl",
+            "install -m 0755 -d /etc/apt/keyrings",
+            "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
+            "chmod a+r /etc/apt/keyrings/docker.asc",
+            """\
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF""",
+            "apt-get update",
+            "apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
+            f"usermod -aG docker {self.non_root_username}",
         )
 
     # utilities
