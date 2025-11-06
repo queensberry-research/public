@@ -111,13 +111,9 @@ class _Settings:
         self._set_root_password()
         self._create_user()
         _install_curl()
-        for user in [None, settings.non_root_username]:
-            _setup_bashrc(user=user, bashrc=settings.bashrc_use)
-            _install_starship(
-                user=user,
-                path_bin=settings.path_local_bin,
-                starship_toml=settings.starship_toml_use,
-            )
+        for non_root in [False, True]:
+            self._setup_bashrc(non_root=non_root)
+            self._install_starship(non_root=non_root)
 
     def _set_root_password(self) -> None:
         if (password := self.root_password) is None:
@@ -144,20 +140,19 @@ class _Settings:
         _LOGGER.info("Setting %r password...", username)
         _ = self._run(f"echo '{username}:{password}' | chpasswd")
 
-    def _setup_bashrc(*, non_root: bool = False) -> None:
-        _LOGGER.info("Setting up '.bashrc' for %r", self._desc(non_root=non_root))
+    def _setup_bashrc(self, *, non_root: bool = False) -> None:
         self._copy_file_or_url(self.bashrc, "~/.bashrc", non_root=non_root)
 
     def _install_starship(self, *, non_root: bool = False) -> None:
-        user_for = "root" if user is None else user
-        if _which("starship", user=user):
-            _LOGGER.info("'starship' already installed for %r...", user_for)
+        desc = self._desc(non_root=non_root)
+        if self._which("starship", non_root=non_root):
+            _LOGGER.info("'starship' already installed for %r...", desc)
         else:
-            _LOGGER.info("Installing 'starship' for %r...", user_for)
-            _ = _run_commands(
-                f"mkdir -p {path_bin}",
-                f"curl -sS https://starship.rs/install.sh | sh -s -- -b {path_bin} -y",
-                user=user,
+            _LOGGER.info("Installing 'starship' for %r...", desc)
+            _ = self._run(
+                f"mkdir -p {self.path_local_bin}",
+                f"curl -sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
+                non_root=non_root,
             )
 
     # utilities
@@ -165,22 +160,28 @@ class _Settings:
     def _copy_file_or_url(
         self, from_: _PathLike, to: _PathLike, /, *, non_root: bool = False
     ) -> None:
-        match self:
+        match from_:
             case Path():
-                text_from = self._read_text(non_root=non_root)
+                text_from = self._read_text(from_, non_root=non_root)
             case str():
-                if _is_file(self, user=user):
-                    text_from = _read_text(self, user=user)
+                if self._is_file(from_, non_root=non_root):
+                    text_from = self._read_text(from_, non_root=non_root)
                 else:
-                    with urlopen(self) as response:
+                    with urlopen(from_) as response:
                         text_from: str = response.read().decode("utf-8")
             case never:
                 assert_never(never)
-        if _is_file(to, user=user) and (_read_text(to, user=user) == text_from):
-            _LOGGER.info("%r exists and is already copied", str(to))
+        if self._is_file(to, non_root=non_root) and (
+            self._read_text(to, non_root=non_root) == text_from
+        ):
+            _LOGGER.info(
+                "%r exists and is already copied for %r",
+                str(to),
+                self._desc(non_root=non_root),
+            )
             return
         _LOGGER.info("Writing %r...", str(to))
-        _write_text(text_from, to)
+        self._write_text(text_from, to, non_root=non_root)
 
     def _desc(self, *, non_root: bool = False) -> str:
         return self.non_root_username if non_root else "root"
