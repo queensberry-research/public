@@ -204,7 +204,7 @@ class _Settings:
 
     def _install_neovim(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
-        if self._which("nvim"):
+        if self._which("nvim", non_root=non_root):
             _LOGGER.info("'nvim' is already installed for %r", desc)
         else:
             _LOGGER.info("Installing 'nvim' for %r...", desc)
@@ -214,6 +214,8 @@ class _Settings:
                 self._temp_dir(non_root=non_root) as temp_dir,
             ):
                 self._mv(binary, temp_dir / filename)
+                # z = self._run(f"echo $(pwd)", non_root=non_root, cwd=temp_dir)
+                # print(z)
                 _ = self._run(
                     f"./{filename} --appimage-extract", non_root=non_root, cwd=temp_dir
                 )
@@ -430,11 +432,6 @@ class _Settings:
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> str:
-        cmds_use = (
-            [f"su - {self.non_root_username} -c '{c}'" for c in cmds]
-            if non_root
-            else cmds
-        )
         match cwd, non_root:
             case Path() | str() as cwd_use, _:
                 ...
@@ -444,7 +441,13 @@ class _Settings:
                 cwd_use = Path(f"/home/{self.non_root_username}")
             case never:
                 assert_never(never)
-        return _run(*cmds_use, cwd=cwd_use, env=env, input_=input_)
+        return _run(
+            *cmds,
+            user=self.non_root_username if non_root else None,
+            cwd=cwd_use,
+            env=env,
+            input_=input_,
+        )
 
     def _symlink(
         self, from_: _PathLike, to: _PathLike, /, *, non_root: bool = False
@@ -495,16 +498,21 @@ def _apt_install(cmd: str, /) -> None:
 
 def _run(
     *cmds: str,
+    user: str | None = None,
     cwd: _PathLike | None = None,
     env: Mapping[str, str] | None = None,
     input_: str | None = None,
 ) -> str:
     results: list[str] = []
+    user_use = "root" if user is None else user
     for cmd in cmds:
+        cmd_use = f"su - {user_use} <<'EOF'"
+        if cwd is not None:
+            cmd_use = f"{cmd_use}\ncd {cwd} || exit 1"
+        cmd_use = f"{cmd_use}\n{cmd}\nEOF"
         result = check_output(
-            cmd,
+            cmd_use,
             shell=True,
-            cwd=cwd,
             env=None if env is None else {**environ, **env},
             input=input_,
             text=True,
