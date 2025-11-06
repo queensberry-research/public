@@ -39,6 +39,7 @@ FROM python:${PYTHON_VERSION}-slim-${DEBIAN_VERSION}
 RUN echo '' \
     && apt-get update \
     && apt-get install -y --no-install-recommends age \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/* \
     && echo ''
 
