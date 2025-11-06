@@ -46,7 +46,7 @@ _SUBNETS: tuple[_Subnet, ...] = get_args(_Subnet.__value__)
 # classes
 
 
-@dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
+@dataclass(order=True, unsafe_hash=True, kw_only=True)
 class Operator:
     # defaults
     default_path_bin: ClassVar[Path] = Path("~/.local/bin")
@@ -247,7 +247,7 @@ class Operator:
         _ = self._run(f"tee {path}", input_=text, user=user)
 
 
-@dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
+@dataclass(order=True, unsafe_hash=True, kw_only=True)
 class _Settings(Operator):
     # defaults
     default_subnets: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
