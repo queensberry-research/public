@@ -149,8 +149,8 @@ class _Settings:
             _LOGGER.info("'starship' already installed for %r...", desc)
         else:
             _LOGGER.info("Installing 'starship' for %r...", desc)
+            self._mkdir(self.path_local_bin, non_root=non_root)
             _ = self._run(
-                f"mkdir -p {self.path_local_bin}",
                 f"curl -sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 non_root=non_root,
             )
@@ -174,24 +174,27 @@ class _Settings:
                         text_from: str = response.read().decode("utf-8")
             case never:
                 assert_never(never)
+        desc = self._desc(non_root=non_root)
         if self._is_file(to, non_root=non_root) and (
             self._read_text(to, non_root=non_root) == text_from
         ):
-            _LOGGER.info(
-                "%r exists and is already copied for %r",
-                str(to),
-                self._desc(non_root=non_root),
-            )
+            _LOGGER.info("%r exists and is already copied for %r", str(to), desc)
             return
-        _LOGGER.info("Writing %r...", str(to))
+        _LOGGER.info("Writing %r for %r...", str(to), desc)
         self._write_text(text_from, to, non_root=non_root)
 
     def _desc(self, *, non_root: bool = False) -> str:
         return self.non_root_username if non_root else "root"
 
+    def _expand(self, path: _PathLike, /, *, non_root: bool = False) -> Path:
+        return Path(self._run(f"echo {path}", non_root=non_root))
+
     def _is_file(self, path: _PathLike, /, *, non_root: bool = False) -> bool:
         result = self._run(f"if [ -f {path} ]; then echo 1; fi", non_root=non_root)
         return result == "1"
+
+    def _mkdir(self, path: _PathLike, /, *, non_root: bool = False) -> None:
+        _ = self._run(f"mkdir -p {path}", non_root=non_root)
 
     def _read_text(self, path: _PathLike, /, *, non_root: bool = False) -> str:
         return self._run(f"cat {path}", non_root=non_root)
@@ -202,6 +205,7 @@ class _Settings:
         non_root: bool = False,
         cwd: _PathLike | None = None,
         env: Mapping[str, str] | None = None,
+        input_: str | None = None,
     ) -> str:
         results: list[str] = []
         match cwd, non_root:
@@ -214,14 +218,16 @@ class _Settings:
             case never:
                 assert_never(never)
         for cmd in cmds:
+            cmd_use = f"su - {self.non_root_username} -c '{cmd}'" if non_root else cmd
             result = check_output(
-                cmd,
-                executable=which("bash"),
+                cmd_use,
+                # executable=which("bash"),
                 shell=True,
                 cwd=cwd_use,
                 env=None if env is None else {**environ, **env},
+                input=input_,
                 text=True,
-                user=self.non_root_username if non_root else None,
+                # user=self.non_root_username if non_root else None,
             ).rstrip("\n")
             results.append(result)
         return "\n".join(results)
@@ -236,7 +242,8 @@ class _Settings:
     def _write_text(
         self, text: str, path: _PathLike, /, *, non_root: bool = False
     ) -> None:
-        _ = self._run(f"echo {text} > {path}", non_root=non_root)
+        self._mkdir(Path(path).parent, non_root=non_root)
+        _ = self._run(f"tee {path}", input_=text, non_root=non_root)
 
 
 # main
