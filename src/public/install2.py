@@ -84,7 +84,6 @@ class Operator:
         if self._is_file(to, user=user) and (
             self._read_text(to, user=user) == text_from
         ):
-            _LOGGER.info("%r already up to date for %r", str(to), desc)
             return
         _LOGGER.info("Writing %r for %r...", str(to), desc)
         self._write_text(text_from, to, user=user)
@@ -145,11 +144,9 @@ class Operator:
         user: bool = False,
         dpkg: bool = False,
     ) -> None:
-        desc = self._desc(user=user)
         if self._which(cmd, user=user):
-            _LOGGER.info("%r is already installed for %r", cmd, self.username)
             return
-        _LOGGER.info("Installing %r for %r...", cmd, desc)
+        _LOGGER.info("Installing %r for %r...", cmd, self._desc(user=user))
         with self._github_binary(owner, repo, filename, user=user) as binary:
             if not dpkg:
                 self._mkdir(self.path_local_bin, user=user)
@@ -225,9 +222,10 @@ class Operator:
         if self._is_symlink(to, user=user) and (self._read_link(to, user=user)) == Path(
             from_
         ):
-            _LOGGER.info("%r -> %r is already symlinked", str(from_), str(to))
             return
-        _LOGGER.info("Symlinking %r -> %r...", str(from_), str(to))
+        _LOGGER.info(
+            "Symlinking %r -> %r for %r...", str(from_), str(to), self._desc(user=user)
+        )
         _ = self._run(f"ln -s {from_} {to}", user=user)
 
     @contextmanager
@@ -444,8 +442,6 @@ class _Settings(Operator):
                 f"useradd --create-home --shell /bin/bash {username}",
                 f"usermod -aG sudo {username}",
             )
-        else:
-            _LOGGER.info("%r already exists", username)
         if (password := self.password) is None:
             return
         _LOGGER.info("Setting %r password...", username)
@@ -455,11 +451,7 @@ class _Settings(Operator):
         self._copy_file_or_url(self.sshd_config, "/etc/ssh/sshd_config")
 
     def _install_sudo(self) -> None:
-        if which("sudo") is not None:
-            _LOGGER.info("'sudo' is already installed")
-        else:
-            _LOGGER.info("Installing 'sudo'...")
-            _apt_install("sudo")
+        _apt_install("sudo")
         _ = self._run(f"usermod -aG sudo {self.username}")
 
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
@@ -470,7 +462,6 @@ class _Settings(Operator):
     def _setup_known_hosts(self, *, user: bool = False) -> None:
         desc = self._desc(user=user)
         if self._grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
-            _LOGGER.info("GitHub is already a known host for %r", desc)
             return
         _LOGGER.info("Adding GitHub to known hosts for %r...", desc)
         self._mkdir("~/.ssh", user=user)
@@ -484,9 +475,7 @@ class _Settings(Operator):
 
     def _install_neovim(self, *, user: bool = False) -> None:
         desc = self._desc(user=user)
-        if self._which("nvim", user=user):
-            _LOGGER.info("'nvim' is already installed for %r", desc)
-        else:
+        if not self._which("nvim", user=user):
             _LOGGER.info("Installing 'nvim' for %r...", desc)
             appimage = "nvim-linux-x86_64.appimage"
             with (
@@ -506,10 +495,7 @@ class _Settings(Operator):
                 self.path_local_bin / "nvim",
                 user=user,
             )
-        config_nvim = "~/.config/nvim"
-        if self._is_dir(config_nvim, user=user):
-            _LOGGER.info("'lazyvim' is already installed for %r", desc)
-        else:
+        if not self._is_dir(config_nvim := "~/.config/nvim", user=user):
             _LOGGER.info("Installing 'lazyvim' for %r...", desc)
             url = "https://github.com/LazyVim/starter"
             _ = self._run(
@@ -520,9 +506,7 @@ class _Settings(Operator):
 
     def _install_starship(self, *, user: bool = False) -> None:
         desc = self._desc(user=user)
-        if self._which("starship", user=user):
-            _LOGGER.info("'starship' is already installed for %r", desc)
-        else:
+        if not self._which("starship", user=user):
             _LOGGER.info("Installing 'starship' for %r...", desc)
             self._mkdir(self.path_local_bin, user=user)
             _ = self._curl(
@@ -553,27 +537,21 @@ class _Settings(Operator):
         self._install_bump_my_version(user=True)  # after uv
 
     def _install_fd(self) -> None:
-        if self._which("fd", user=True):
-            _LOGGER.info("'fd' is already installed for %r", self.username)
-        else:
-            _LOGGER.info("Installing 'fd' for %r...", self.username)
+        if not self._which("fd"):
+            _LOGGER.info("Installing 'fd'...")
             _apt_install("fd-find")
         self._symlink("/bin/fdfind", "/bin/fd")
 
     def _install_bump_my_version(self, *, user: bool = False) -> None:
-        desc = self._desc(user=user)
-        if self._which("bump-my-version", user=user):
-            _LOGGER.info("'bump-my-version' is already installed for %r", desc)
-        else:
-            _LOGGER.info("Installing 'bump-my-version' for %r...", desc)
+        if not self._which("bump-my-version", user=user):
+            _LOGGER.info(
+                "Installing 'bump-my-version' for %r...", self._desc(user=user)
+            )
             _ = self._run("uv tool install bump-my-version", user=user)
 
     def _install_direnv(self, *, user: bool = False) -> None:
-        desc = self._desc(user=user)
-        if self._which("direnv", user=user):
-            _LOGGER.info("'direnv' is already installed for %r", desc)
-        else:
-            _LOGGER.info("Installing 'direnv' for %r...", desc)
+        if not self._which("direnv", user=user):
+            _LOGGER.info("Installing 'direnv' for %r...", self._desc(user=user))
             _ = self._curl(
                 "-sfL https://direnv.net/install.sh | bash",
                 user=user,
@@ -584,20 +562,16 @@ class _Settings(Operator):
         )
 
     def _install_uv(self, *, user: bool = False) -> None:
-        desc = self._desc(user=user)
-        if self._which("uv", user=user):
-            _LOGGER.info("'uv' is already installed for %r", desc)
-            return
-        _LOGGER.info("Installing 'uv' for %r...", desc)
-        _ = self._curl(
-            "-LsSf https://astral.sh/uv/install.sh | sh -s",
-            user=user,
-            env={"UV_NO_MODIFY_PATH": "1"},
-        )
+        if not self._which("uv", user=user):
+            _LOGGER.info("Installing 'uv' for %r...", self._desc(user=user))
+            _ = self._curl(
+                "-LsSf https://astral.sh/uv/install.sh | sh -s",
+                user=user,
+                env={"UV_NO_MODIFY_PATH": "1"},
+            )
 
     def _install_docker(self) -> None:
         if self._which("docker"):
-            _LOGGER.debug("'docker' is already installed")
             return
         _LOGGER.info("Installing 'docker'...")
         _ = self._run(
