@@ -44,6 +44,7 @@ class _Settings:
     )
     default_authorized_keys: ClassVar[str] = "$url/ssh/keys.txt"
     default_bashrc: ClassVar[str] = "$url/configs/.bashrc"
+    default_direnv_toml: ClassVar[str] = "$url/configs/direnv.toml"
     default_sshd_config: ClassVar[str] = "$url/configs/sshd_config"
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
 
@@ -56,6 +57,7 @@ class _Settings:
     url: str = default_url
     authorized_keys: str = default_authorized_keys
     bashrc: str = default_bashrc
+    direnv_toml: str = default_direnv_toml
     sshd_config: str = default_sshd_config
     starship_toml: str = default_starship_toml
     runtime: bool = False
@@ -96,6 +98,12 @@ class _Settings:
             help="'.bashrc' file or URL",
         )
         _ = parser.add_argument(
+            "--direnv-toml",
+            default=cls.default_direnv_toml,
+            type=str,
+            help="'direnv.toml' file or URL",
+        )
+        _ = parser.add_argument(
             "--sshd-config",
             default=cls.default_sshd_config,
             type=str,
@@ -118,7 +126,7 @@ class _Settings:
     def install(self) -> None:
         self._set_root_password()
         self._create_user()
-        _install_apt()
+        _install_curl()
         self._setup_sshd_config()
         for non_root in [False, True]:
             self._setup_bashrc(non_root=non_root)
@@ -153,16 +161,19 @@ class _Settings:
         _ = self._run(f"echo '{username}:{password}' | chpasswd")
 
     def _setup_sshd_config(self) -> None:
-        from_ = Template(self.sshd_config).substitute(url=self.url)
-        self._copy_file_or_url(from_, "/etc/ssh/sshd_config")
+        self._copy_file_or_url(self._with_url(self.sshd_config), "/etc/ssh/sshd_config")
 
     def _setup_bashrc(self, *, non_root: bool = False) -> None:
-        from_ = Template(self.bashrc).substitute(url=self.url)
-        self._copy_file_or_url(from_, "~/.bashrc", non_root=non_root)
+        self._copy_file_or_url(
+            self._with_url(self.bashrc), "~/.bashrc", non_root=non_root
+        )
 
     def _setup_authorized_keys(self, *, non_root: bool = False) -> None:
-        from_ = Template(self.authorized_keys).substitute(url=self.url)
-        self._copy_file_or_url(from_, "~/.ssh/authorized_keys", non_root=non_root)
+        self._copy_file_or_url(
+            self._with_url(self.authorized_keys),
+            "~/.ssh/authorized_keys",
+            non_root=non_root,
+        )
 
     def _setup_known_hosts(self, *, non_root: bool = False) -> None:
         known_hosts = "~/.ssh/known_hosts"
@@ -179,7 +190,7 @@ class _Settings:
     def _install_starship(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
         if self._which("starship", non_root=non_root):
-            _LOGGER.info("'starship' already installed for %r...", desc)
+            _LOGGER.info("'starship' is already installed for %r", desc)
         else:
             _LOGGER.info("Installing 'starship' for %r...", desc)
             self._mkdir(self.path_local_bin, non_root=non_root)
@@ -187,14 +198,35 @@ class _Settings:
                 f"curl -sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 non_root=non_root,
             )
-        from_ = Template(self.starship_toml).substitute(url=self.url)
-        self._copy_file_or_url(from_, "~/.config/starship.toml", non_root=non_root)
+        self._copy_file_or_url(
+            self._with_url(self.starship_toml),
+            "~/.config/starship.toml",
+            non_root=non_root,
+        )
 
     def _install_runtime_tools(self) -> None:
         if not self.runtime:
             _LOGGER.info("Skipping runtime tools...")
             return
         _LOGGER.info("Installing runtime tools...")
+        _install_age()
+        self._install_direnv()
+
+    def _install_direnv(self) -> None:
+        if self._which("direnv", non_root=True):
+            _LOGGER.info("'direnv' is already installed for %r", self.non_root_username)
+        else:
+            _LOGGER.info("Installing 'direnv' for %r...", self.non_root_username)
+            _ = self._run(
+                "curl -sfL https://direnv.net/install.sh | bash",
+                non_root=True,
+                env={"bin_path": str(self.path_local_bin)},
+            )
+        self._copy_file_or_url(
+            self._with_url(self.direnv_toml),
+            "~/.config/direnv/direnv.toml",
+            non_root=True,
+        )
 
     # utilities
 
@@ -281,6 +313,9 @@ class _Settings:
             return False
         return result != ""
 
+    def _with_url(self, text: str, /) -> str:
+        return Template(text).substitute(url=self.url)
+
     def _write_text(
         self, text: str, path: _PathLike, /, *, non_root: bool = False
     ) -> None:
@@ -291,12 +326,20 @@ class _Settings:
 # main
 
 
-def _install_apt() -> None:
+def _install_curl() -> None:
     if which("curl") is not None:
-        _LOGGER.info("'curl' already installed...")
+        _LOGGER.info("'curl' is already installed...")
         return
     _LOGGER.info("Installing 'curl'...")
     _ = check_output("apt install -y curl", shell=True)
+
+
+def _install_age() -> None:
+    if which("age") is not None:
+        _LOGGER.info("'age' is already installed...")
+    else:
+        _LOGGER.info("Installing 'age'...")
+        _ = check_output("apt install -y age", shell=True)
 
 
 if __name__ == "__main__":
