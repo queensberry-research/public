@@ -397,9 +397,10 @@ class _Settings(Operator):
             "/etc/resolv.conf",
             substitute={"n": self.default_subnets[subnet], "subnet": subnet},
         )
-        self._copy_file_or_url(
-            self.storage_cfg, "/etc/pve/storage.cfg", substitute={"subnet": subnet}
-        )
+        if not self._grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
+            self._copy_file_or_url(
+                self.storage_cfg, storage_cfg, substitute={"subnet": subnet}
+            )
         for user in [False, True]:
             self._copy_file_or_url(
                 self.subnet_sh,
@@ -467,14 +468,13 @@ class _Settings(Operator):
         )
 
     def _setup_known_hosts(self, *, user: bool = False) -> None:
-        known_hosts = "~/.ssh/known_hosts"
         desc = self._desc(user=user)
-        if self._grep(known_hosts, "github.com", user=user):
+        if self._grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
             _LOGGER.info("GitHub is already a known host for %r", desc)
             return
         _LOGGER.info("Adding GitHub to known hosts for %r...", desc)
         self._mkdir("~/.ssh", user=user)
-        _ = self._run("ssh-keyscan github.com >> ~/.ssh/known_hosts", user=user)
+        _ = self._run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
 
     def _setup_bashrc(self, *, user: bool = False) -> None:
         self._copy_file_or_url(self.bashrc, "~/.bashrc", user=user)
