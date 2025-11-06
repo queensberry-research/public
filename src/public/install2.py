@@ -133,9 +133,10 @@ class _Settings:
     def install(self) -> None:
         self._set_root_password()
         self._create_user()
-        for cmd in ["curl", "git", "jq", "sudo"]:
+        for cmd in ["curl", "git", "jq"]:
             _apt_install(cmd)
         self._setup_sshd_config()
+        self._install_sudo()
         for non_root in [False, True]:
             self._setup_authorized_keys(non_root=non_root)
             self._setup_known_hosts(non_root=non_root)
@@ -173,6 +174,14 @@ class _Settings:
 
     def _setup_sshd_config(self) -> None:
         self._copy_file_or_url(self._with_url(self.sshd_config), "/etc/ssh/sshd_config")
+
+    def _install_sudo(self) -> None:
+        if which("sudo") is not None:
+            _LOGGER.info("'sudo' is already installed")
+        else:
+            _LOGGER.info("Installing 'sudo'...")
+            _apt_install("sudo")
+        _ = self._run(f"usermod -aG sudo {self.non_root_username}")
 
     def _setup_authorized_keys(self, *, non_root: bool = False) -> None:
         self._copy_file_or_url(
@@ -322,22 +331,22 @@ class _Settings:
             return
         _LOGGER.info("Installing 'docker'...")
         _ = self._run(
-            "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do sudo apt-get remove $pkg; done",
+            "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do apt-get remove $pkg; done",
             "apt-get update",
             "apt-get install ca-certificates curl",
             "install -m 0755 -d /etc/apt/keyrings",
             "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
             "chmod a+r /etc/apt/keyrings/docker.asc",
             """\
-sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+tee /etc/apt/sources.list.d/docker.sources <<DOCKEREOF
 Types: deb
 URIs: https://download.docker.com/linux/debian
 Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
 Components: stable
 Signed-By: /etc/apt/keyrings/docker.asc
-EOF""",
+DOCKEREOF""",
             "apt-get update",
-            "apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
+            "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
             f"usermod -aG docker {self.non_root_username}",
         )
 
@@ -530,10 +539,10 @@ def _run(
     results: list[str] = []
     user_use = "root" if user is None else user
     for cmd in cmds:
-        cmd_use = f"su - {user_use} <<'EOF'"
+        cmd_use = f"su - {user_use} -c 'sh -s' <<'PYTHONRUNEOF'"
         if cwd is not None:
             cmd_use = f"{cmd_use}\ncd {cwd} || exit 1"
-        cmd_use = f"{cmd_use}\n{cmd}\nEOF"
+        cmd_use = f"{cmd_use}\n{cmd}\nPYTHONRUNEOF"
         result = check_output(
             cmd_use,
             shell=True,
