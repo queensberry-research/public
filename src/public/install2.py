@@ -45,6 +45,7 @@ class _Settings:
     default_authorized_keys: ClassVar[str] = "$url/ssh/keys.txt"
     default_bashrc: ClassVar[str] = "$url/configs/.bashrc"
     default_direnv_toml: ClassVar[str] = "$url/configs/direnv.toml"
+    default_git_config: ClassVar[str] = "$url/configs/git-config"
     default_sshd_config: ClassVar[str] = "$url/configs/sshd_config"
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
 
@@ -58,6 +59,7 @@ class _Settings:
     authorized_keys: str = default_authorized_keys
     bashrc: str = default_bashrc
     direnv_toml: str = default_direnv_toml
+    git_config: str = default_git_config
     sshd_config: str = default_sshd_config
     starship_toml: str = default_starship_toml
     runtime: bool = False
@@ -104,6 +106,12 @@ class _Settings:
             help="'direnv.toml' file or URL",
         )
         _ = parser.add_argument(
+            "--git-config",
+            default=cls.default_git_config,
+            type=str,
+            help="'git' config file or URL",
+        )
+        _ = parser.add_argument(
             "--sshd-config",
             default=cls.default_sshd_config,
             type=str,
@@ -129,9 +137,10 @@ class _Settings:
         _install_curl()
         self._setup_sshd_config()
         for non_root in [False, True]:
-            self._setup_bashrc(non_root=non_root)
             self._setup_authorized_keys(non_root=non_root)
             self._setup_known_hosts(non_root=non_root)
+            self._setup_bashrc(non_root=non_root)
+            self._setup_git_config(non_root=non_root)
             self._install_starship(non_root=non_root)
         self._install_runtime_tools()
 
@@ -163,11 +172,6 @@ class _Settings:
     def _setup_sshd_config(self) -> None:
         self._copy_file_or_url(self._with_url(self.sshd_config), "/etc/ssh/sshd_config")
 
-    def _setup_bashrc(self, *, non_root: bool = False) -> None:
-        self._copy_file_or_url(
-            self._with_url(self.bashrc), "~/.bashrc", non_root=non_root
-        )
-
     def _setup_authorized_keys(self, *, non_root: bool = False) -> None:
         self._copy_file_or_url(
             self._with_url(self.authorized_keys),
@@ -186,6 +190,16 @@ class _Settings:
         _LOGGER.info("Adding GitHub to known hosts for %r...", desc)
         self._mkdir("~/.ssh", non_root=non_root)
         _ = self._run("ssh-keyscan github.com >> ~/.ssh/known_hosts", non_root=non_root)
+
+    def _setup_bashrc(self, *, non_root: bool = False) -> None:
+        self._copy_file_or_url(
+            self._with_url(self.bashrc), "~/.bashrc", non_root=non_root
+        )
+
+    def _setup_git_config(self, *, non_root: bool = False) -> None:
+        self._copy_file_or_url(
+            self._with_url(self.git_config), "~/.config/git/config", non_root=non_root
+        )
 
     def _install_starship(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
