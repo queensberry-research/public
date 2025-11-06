@@ -141,7 +141,7 @@ class _Settings:
         _ = self._run(f"echo '{username}:{password}' | chpasswd")
 
     def _setup_bashrc(self, *, non_root: bool = False) -> None:
-        self._copy_file_or_url(self.bashrc, "~/.bashrc", non_root=non_root)
+        self._copy_file_or_url(self.bashrc_use, "~/.bashrc", non_root=non_root)
 
     def _install_starship(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
@@ -154,6 +154,9 @@ class _Settings:
                 f"curl -sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 non_root=non_root,
             )
+        self._copy_file_or_url(
+            self.starship_toml_use, "~/.config/starship.toml", non_root=non_root
+        )
 
     # utilities
 
