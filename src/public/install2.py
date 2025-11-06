@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from getpass import getuser
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from dataclasses import dataclass
 from logging import basicConfig, getLogger
 from os import environ
 from pathlib import Path
 from shutil import which
 from socket import gethostname
 from subprocess import CalledProcessError, check_output
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, ClassVar, assert_never
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -20,35 +21,86 @@ basicConfig(
     level="INFO",
 )
 _LOGGER = getLogger(__name__)
-_NONROOT = "nonroot"
-_NONROOT_HOME = Path(f"/home/{_NONROOT}")
-_PASSWORD = "1234"  # noqa: S105
+
+
+# classes
+
+
+@dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
+class _PublicInstallerSettings:
+    # classvars
+    default_non_root_username: ClassVar[str] = "nonroot"
+
+    # fields
+
+    root_password: str | None = None
+    non_root_username: str = default_non_root_username
+    non_root_password: str | None = None
+    docker: bool = False
+    skip_dev: bool = False
+
+    @property
+    def home(self) -> Path:
+        return Path(f"/home/{self.non_root_username}")
+
+    @classmethod
+    def parse(cls) -> _PublicInstallerSettings:
+        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        _ = parser.add_argument(
+            "-rp", "--root-password", type=str, help="'root' password"
+        )
+        _ = parser.add_argument(
+            "-u",
+            "--non-root-username",
+            default=cls.default_non_root_username,
+            type=str,
+            help="Non-root username",
+        )
+        _ = parser.add_argument(
+            "-p", "--non-root-password", type=str, help="Non-root password"
+        )
+        _ = parser.add_argument(
+            "-d", "--docker", action="store_true", help="Install Docker"
+        )
+        _ = parser.add_argument(
+            "-s", "--skip-dev", action="store_true", help="Skip dev dependencies"
+        )
+        return _PublicInstallerSettings(**vars(parser.parse_args()))
+
+
+# main
 
 
 def _install() -> None:
-    _create_user()
-    # _switch_user()
+    settings = _PublicInstallerSettings.parse()
+    _set_root_password(password=settings.root_password)
+    _create_user(settings.non_root_username, password=settings.non_root_password)
 
 
-def _create_user() -> None:
+def _set_root_password(*, password: str | None = None) -> None:
+    if password is None:
+        _LOGGER.info("Skipping the setting of 'root' password...")
+        return
+    _LOGGER.info("Setting 'root' password...")
+    _ = _run_command(f"echo 'root:{password}' | chpasswd", skip_log=True)
+
+
+def _create_user(username: str, /, *, password: str | None = None) -> None:
     try:
-        _ = _run_command(f"id -u {_NONROOT}")
+        _ = _run_command(f"id -u {username}", skip_log=True)
     except CalledProcessError:
-        _LOGGER.info("Creating %r...", _NONROOT)
+        _LOGGER.info("Creating %r...", username)
         _ = _run_commands(
-            f"useradd --create-home --shell /bin/bash {_NONROOT}",
-            f"echo '{_NONROOT}:{_PASSWORD}' | chpasswd",
-            f"usermod -aG sudo {_NONROOT}",
+            f"useradd --create-home --shell /bin/bash {username}",
+            f"usermod -aG sudo {username}",
         )
     else:
-        _LOGGER.info("%r already exists", _NONROOT)
-        # return
-    z = _run_command("echo $(whoami)", user=_NONROOT)
-    print(z)
-    z = _run_command("echo $(pwd)", user=_NONROOT)
-    print(z)
-    z = _run_command("echo $(pwd)", cwd=_NONROOT_HOME, user=_NONROOT)
-    print(z)
+        _LOGGER.info("%r already exists", username)
+    if password is None:
+        _LOGGER.info("Skipping the setting of %r password...", username)
+        return
+    _LOGGER.info("Setting %r password...", username)
+    _ = _run_command(f"echo '{username}:{password}' | chpasswd", skip_log=True)
 
 
 # utilities
