@@ -621,7 +621,6 @@ DOCKEREOF""",
 
 def _apt_install(cmd: str, /) -> None:
     if which(cmd) is not None:
-        _LOGGER.info("%r is already installed...", cmd)
         return
     _LOGGER.info("Installing %r...", cmd)
     _ = _run(f"apt install -y {cmd}")
