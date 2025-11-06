@@ -80,12 +80,11 @@ class Operator:
                 assert_never(never)
         if substitute is not None:
             text_from = Template(text_from).substitute(**substitute)
-        desc = self._desc(user=user)
         if self._is_file(to, user=user) and (
             self._read_text(to, user=user) == text_from
         ):
             return
-        _LOGGER.info("Writing %r for %r...", str(to), desc)
+        _LOGGER.info("Writing %r for %r...", str(to), self._desc(user=user))
         self._write_text(text_from, to, user=user)
 
     def _cp(self, from_: _PathLike, to: _PathLike, /, *, user: bool = False) -> None:
@@ -460,10 +459,9 @@ class _Settings(Operator):
         )
 
     def _setup_known_hosts(self, *, user: bool = False) -> None:
-        desc = self._desc(user=user)
         if self._grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
             return
-        _LOGGER.info("Adding GitHub to known hosts for %r...", desc)
+        _LOGGER.info("Adding GitHub to known hosts for %r...", self._desc(user=user))
         self._mkdir("~/.ssh", user=user)
         _ = self._run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
 
@@ -505,9 +503,8 @@ class _Settings(Operator):
             )
 
     def _install_starship(self, *, user: bool = False) -> None:
-        desc = self._desc(user=user)
         if not self._which("starship", user=user):
-            _LOGGER.info("Installing 'starship' for %r...", desc)
+            _LOGGER.info("Installing 'starship' for %r...", self._desc(user=user))
             self._mkdir(self.path_local_bin, user=user)
             _ = self._curl(
                 f"-sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
