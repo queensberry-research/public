@@ -171,14 +171,14 @@ class _Settings:
                     text_from = self._read_text(from_, non_root=non_root)
                 else:
                     with urlopen(from_) as response:
-                        text_from: str = response.read().decode("utf-8")
+                        text_from: str = response.read().decode("utf-8").rstrip("\n")
             case never:
                 assert_never(never)
         desc = self._desc(non_root=non_root)
         if self._is_file(to, non_root=non_root) and (
             self._read_text(to, non_root=non_root) == text_from
         ):
-            _LOGGER.info("%r exists and is already copied for %r", str(to), desc)
+            _LOGGER.info("%r already up to date for %r", str(to), desc)
             return
         _LOGGER.info("Writing %r for %r...", str(to), desc)
         self._write_text(text_from, to, non_root=non_root)
