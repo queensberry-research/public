@@ -244,7 +244,11 @@ class Operator:
 
     def _write_text(self, text: str, path: _PathLike, /, *, user: bool = False) -> None:
         self._mkdir(Path(path).parent, user=user)
-        _ = self._run(f"tee {path}", input_=text, user=user)
+        _ = self._run(
+            f"cat > {path} <<'WRITETEXTEOF'\n{text}\nWRITETEXTEOF",
+            input_=text,
+            user=user,
+        )
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
@@ -486,10 +490,9 @@ class _Settings(Operator):
                 )
                 self._mkdir(self.path_local_bin, user=user)
                 squashfs_root = "squashfs-root"
-                path_squashfs_root = self.path_local_bin / squashfs_root
-                self._mv(temp_dir / squashfs_root, path_squashfs_root, user=user)
+                self._mv(temp_dir / squashfs_root, self.path_local_bin, user=user)
             self._symlink(
-                path_squashfs_root / "usr/bin/nvim",
+                self.path_local_bin / squashfs_root / "usr/bin/nvim",
                 self.path_local_bin / "nvim",
                 user=user,
             )
@@ -498,7 +501,8 @@ class _Settings(Operator):
             url = "https://github.com/LazyVim/starter"
             _ = self._run(
                 f"git clone {url} {config_nvim}",
-                "source ~/.bashrc && nvim --headless '+Lazy! sync' +qa",
+                "nvim --headless '+Lazy! sync' +qa",
+                env={"PATH": f"{self.path_local_bin}:{environ['PATH']}"},
                 user=user,
             )
 
@@ -638,10 +642,10 @@ def _run(
     results: list[str] = []
     user_use = "root" if user is None else user
     for cmd in cmds:
-        cmd_use = f"su - {user_use} -c 'sh -s' <<'PYTHONRUNEOF'"
+        cmd_use = f"su - {user_use} -c 'sh -s' <<'RUNEOF'"
         if cwd is not None:
             cmd_use = f"{cmd_use}\ncd {cwd} || exit 1"
-        cmd_use = f"{cmd_use}\n{cmd}\nPYTHONRUNEOF"
+        cmd_use = f"{cmd_use}\n{cmd}\nRUNEOF"
         result = check_output(
             cmd_use,
             shell=True,
