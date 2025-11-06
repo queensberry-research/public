@@ -4,7 +4,7 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import basicConfig, getLogger
-from os import environ
+from os import PathLike, environ
 from pathlib import Path
 from shutil import which
 from socket import gethostname
@@ -133,13 +133,15 @@ class _Settings:
     def install(self) -> None:
         self._set_root_password()
         self._create_user()
-        _apt_install("curl")
+        for cmd in ["curl", "git", "jq", "sudo"]:
+            _apt_install(cmd)
         self._setup_sshd_config()
         for non_root in [False, True]:
             self._setup_authorized_keys(non_root=non_root)
             self._setup_known_hosts(non_root=non_root)
             self._setup_bashrc(non_root=non_root)
             self._setup_git_config(non_root=non_root)
+            self._install_neovim(non_root=non_root)
             self._install_starship(non_root=non_root)
         self._install_tools()
 
@@ -200,6 +202,39 @@ class _Settings:
             self._with_url(self.git_config), "~/.config/git/config", non_root=non_root
         )
 
+    def _install_neovim(self, *, non_root: bool = False) -> None:
+        desc = self._desc(non_root=non_root)
+        if self._which("nvim"):
+            _LOGGER.info("'nvim' is already installed for %r", desc)
+        else:
+            _LOGGER.info("Installing 'nvim' for %r...", desc)
+            filename = "nvim-linux-x86_64.appimage"
+            with (
+                self._github_binary("neovim", "neovim", filename) as binary,
+                self._temp_dir(non_root=non_root) as temp_dir,
+            ):
+                self._mv(binary, temp_dir / filename)
+                _ = self._run(
+                    f"./{filename} --appimage-extract", non_root=non_root, cwd=temp_dir
+                )
+                self._mkdir(self.path_local_bin, non_root=non_root)
+                self._mv(
+                    temp_dir / "squashfs-root/usr/bin/nvim",
+                    self.path_local_bin / "nvim",
+                    non_root=non_root,
+                )
+        path = "~/.config/nvim"
+        if self._is_dir(path, non_root=non_root):
+            _LOGGER.info("'lazyvim' is already installed for %r", desc)
+        else:
+            _LOGGER.info("Installing 'lazyvim' for %r...", desc)
+            url = "https://github.com/LazyVim/starter"
+            _ = self._run(
+                f"git clone {url} {path}",
+                "nvim --headless '+Lazy! sync' +qa",
+                non_root=non_root,
+            )
+
     def _install_starship(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
         if self._which("starship", non_root=non_root):
@@ -222,13 +257,13 @@ class _Settings:
             _LOGGER.info("Skipping tools...")
             return
         _LOGGER.info("Installing tools...")
-        for cmd in ["age", "git", "jq", "just"]:
+        for cmd in ["age", "fzf", "git", "jq", "just"]:
             _apt_install(cmd)
         for cmd, owner, repo, filename in [
             ("sops", "getsops", "sops", "sops-${tag}.linux.amd64"),
             ("yq", "mikefarah", "yq", "yq_linux_amd64"),
         ]:
-            self._install_from_github(cmd, owner, repo, filename, non_root=True)
+            self._github_install(cmd, owner, repo, filename, non_root=True)
         self._install_direnv()
         self._install_fd()
         self._install_uv()
@@ -296,10 +331,36 @@ class _Settings:
     def _desc(self, *, non_root: bool = False) -> str:
         return self.non_root_username if non_root else "root"
 
-    def _grep(self, text: str, path: _PathLike, /, *, non_root: bool = False) -> bool:
-        return self._predicate(f"grep -q {text} {path}", non_root=non_root)
+    def _download_binary(
+        self, url: str, name: str, /, *, non_root: bool = False
+    ) -> None:
+        self._mkdir(self.path_local_bin, non_root=non_root)
+        path = self.path_local_bin / name
+        _LOGGER.info("Downloading from %r to %r...", url, str(path))
+        self._download_binary(url, path, non_root=non_root)
+        _LOGGER.info("Setting %r to be executable...", str(path))
+        _ = self._run(f"chmod +x {path}", non_root=non_root)
 
-    def _install_from_github(
+    # def _dpkg_install(self, path: _PathLike, /, *, non_root: bool = False) -> None:
+    #     _LOGGER.info("Installing %r...", path)
+    #     cmd = f"dpkg -i {path}"
+    #     if non_root:
+    #         cmd = f"sudo {cmd}"
+    #     _ = self._run(cmd, non_root=non_root)
+
+    @contextmanager
+    def _github_binary(
+        self, owner: str, repo: str, filename: str, /, *, non_root: bool = False
+    ) -> Iterator[Path]:
+        url = self._github_url(owner, repo, filename, non_root=non_root)
+        with self._temp_dir(non_root=non_root) as temp:
+            path = temp / filename
+            _ = self._run(
+                f"curl -L {url} -o {path}", f"chmod +x {path}", non_root=non_root
+            )
+            yield path
+
+    def _github_install(
         self,
         cmd: str,
         owner: str,
@@ -314,7 +375,13 @@ class _Settings:
             _LOGGER.info("%r is already installed for %r", cmd, self.non_root_username)
             return
         _LOGGER.info("Installing %r for %r...", cmd, desc)
-        self._mkdir(self.path_local_bin, non_root=non_root)
+        with self._github_binary(owner, repo, filename, non_root=non_root) as binary:
+            self._mkdir(self.path_local_bin, non_root=non_root)
+            self._mv(binary, self.path_local_bin / cmd, non_root=non_root)
+
+    def _github_url(
+        self, owner: str, repo: str, filename: str, /, *, non_root: bool = False
+    ) -> str:
         releases = f"{owner}/{repo}/releases"
         tag = self._run(
             f"curl -s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
@@ -323,13 +390,13 @@ class _Settings:
         filename_use = Template(filename).substitute(
             tag=tag, tag_without=tag.lstrip("v")
         )
-        url = f"https://github.com/{releases}download/{tag}/{filename_use}"
-        path = self.path_local_bin / cmd
-        _ = self._run(
-            f"curl --location {url} --output {path}",
-            f"chmod +x {path}",
-            non_root=non_root,
-        )
+        return f"https://github.com/{releases}/download/{tag}/{filename_use}"
+
+    def _grep(self, text: str, path: _PathLike, /, *, non_root: bool = False) -> bool:
+        return self._predicate(f"grep -q {text} {path}", non_root=non_root)
+
+    def _is_dir(self, path: _PathLike, /, *, non_root: bool = False) -> bool:
+        return self._predicate(f"[ -d {path} ]", non_root=non_root)
 
     def _is_file(self, path: _PathLike, /, *, non_root: bool = False) -> bool:
         return self._predicate(f"[ -f {path} ]", non_root=non_root)
@@ -339,6 +406,11 @@ class _Settings:
 
     def _mkdir(self, path: _PathLike, /, *, non_root: bool = False) -> None:
         _ = self._run(f"mkdir -p {path}", non_root=non_root)
+
+    def _mv(
+        self, from_: _PathLike, to: _PathLike, /, *, non_root: bool = False
+    ) -> None:
+        _ = self._run(f"mv {from_} {to}", non_root=non_root)
 
     def _predicate(self, predicate: str, /, *, non_root: bool = False) -> bool:
         result = self._run(f"if {predicate}; then echo 1; fi", non_root=non_root)
