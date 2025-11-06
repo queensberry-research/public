@@ -262,31 +262,37 @@ class _Settings:
             _LOGGER.info("Skipping tools...")
             return
         _LOGGER.info("Installing tools...")
-        for cmd in ["age", "fzf", "git", "jq", "just"]:
+        for cmd in ["age", "fzf", "git", "jq", "just", "ripgrep", "rsync", "vim"]:
             _apt_install(cmd)
+        self._install_fd()
+        for cmd, owner, repo, filename in [
+            ("btm", "clementtsang", "bottom", "bottom_${tag}-1_amd64.deb"),
+            ("delta", "dandavison", "delta", "git-delta_${tag}_amd64.deb"),
+        ]:
+            self._github_install(cmd, owner, repo, filename, dpkg=True)
         for cmd, owner, repo, filename in [
             ("sops", "getsops", "sops", "sops-${tag}.linux.amd64"),
             ("yq", "mikefarah", "yq", "yq_linux_amd64"),
         ]:
             self._github_install(cmd, owner, repo, filename, non_root=True)
-        self._install_direnv()
-        self._install_fd()
-        self._install_uv()
+        self._install_direnv(non_root=True)
+        self._install_uv(non_root=True)
 
-    def _install_direnv(self) -> None:
-        if self._which("direnv", non_root=True):
-            _LOGGER.info("'direnv' is already installed for %r", self.non_root_username)
+    def _install_direnv(self, *, non_root: bool = False) -> None:
+        desc = self._desc(non_root=non_root)
+        if self._which("direnv", non_root=non_root):
+            _LOGGER.info("'direnv' is already installed for %r", desc)
         else:
-            _LOGGER.info("Installing 'direnv' for %r...", self.non_root_username)
+            _LOGGER.info("Installing 'direnv' for %r...", desc)
             _ = self._run(
                 "curl -sfL https://direnv.net/install.sh | bash",
-                non_root=True,
+                non_root=non_root,
                 env={"bin_path": str(self.path_local_bin)},
             )
         self._copy_file_or_url(
             self._with_url(self.direnv_toml),
             "~/.config/direnv/direnv.toml",
-            non_root=True,
+            non_root=non_root,
         )
 
     def _install_fd(self) -> None:
@@ -297,14 +303,15 @@ class _Settings:
             _apt_install("fd-find")
         self._symlink("/bin/fdfind", "/bin/fd")
 
-    def _install_uv(self) -> None:
-        if self._which("uv", non_root=True):
-            _LOGGER.info("'uv' is already installed for %r", self.non_root_username)
+    def _install_uv(self, *, non_root: bool = False) -> None:
+        desc = self._desc(non_root=non_root)
+        if self._which("uv", non_root=non_root):
+            _LOGGER.info("'uv' is already installed for %r", desc)
             return
-        _LOGGER.info("Installing 'uv' for %r...", self.non_root_username)
+        _LOGGER.info("Installing 'uv' for %r...", desc)
         _ = self._run(
             "curl -LsSf https://astral.sh/uv/install.sh | sh -s",
-            non_root=True,
+            non_root=non_root,
             env={"UV_NO_MODIFY_PATH": "1"},
         )
 
@@ -336,6 +343,12 @@ class _Settings:
     def _desc(self, *, non_root: bool = False) -> str:
         return self.non_root_username if non_root else "root"
 
+    def _dpkg_install(self, path: _PathLike, /, *, non_root: bool = False) -> None:
+        cmd = f"dpkg -i {path}"
+        if non_root:
+            cmd = f"sudo {cmd}"
+        _ = self._run(cmd, non_root=non_root)
+
     @contextmanager
     def _github_binary(
         self, owner: str, repo: str, filename: str, /, *, non_root: bool = False
@@ -365,6 +378,7 @@ class _Settings:
         /,
         *,
         non_root: bool = False,
+        dpkg: bool = False,
     ) -> None:
         desc = self._desc(non_root=non_root)
         if self._which(cmd, non_root=non_root):
@@ -372,8 +386,11 @@ class _Settings:
             return
         _LOGGER.info("Installing %r for %r...", cmd, desc)
         with self._github_binary(owner, repo, filename, non_root=non_root) as binary:
-            self._mkdir(self.path_local_bin, non_root=non_root)
-            self._mv(binary, self.path_local_bin / cmd, non_root=non_root)
+            if not dpkg:
+                self._mkdir(self.path_local_bin, non_root=non_root)
+                self._mv(binary, self.path_local_bin / cmd, non_root=non_root)
+            else:
+                self._dpkg_install(binary, non_root=non_root)
 
     def _grep(self, text: str, path: _PathLike, /, *, non_root: bool = False) -> bool:
         return self._predicate(f"grep -q {text} {path}", non_root=non_root)
