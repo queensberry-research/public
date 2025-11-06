@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from contextlib import contextmanager
 from dataclasses import dataclass
 from logging import basicConfig, getLogger
 from os import environ
@@ -9,11 +10,12 @@ from shutil import which
 from socket import gethostname
 from string import Template
 from subprocess import CalledProcessError, check_output
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, ClassVar, assert_never
 from urllib.request import urlopen
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
 
 
 basicConfig(
@@ -134,7 +136,7 @@ class _Settings:
     def install(self) -> None:
         self._set_root_password()
         self._create_user()
-        _install_curl()
+        _apt_install("curl")
         self._setup_sshd_config()
         for non_root in [False, True]:
             self._setup_authorized_keys(non_root=non_root)
@@ -223,8 +225,11 @@ class _Settings:
             _LOGGER.info("Skipping runtime tools...")
             return
         _LOGGER.info("Installing runtime tools...")
-        _install_age()
+        for cmd in ["age", "git", "jq", "just"]:
+            _apt_install(cmd)
         self._install_direnv()
+        self._install_sops()
+        self._install_uv()
 
     def _install_direnv(self) -> None:
         if self._which("direnv", non_root=True):
@@ -242,6 +247,26 @@ class _Settings:
             non_root=True,
         )
 
+    def _install_sops(self) -> None:
+        if self._which("sops", non_root=True):
+            _LOGGER.info("'sops' is already installed for %r", self.non_root_username)
+            return
+        _LOGGER.info("Installing 'sops' for %r...", self.non_root_username)
+        self._download_from_github(
+            "getsops", "sops", "sops-${tag}.linux.amd64", "sops", non_root=True
+        )
+
+    def _install_uv(self) -> None:
+        if self._which("uv", non_root=True):
+            _LOGGER.info("'uv' is already installed for %r", self.non_root_username)
+            return
+        _LOGGER.info("Installing 'uv' for %r...", self.non_root_username)
+        _ = self._run(
+            "curl -LsSf https://astral.sh/uv/install.sh | sh -s",
+            non_root=True,
+            env={"UV_NO_MODIFY_PATH": "1"},
+        )
+
     # utilities
 
     def _copy_file_or_url(
@@ -254,8 +279,8 @@ class _Settings:
                 if self._is_file(from_, non_root=non_root):
                     text_from = self._read_text(from_, non_root=non_root)
                 else:
-                    with urlopen(from_) as response:
-                        text_from: str = response.read().decode("utf-8").rstrip("\n")
+                    with urlopen(from_) as resp:
+                        text_from: str = resp.read().decode("utf-8").rstrip("\n")
             case never:
                 assert_never(never)
         desc = self._desc(non_root=non_root)
@@ -270,8 +295,32 @@ class _Settings:
     def _desc(self, *, non_root: bool = False) -> str:
         return self.non_root_username if non_root else "root"
 
-    def _expand(self, path: _PathLike, /, *, non_root: bool = False) -> Path:
-        return Path(self._run(f"echo {path}", non_root=non_root))
+    def _download_from_github(
+        self,
+        owner: str,
+        repo: str,
+        filename: str,
+        name: str,
+        /,
+        *,
+        non_root: bool = False,
+    ) -> None:
+        self._mkdir(self.path_local_bin, non_root=non_root)
+        releases = f"{owner}/{repo}/releases"
+        tag = self._run(
+            f"curl -s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
+            non_root=non_root,
+        )
+        filename_use = Template(filename).substitute(
+            tag=tag, tag_without=tag.lstrip("v")
+        )
+        url = f"https://github.com/{releases}download/{tag}/{filename_use}"
+        path = self.path_local_bin / name
+        _ = self._run(
+            f"curl --location {url} --output {path}",
+            f"chmod +x {path}",
+            non_root=non_root,
+        )
 
     def _grep(self, text: str, path: _PathLike, /, *, non_root: bool = False) -> bool:
         return self._predicate(f"grep -q {text} {path}", non_root=non_root)
@@ -297,7 +346,11 @@ class _Settings:
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> str:
-        results: list[str] = []
+        cmds_use = (
+            [f"su - {self.non_root_username} -c '{c}'" for c in cmds]
+            if non_root
+            else cmds
+        )
         match cwd, non_root:
             case Path() | str() as cwd_use, _:
                 ...
@@ -307,18 +360,15 @@ class _Settings:
                 cwd_use = Path(f"/home/{self.non_root_username}")
             case never:
                 assert_never(never)
-        for cmd in cmds:
-            cmd_use = f"su - {self.non_root_username} -c '{cmd}'" if non_root else cmd
-            result = check_output(
-                cmd_use,
-                shell=True,
-                cwd=cwd_use,
-                env=None if env is None else {**environ, **env},
-                input=input_,
-                text=True,
-            ).rstrip("\n")
-            results.append(result)
-        return "\n".join(results)
+        return _run(*cmds_use, cwd=cwd_use, env=env, input_=input_)
+
+    @contextmanager
+    def _temp_dir(self, *, non_root: bool = False) -> Iterator[Path]:
+        path = Path(self._run("mktemp -d", non_root=non_root))
+        try:
+            yield path
+        finally:
+            _ = self._run(f"rm -rf {path}", non_root=non_root)
 
     def _which(self, cmd: str, /, *, non_root: bool = False) -> bool:
         try:
@@ -340,20 +390,46 @@ class _Settings:
 # main
 
 
-def _install_curl() -> None:
-    if which("curl") is not None:
-        _LOGGER.info("'curl' is already installed...")
+def _apt_install(cmd: str, /) -> None:
+    if which(cmd) is not None:
+        _LOGGER.info("%r is already installed...", cmd)
         return
-    _LOGGER.info("Installing 'curl'...")
-    _ = check_output("apt install -y curl", shell=True)
+    _LOGGER.info("Installing %r...", cmd)
+    _ = _run(f"apt install -y {cmd}")
 
 
-def _install_age() -> None:
-    if which("age") is not None:
-        _LOGGER.info("'age' is already installed...")
-    else:
-        _LOGGER.info("Installing 'age'...")
-        _ = check_output("apt install -y age", shell=True)
+def _run(
+    *cmds: str,
+    cwd: _PathLike | None = None,
+    env: Mapping[str, str] | None = None,
+    input_: str | None = None,
+) -> str:
+    results: list[str] = []
+    for cmd in cmds:
+        result = check_output(
+            cmd,
+            shell=True,
+            cwd=cwd,
+            env=None if env is None else {**environ, **env},
+            input=input_,
+            text=True,
+        ).rstrip("\n")
+        results.append(result)
+    return "\n".join(results)
+
+
+@contextmanager
+def _yield_github_latest(owner: str, repo: str, filename: str, /) -> Iterator[Path]:
+    tag = _run(
+        f"curl -s https://api.github.com/repos/{owner}/{repo}/releases/latest | jq -r '.tag_name'"
+    )
+    filename_use = Template(filename).substitute(tag=tag, tag_without_v=tag.lstrip("v"))
+    url = f"https://github.com/{owner}/{repo}/releases/download/{tag}/{filename_use}"
+    with TemporaryDirectory() as temp_dir:
+        to = Path(temp_dir, filename_use)
+        with to.open(mode="wb") as fh, urlopen(url) as resp:
+            _ = fh.write(resp.read())
+            yield to
 
 
 if __name__ == "__main__":
