@@ -498,7 +498,7 @@ class _Settings(Operator):
             url = "https://github.com/LazyVim/starter"
             _ = self._run(
                 f"git clone {url} {config_nvim}",
-                "nvim --headless '+Lazy! sync' +qa",
+                "source ~/.bashrc && nvim --headless '+Lazy! sync' +qa",
                 user=user,
             )
 
