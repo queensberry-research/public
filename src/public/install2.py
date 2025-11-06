@@ -10,7 +10,6 @@ from shutil import which
 from socket import gethostname
 from string import Template
 from subprocess import CalledProcessError, check_output
-from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, ClassVar, assert_never
 from urllib.request import urlopen
 
@@ -267,6 +266,15 @@ class _Settings:
             env={"UV_NO_MODIFY_PATH": "1"},
         )
 
+    def _install_yq(self) -> None:
+        if self._which("yq", non_root=True):
+            _LOGGER.info("'yq' is already installed for %r", self.non_root_username)
+            return
+        _LOGGER.info("Installing 'yq' for %r...", self.non_root_username)
+        self._download_from_github(
+            "mikefarah", "yq", "yq_linux_amd64", "yq", non_root=True
+        )
+
     # utilities
 
     def _copy_file_or_url(
@@ -416,20 +424,6 @@ def _run(
         ).rstrip("\n")
         results.append(result)
     return "\n".join(results)
-
-
-@contextmanager
-def _yield_github_latest(owner: str, repo: str, filename: str, /) -> Iterator[Path]:
-    tag = _run(
-        f"curl -s https://api.github.com/repos/{owner}/{repo}/releases/latest | jq -r '.tag_name'"
-    )
-    filename_use = Template(filename).substitute(tag=tag, tag_without_v=tag.lstrip("v"))
-    url = f"https://github.com/{owner}/{repo}/releases/download/{tag}/{filename_use}"
-    with TemporaryDirectory() as temp_dir:
-        to = Path(temp_dir, filename_use)
-        with to.open(mode="wb") as fh, urlopen(url) as resp:
-            _ = fh.write(resp.read())
-            yield to
 
 
 if __name__ == "__main__":
