@@ -3,14 +3,15 @@ from __future__ import annotations
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import contextmanager
 from dataclasses import dataclass
+from ipaddress import IPv4Address
 from logging import basicConfig, getLogger
 from os import environ
 from pathlib import Path
 from shutil import which
-from socket import gethostname
+from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from string import Template
 from subprocess import CalledProcessError, check_output
-from typing import TYPE_CHECKING, ClassVar, Literal, assert_never
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, assert_never, get_args
 from urllib.request import urlopen
 
 if TYPE_CHECKING:
@@ -31,6 +32,7 @@ _LOGGER = getLogger(__name__)
 
 type _PathLike = Path | str
 type _Subnet = Literal["qrt", "main", "test"]
+_SUBNETS: tuple[_Subnet, ...] = get_args(_Subnet.__value__)
 
 
 # classes
@@ -49,7 +51,13 @@ class Operator:
     # methods
 
     def _copy_file_or_url(
-        self, from_: _PathLike, to: _PathLike, /, *, user: bool = False
+        self,
+        from_: _PathLike,
+        to: _PathLike,
+        /,
+        *,
+        user: bool = False,
+        substitute: Mapping[str, Any] | None = None,
     ) -> None:
         match from_:
             case Path():
@@ -62,6 +70,8 @@ class Operator:
                         text_from: str = resp.read().decode("utf-8").rstrip("\n")
             case never:
                 assert_never(never)
+        if substitute is not None:
+            text_from = Template(text_from).substitute(**substitute)
         desc = self._desc(user=user)
         if self._is_file(to, user=user) and (
             self._read_text(to, user=user) == text_from
@@ -243,6 +253,7 @@ class _Settings(Operator):
     default_git_config: ClassVar[str] = "$url/configs/git-config"
     default_sshd_config: ClassVar[str] = "$url/configs/sshd_config"
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
+    default_subnet_sh: ClassVar[str] = "$url/ssh/subnet.sh"
 
     # fields
     proxmox: bool = False
@@ -255,6 +266,7 @@ class _Settings(Operator):
     git_config: str = default_git_config
     sshd_config: str = default_sshd_config
     starship_toml: str = default_starship_toml
+    subnet_sh: str = default_subnet_sh
     tools: bool = False
     docker: bool = False
 
@@ -315,6 +327,12 @@ class _Settings(Operator):
             type=str,
             help="'starship.toml' file or URL",
         )
+        _ = parser.add_argument(
+            "--subnet-sh",
+            default=cls.default_subnet_sh,
+            type=str,
+            help="'subnet.sh' file or URL",
+        )
         _ = parser.add_argument("--tools", action="store_true", help="Install tools")
         _ = parser.add_argument("--docker", action="store_true", help="Install Docker")
         return _Settings(**vars(parser.parse_args()))
@@ -340,16 +358,42 @@ class _Settings(Operator):
         self._install_docker()
 
     def _setup_proxmox(self) -> None:
+        if not self.proxmox:
+            return
         removed = any(
             self._rm(f"/etc/apt/sources.list.d/{name}.sources")
             for name in ["ceph", "pve-enterprise"]
         )
         if removed:
             _apt_update()
+        subnet = self._get_subnet()
+        self._copy_file_or_url(
+            self._with_url(self.subnet_sh),
+            "~/.bashrc.d/subnet.sh",
+            substitute={"subnet": subnet},
+        )
+
+    def _get_subnet(self) -> _Subnet:
+        try:
+            subnet = environ["SUBNET"]
+        except KeyError:
+            with socket(AF_INET, SOCK_DGRAM) as s:
+                s.connect(("1.1.1.1", 80))
+                ip = IPv4Address(s.getsockname()[0])
+            _, _, third, _ = str(ip).split(".")
+            third = int(third)
+            for subnet in _SUBNETS:
+                if third == self.default_subnets[subnet]:
+                    return subnet
+            msg = f"Invalid IP; got {ip}"
+            raise ValueError(msg) from None
+        if subnet in _SUBNETS:
+            return subnet
+        msg = f"Invalid subnet; got {subnet!r}"
+        raise ValueError(msg)
 
     def _set_root_password(self) -> None:
         if (password := self.root_password) is None:
-            _LOGGER.info("Skipping the setting of 'root' password...")
             return
         _LOGGER.info("Setting 'root' password...")
         _ = self._run(f"echo 'root:{password}' | chpasswd")
@@ -367,7 +411,6 @@ class _Settings(Operator):
         else:
             _LOGGER.info("%r already exists", username)
         if (password := self.password) is None:
-            _LOGGER.info("Skipping the setting of %r password...", username)
             return
         _LOGGER.info("Setting %r password...", username)
         _ = self._run(f"echo '{username}:{password}' | chpasswd")
@@ -461,7 +504,6 @@ class _Settings(Operator):
 
     def _install_tools(self) -> None:
         if not self.tools:
-            _LOGGER.info("Skipping tools...")
             return
         _LOGGER.info("Installing tools...")
         for cmd in ["age", "fzf", "just", "ripgrep", "rsync", "vim"]:
