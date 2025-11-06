@@ -226,8 +226,12 @@ class _Settings:
         _LOGGER.info("Installing runtime tools...")
         for cmd in ["age", "git", "jq", "just"]:
             _apt_install(cmd)
+        for cmd, owner, repo, filename in [
+            ("yq", "mikefarah", "yq", "yq_linux_amd64"),
+            ("sops", "getsops", "sops", "sops-${tag}.linux.amd64"),
+        ]:
+            self._install_from_github(cmd, owner, repo, filename, non_root=True)
         self._install_direnv()
-        self._install_sops()
         self._install_uv()
 
     def _install_direnv(self) -> None:
@@ -246,15 +250,6 @@ class _Settings:
             non_root=True,
         )
 
-    def _install_sops(self) -> None:
-        if self._which("sops", non_root=True):
-            _LOGGER.info("'sops' is already installed for %r", self.non_root_username)
-            return
-        _LOGGER.info("Installing 'sops' for %r...", self.non_root_username)
-        self._download_from_github(
-            "getsops", "sops", "sops-${tag}.linux.amd64", "sops", non_root=True
-        )
-
     def _install_uv(self) -> None:
         if self._which("uv", non_root=True):
             _LOGGER.info("'uv' is already installed for %r", self.non_root_username)
@@ -264,15 +259,6 @@ class _Settings:
             "curl -LsSf https://astral.sh/uv/install.sh | sh -s",
             non_root=True,
             env={"UV_NO_MODIFY_PATH": "1"},
-        )
-
-    def _install_yq(self) -> None:
-        if self._which("yq", non_root=True):
-            _LOGGER.info("'yq' is already installed for %r", self.non_root_username)
-            return
-        _LOGGER.info("Installing 'yq' for %r...", self.non_root_username)
-        self._download_from_github(
-            "mikefarah", "yq", "yq_linux_amd64", "yq", non_root=True
         )
 
     # utilities
@@ -303,16 +289,24 @@ class _Settings:
     def _desc(self, *, non_root: bool = False) -> str:
         return self.non_root_username if non_root else "root"
 
-    def _download_from_github(
+    def _grep(self, text: str, path: _PathLike, /, *, non_root: bool = False) -> bool:
+        return self._predicate(f"grep -q {text} {path}", non_root=non_root)
+
+    def _install_from_github(
         self,
+        cmd: str,
         owner: str,
         repo: str,
         filename: str,
-        name: str,
         /,
         *,
         non_root: bool = False,
     ) -> None:
+        desc = self._desc(non_root=non_root)
+        if self._which(cmd, non_root=non_root):
+            _LOGGER.info("%r is already installed for %r", cmd, self.non_root_username)
+            return
+        _LOGGER.info("Installing %r for %r...", cmd, desc)
         self._mkdir(self.path_local_bin, non_root=non_root)
         releases = f"{owner}/{repo}/releases"
         tag = self._run(
@@ -323,15 +317,12 @@ class _Settings:
             tag=tag, tag_without=tag.lstrip("v")
         )
         url = f"https://github.com/{releases}download/{tag}/{filename_use}"
-        path = self.path_local_bin / name
+        path = self.path_local_bin / cmd
         _ = self._run(
             f"curl --location {url} --output {path}",
             f"chmod +x {path}",
             non_root=non_root,
         )
-
-    def _grep(self, text: str, path: _PathLike, /, *, non_root: bool = False) -> bool:
-        return self._predicate(f"grep -q {text} {path}", non_root=non_root)
 
     def _is_file(self, path: _PathLike, /, *, non_root: bool = False) -> bool:
         return self._predicate(f"[ -f {path} ]", non_root=non_root)
