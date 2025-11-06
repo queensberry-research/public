@@ -10,7 +10,7 @@ from shutil import which
 from socket import gethostname
 from string import Template
 from subprocess import CalledProcessError, check_output
-from typing import TYPE_CHECKING, ClassVar, assert_never
+from typing import TYPE_CHECKING, ClassVar, Literal, assert_never
 from urllib.request import urlopen
 
 if TYPE_CHECKING:
@@ -30,6 +30,7 @@ _LOGGER = getLogger(__name__)
 
 
 type _PathLike = Path | str
+type _Subnet = Literal["qrt", "main", "test"]
 
 
 # classes
@@ -73,6 +74,20 @@ class Operator:
     def _cp(self, from_: _PathLike, to: _PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"cp {from_} {to}", user=user)
 
+    def _curl(
+        self,
+        cmd: str,
+        /,
+        *,
+        user: bool = False,
+        cwd: _PathLike | None = None,
+        env: Mapping[str, str] | None = None,
+        input_: str | None = None,
+    ) -> str:
+        if not self._which("curl"):
+            _apt_install("curl")
+        return self._run(f"curl {cmd}", user=user, cwd=cwd, env=env, input_=input_)
+
     def _desc(self, *, user: bool = False) -> str:
         return self.username if user else "root"
 
@@ -87,8 +102,8 @@ class Operator:
         self, owner: str, repo: str, filename: str, /, *, user: bool = False
     ) -> Iterator[Path]:
         releases = f"{owner}/{repo}/releases"
-        tag = self._run(
-            f"curl -s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
+        tag = self._curl(
+            f"-s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
             user=user,
         )
         filename_use = Template(filename).substitute(
@@ -97,7 +112,8 @@ class Operator:
         url = f"https://github.com/{releases}/download/{tag}/{filename_use}"
         with self._temp_dir(user=user) as temp:
             path = temp / filename
-            _ = self._run(f"curl -L {url} -o {path}", f"chmod +x {path}", user=user)
+            _ = self._curl(f"-L {url} -o {path}", user=user)
+            _ = self._run(f"chmod +x {path}", user=user)
             yield path
 
     def _github_install(
@@ -150,6 +166,13 @@ class Operator:
 
     def _read_text(self, path: _PathLike, /, *, user: bool = False) -> str:
         return self._run(f"cat {path}", user=user)
+
+    def _rm(self, path: _PathLike, /, *, user: bool = False) -> bool:
+        if self._is_file(path, user=user):
+            _LOGGER.info("Removing %r...", str(path))
+            _ = self._run(f"rm {path}", user=user)
+            return True
+        return False
 
     def _run(
         self,
@@ -210,6 +233,7 @@ class Operator:
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _Settings(Operator):
     # defaults
+    default_subnets: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
     default_url: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
     )
@@ -221,6 +245,7 @@ class _Settings(Operator):
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
 
     # fields
+    proxmox: bool = False
     root_password: str | None = None
     password: str | None = None
     url: str = default_url
@@ -236,6 +261,7 @@ class _Settings(Operator):
     @classmethod
     def parse(cls) -> _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        _ = parser.add_argument("--proxmox", action="store_true", help="Setup Proxmox")
         _ = parser.add_argument("--root-password", type=str, help="'root' password")
         _ = parser.add_argument(
             "--username",
@@ -296,9 +322,10 @@ class _Settings(Operator):
     # installer
 
     def install(self) -> None:
+        self._setup_proxmox()
         self._set_root_password()
         self._create_user()
-        for cmd in ["curl", "git", "jq"]:
+        for cmd in ["git", "jq"]:
             _apt_install(cmd)
         self._setup_sshd_config()
         self._install_sudo()
@@ -311,6 +338,14 @@ class _Settings(Operator):
             self._install_starship(user=non_root)
         self._install_tools()
         self._install_docker()
+
+    def _setup_proxmox(self) -> None:
+        removed = any(
+            self._rm(f"/etc/apt/sources.list.d/{name}.sources")
+            for name in ["ceph", "pve-enterprise"]
+        )
+        if removed:
+            _apt_update()
 
     def _set_root_password(self) -> None:
         if (password := self.root_password) is None:
@@ -416,8 +451,8 @@ class _Settings(Operator):
         else:
             _LOGGER.info("Installing 'starship' for %r...", desc)
             self._mkdir(self.path_local_bin, user=user)
-            _ = self._run(
-                f"curl -sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
+            _ = self._curl(
+                f"-sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 user=user,
             )
         self._copy_file_or_url(
@@ -429,7 +464,7 @@ class _Settings(Operator):
             _LOGGER.info("Skipping tools...")
             return
         _LOGGER.info("Installing tools...")
-        for cmd in ["age", "fzf", "git", "jq", "just", "ripgrep", "rsync", "vim"]:
+        for cmd in ["age", "fzf", "just", "ripgrep", "rsync", "vim"]:
             _apt_install(cmd)
         self._install_fd()
         for cmd, owner, repo, filename in [
@@ -442,9 +477,9 @@ class _Settings(Operator):
             ("yq", "mikefarah", "yq", "yq_linux_amd64"),
         ]:
             self._github_install(cmd, owner, repo, filename, user=True)
-        self._install_bump_my_version(user=True)
         self._install_direnv(user=True)
         self._install_uv(user=True)
+        self._install_bump_my_version(user=True)  # after uv
 
     def _install_fd(self) -> None:
         if self._which("fd", user=True):
@@ -468,8 +503,8 @@ class _Settings(Operator):
             _LOGGER.info("'direnv' is already installed for %r", desc)
         else:
             _LOGGER.info("Installing 'direnv' for %r...", desc)
-            _ = self._run(
-                "curl -sfL https://direnv.net/install.sh | bash",
+            _ = self._curl(
+                "-sfL https://direnv.net/install.sh | bash",
                 user=user,
                 env={"bin_path": str(self.path_local_bin)},
             )
@@ -483,8 +518,8 @@ class _Settings(Operator):
             _LOGGER.info("'uv' is already installed for %r", desc)
             return
         _LOGGER.info("Installing 'uv' for %r...", desc)
-        _ = self._run(
-            "curl -LsSf https://astral.sh/uv/install.sh | sh -s",
+        _ = self._curl(
+            "-LsSf https://astral.sh/uv/install.sh | sh -s",
             user=user,
             env={"UV_NO_MODIFY_PATH": "1"},
         )
@@ -529,6 +564,11 @@ def _apt_install(cmd: str, /) -> None:
         return
     _LOGGER.info("Installing %r...", cmd)
     _ = _run(f"apt install -y {cmd}")
+
+
+def _apt_update() -> None:
+    _LOGGER.info("Updating 'apt'...")
+    _ = _run("apt update -y")
 
 
 def _run(
