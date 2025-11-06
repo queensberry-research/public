@@ -54,6 +54,7 @@ class _Settings:
     url: str = default_url
     bashrc: str = default_bashrc
     starship_toml: str = default_starship_toml
+    runtime: bool = False
     docker: bool = False
 
     @classmethod
@@ -90,6 +91,9 @@ class _Settings:
             type=str,
             help="'starship.toml' file or URL",
         )
+        _ = parser.add_argument(
+            "--runtime", action="store_true", help="Install runtime tools"
+        )
         _ = parser.add_argument("--docker", action="store_true", help="Install Docker")
         return _Settings(**vars(parser.parse_args()))
 
@@ -110,10 +114,12 @@ class _Settings:
     def install(self) -> None:
         self._set_root_password()
         self._create_user()
-        _install_curl()
+        _install_apt()
         for non_root in [False, True]:
             self._setup_bashrc(non_root=non_root)
+            self._setup_known_hosts(non_root=non_root)
             self._install_starship(non_root=non_root)
+        self._install_runtime_tools()
 
     def _set_root_password(self) -> None:
         if (password := self.root_password) is None:
@@ -143,6 +149,18 @@ class _Settings:
     def _setup_bashrc(self, *, non_root: bool = False) -> None:
         self._copy_file_or_url(self.bashrc_use, "~/.bashrc", non_root=non_root)
 
+    def _setup_known_hosts(self, *, non_root: bool = False) -> None:
+        self._mkdir("~/.ssh", non_root=non_root)
+        known_hosts = "~/.ssh/known_hosts"
+        desc = self._desc(non_root=non_root)
+        if self._is_file(known_hosts, non_root=non_root) and self._grep(
+            "github.com", known_hosts, non_root=non_root
+        ):
+            _LOGGER.info("GitHub is already a known host for %r", desc)
+            return
+        _LOGGER.info("Adding GitHub to known hosts for %r...", desc)
+        _ = self._run("ssh-keyscan github.com >> ~/.ssh/known_hosts", non_root=non_root)
+
     def _install_starship(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
         if self._which("starship", non_root=non_root):
@@ -157,6 +175,12 @@ class _Settings:
         self._copy_file_or_url(
             self.starship_toml_use, "~/.config/starship.toml", non_root=non_root
         )
+
+    def _install_runtime_tools(self) -> None:
+        if not self.runtime:
+            _LOGGER.info("Skipping runtime tools...")
+            return
+        _LOGGER.info("Installing runtime tools...")
 
     # utilities
 
@@ -189,12 +213,18 @@ class _Settings:
     def _expand(self, path: _PathLike, /, *, non_root: bool = False) -> Path:
         return Path(self._run(f"echo {path}", non_root=non_root))
 
+    def _grep(self, text: str, path: _PathLike, /, *, non_root: bool = False) -> bool:
+        return self._predicate(f"grep -q {text} {path}", non_root=non_root)
+
     def _is_file(self, path: _PathLike, /, *, non_root: bool = False) -> bool:
-        result = self._run(f"if [ -f {path} ]; then echo 1; fi", non_root=non_root)
-        return result == "1"
+        return self._predicate(f"[ -f {path} ]", non_root=non_root)
 
     def _mkdir(self, path: _PathLike, /, *, non_root: bool = False) -> None:
         _ = self._run(f"mkdir -p {path}", non_root=non_root)
+
+    def _predicate(self, predicate: str, /, *, non_root: bool = False) -> bool:
+        result = self._run(f"if {predicate}; then echo 1; fi", non_root=non_root)
+        return result == "1"
 
     def _read_text(self, path: _PathLike, /, *, non_root: bool = False) -> str:
         return self._run(f"cat {path}", non_root=non_root)
@@ -221,13 +251,11 @@ class _Settings:
             cmd_use = f"su - {self.non_root_username} -c '{cmd}'" if non_root else cmd
             result = check_output(
                 cmd_use,
-                # executable=which("bash"),
                 shell=True,
                 cwd=cwd_use,
                 env=None if env is None else {**environ, **env},
                 input=input_,
                 text=True,
-                # user=self.non_root_username if non_root else None,
             ).rstrip("\n")
             results.append(result)
         return "\n".join(results)
@@ -249,7 +277,7 @@ class _Settings:
 # main
 
 
-def _install_curl() -> None:
+def _install_apt() -> None:
     if which("curl") is not None:
         _LOGGER.info("'curl' already installed...")
         return
