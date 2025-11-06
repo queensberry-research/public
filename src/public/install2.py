@@ -7,12 +7,14 @@ from os import environ
 from pathlib import Path
 from shutil import which
 from socket import gethostname
+from string import Template
 from subprocess import CalledProcessError, check_output
 from typing import TYPE_CHECKING, ClassVar, assert_never
+from urllib.request import urlopen
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-    from os import PathLike
+
 
 basicConfig(
     format=f"[{{asctime}} ❯ {gethostname()} ❯ {{module}}:{{funcName}}:{{lineno}}] {{message}}",  # noqa: RUF001
@@ -23,158 +25,227 @@ basicConfig(
 _LOGGER = getLogger(__name__)
 
 
+# types
+
+
+type _PathLike = Path | str
+
+
 # classes
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
-class _PublicInstallerSettings:
+class _Settings:
     # classvars
     default_non_root_username: ClassVar[str] = "nonroot"
+    default_path_bin: ClassVar[Path] = Path("~/.local/bin")
+    default_url: ClassVar[str] = (
+        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
+    )
+    default_bashrc: ClassVar[str] = "$url/configs/.bashrc"
+    default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
 
     # fields
 
     root_password: str | None = None
     non_root_username: str = default_non_root_username
     non_root_password: str | None = None
+    path_local_bin: Path = default_path_bin
+    url: str = default_url
+    bashrc: str = default_bashrc
+    starship_toml: str = default_starship_toml
     docker: bool = False
-    skip_dev: bool = False
-
-    @property
-    def home(self) -> Path:
-        return Path(f"/home/{self.non_root_username}")
 
     @classmethod
-    def parse(cls) -> _PublicInstallerSettings:
+    def parse(cls) -> _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        _ = parser.add_argument("--root-password", type=str, help="'root' password")
         _ = parser.add_argument(
-            "-rp", "--root-password", type=str, help="'root' password"
-        )
-        _ = parser.add_argument(
-            "-u",
             "--non-root-username",
             default=cls.default_non_root_username,
             type=str,
             help="Non-root username",
         )
         _ = parser.add_argument(
-            "-p", "--non-root-password", type=str, help="Non-root password"
+            "--non-root-password", type=str, help="Non-root password"
         )
         _ = parser.add_argument(
-            "-d", "--docker", action="store_true", help="Install Docker"
+            "--path-local-bin",
+            default=cls.default_path_bin,
+            type=Path,
+            help="Path to the local binaries",
         )
         _ = parser.add_argument(
-            "-s", "--skip-dev", action="store_true", help="Skip dev dependencies"
+            "--url", default=cls.default_url, type=str, help="Config repo URL"
         )
-        return _PublicInstallerSettings(**vars(parser.parse_args()))
+        _ = parser.add_argument(
+            "--bashrc",
+            default=cls.default_bashrc,
+            type=str,
+            help="'.bashrc' file or URL",
+        )
+        _ = parser.add_argument(
+            "--starship-toml",
+            default=cls.default_starship_toml,
+            type=str,
+            help="'starship.toml' file or URL",
+        )
+        _ = parser.add_argument("--docker", action="store_true", help="Install Docker")
+        return _Settings(**vars(parser.parse_args()))
+
+    @property
+    def non_root_home(self) -> Path:
+        return Path(f"/home/{self.non_root_username}")
+
+    @property
+    def bashrc_use(self) -> str:
+        return Template(self.bashrc).substitute(url=self.url)
+
+    @property
+    def starship_toml_use(self) -> str:
+        return Template(self.starship_toml).substitute(url=self.url)
+
+    # installer
+
+    def install(self) -> None:
+        self._set_root_password()
+        self._create_user()
+        _install_curl()
+        for user in [None, settings.non_root_username]:
+            _setup_bashrc(user=user, bashrc=settings.bashrc_use)
+            _install_starship(
+                user=user,
+                path_bin=settings.path_local_bin,
+                starship_toml=settings.starship_toml_use,
+            )
+
+    def _set_root_password(self) -> None:
+        if (password := self.root_password) is None:
+            _LOGGER.info("Skipping the setting of 'root' password...")
+            return
+        _LOGGER.info("Setting 'root' password...")
+        _ = self._run(f"echo 'root:{password}' | chpasswd")
+
+    def _create_user(self) -> None:
+        username = self.non_root_username
+        try:
+            _ = self._run(f"id -u {username}")
+        except CalledProcessError:
+            _LOGGER.info("Creating %r...", username)
+            _ = self._run(
+                f"useradd --create-home --shell /bin/bash {username}",
+                f"usermod -aG sudo {username}",
+            )
+        else:
+            _LOGGER.info("%r already exists", username)
+        if (password := self.non_root_password) is None:
+            _LOGGER.info("Skipping the setting of %r password...", username)
+            return
+        _LOGGER.info("Setting %r password...", username)
+        _ = self._run(f"echo '{username}:{password}' | chpasswd")
+
+    def _setup_bashrc(*, non_root: bool = False) -> None:
+        _LOGGER.info("Setting up '.bashrc' for %r", self._desc(non_root=non_root))
+        self._copy_file_or_url(self.bashrc, "~/.bashrc", non_root=non_root)
+
+    def _install_starship(self, *, non_root: bool = False) -> None:
+        user_for = "root" if user is None else user
+        if _which("starship", user=user):
+            _LOGGER.info("'starship' already installed for %r...", user_for)
+        else:
+            _LOGGER.info("Installing 'starship' for %r...", user_for)
+            _ = _run_commands(
+                f"mkdir -p {path_bin}",
+                f"curl -sS https://starship.rs/install.sh | sh -s -- -b {path_bin} -y",
+                user=user,
+            )
+
+    # utilities
+
+    def _copy_file_or_url(
+        self, from_: _PathLike, to: _PathLike, /, *, non_root: bool = False
+    ) -> None:
+        match self:
+            case Path():
+                text_from = self._read_text(non_root=non_root)
+            case str():
+                if _is_file(self, user=user):
+                    text_from = _read_text(self, user=user)
+                else:
+                    with urlopen(self) as response:
+                        text_from: str = response.read().decode("utf-8")
+            case never:
+                assert_never(never)
+        if _is_file(to, user=user) and (_read_text(to, user=user) == text_from):
+            _LOGGER.info("%r exists and is already copied", str(to))
+            return
+        _LOGGER.info("Writing %r...", str(to))
+        _write_text(text_from, to)
+
+    def _desc(self, *, non_root: bool = False) -> str:
+        return self.non_root_username if non_root else "root"
+
+    def _is_file(self, path: _PathLike, /, *, non_root: bool = False) -> bool:
+        result = self._run(f"if [ -f {path} ]; then echo 1; fi", non_root=non_root)
+        return result == "1"
+
+    def _read_text(self, path: _PathLike, /, *, non_root: bool = False) -> str:
+        return self._run(f"cat {path}", non_root=non_root)
+
+    def _run(
+        self,
+        *cmds: str,
+        non_root: bool = False,
+        cwd: _PathLike | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> str:
+        results: list[str] = []
+        match cwd, non_root:
+            case Path() | str() as cwd_use, _:
+                ...
+            case None, False:
+                cwd_use = None
+            case None, True:
+                cwd_use = self.non_root_home
+            case never:
+                assert_never(never)
+        for cmd in cmds:
+            result = check_output(
+                cmd,
+                executable=which("bash"),
+                shell=True,
+                cwd=cwd_use,
+                env=None if env is None else {**environ, **env},
+                text=True,
+                user=self.non_root_username if non_root else None,
+            ).rstrip("\n")
+            results.append(result)
+        return "\n".join(results)
+
+    def _which(self, cmd: str, /, *, non_root: bool = False) -> bool:
+        try:
+            result = self._run(f"which {cmd}", non_root=non_root)
+        except CalledProcessError:
+            return False
+        return result != ""
+
+    def _write_text(
+        self, text: str, path: _PathLike, /, *, non_root: bool = False
+    ) -> None:
+        _ = self._run(f"echo {text} > {path}", non_root=non_root)
 
 
 # main
 
 
-def _install() -> None:
-    settings = _PublicInstallerSettings.parse()
-    _set_root_password(password=settings.root_password)
-    _create_user(settings.non_root_username, password=settings.non_root_password)
-
-
-def _set_root_password(*, password: str | None = None) -> None:
-    if password is None:
-        _LOGGER.info("Skipping the setting of 'root' password...")
+def _install_curl() -> None:
+    if which("curl") is not None:
+        _LOGGER.info("'curl' already installed...")
         return
-    _LOGGER.info("Setting 'root' password...")
-    _ = _run_command(f"echo 'root:{password}' | chpasswd", skip_log=True)
-
-
-def _create_user(username: str, /, *, password: str | None = None) -> None:
-    try:
-        _ = _run_command(f"id -u {username}", skip_log=True)
-    except CalledProcessError:
-        _LOGGER.info("Creating %r...", username)
-        _ = _run_commands(
-            f"useradd --create-home --shell /bin/bash {username}",
-            f"usermod -aG sudo {username}",
-        )
-    else:
-        _LOGGER.info("%r already exists", username)
-    if password is None:
-        _LOGGER.info("Skipping the setting of %r password...", username)
-        return
-    _LOGGER.info("Setting %r password...", username)
-    _ = _run_command(f"echo '{username}:{password}' | chpasswd", skip_log=True)
-
-
-# utilities
-
-
-def _run_commands(
-    *cmds: str,
-    bashrc: bool = False,
-    direnv: bool = False,
-    cwd: PathLike | None = None,
-    env: Mapping[str, str] | None = None,
-    user: str | None = None,
-    skip_log: bool = False,
-) -> list[str]:
-    return [
-        _run_command(
-            cmd,
-            bashrc=bashrc,
-            direnv=direnv,
-            env=env,
-            cwd=cwd,
-            user=user,
-            skip_log=skip_log,
-        )
-        for cmd in cmds
-    ]
-
-
-def _run_command(
-    cmd: str,
-    /,
-    *,
-    bashrc: bool = False,
-    direnv: bool = False,
-    cwd: PathLike | None = None,
-    env: Mapping[str, str] | None = None,
-    user: str | None = None,
-    skip_log: bool = False,
-) -> str:
-    desc = f"Running {cmd!r}"
-    source_bashrc = "if [ -f ~/.bashrc ]; then source ~/.bashrc; fi"
-    match bashrc, direnv:
-        case False, False:
-            ...
-        case True, False:
-            desc = f"{desc} [bashrc]"
-            cmd = f"{source_bashrc}; {cmd}"
-        case _, True:
-            desc = f"{desc} [direnv]"
-            eval_direnv_export = 'if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
-            cmd = f"{source_bashrc}; {eval_direnv_export}; {cmd}"
-        case never:
-            assert_never(never)
-    if cwd is not None:
-        desc = f"{desc} [cwd={cwd}]"
-    if env is None:
-        env_use = None
-    else:
-        env_use = {**environ, **env}
-        desc = f"{desc} [env={env}]"
-    if user is not None:
-        desc = f"{desc} [user={user}]"
-    if not skip_log:
-        _LOGGER.info("%s...", desc)
-    return check_output(
-        cmd,
-        executable=which("bash"),
-        shell=True,
-        cwd=cwd,
-        env=env_use,
-        text=True,
-        user=user,
-    ).rstrip("\n")
+    _LOGGER.info("Installing 'curl'...")
+    _ = check_output("apt install -y curl", shell=True)
 
 
 if __name__ == "__main__":
-    _install()
+    settings = _Settings.parse()
+    settings.install()
