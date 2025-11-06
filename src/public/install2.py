@@ -285,6 +285,7 @@ class _Settings:
             ("yq", "mikefarah", "yq", "yq_linux_amd64"),
         ]:
             self._github_install(cmd, owner, repo, filename, non_root=True)
+        self._install_bump_my_version(non_root=True)
         self._install_direnv(non_root=True)
         self._install_uv(non_root=True)
 
@@ -295,6 +296,14 @@ class _Settings:
             _LOGGER.info("Installing 'fd' for %r...", self.non_root_username)
             _apt_install("fd-find")
         self._symlink("/bin/fdfind", "/bin/fd")
+
+    def _install_bump_my_version(self, *, non_root: bool = False) -> None:
+        desc = self._desc(non_root=non_root)
+        if self._which("bump-my-version", non_root=non_root):
+            _LOGGER.info("'bump-my-version' is already installed for %r", desc)
+            return
+        _LOGGER.info("Installing 'bump-my-version' for %r...", desc)
+        _ = self._run("uv tool install bump-my-version", non_root=non_root)
 
     def _install_direnv(self, *, non_root: bool = False) -> None:
         desc = self._desc(non_root=non_root)
