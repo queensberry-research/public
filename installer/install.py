@@ -66,7 +66,7 @@ class Operator:
     default_username: ClassVar[str] = "nonroot"
 
     # fields
-    public_version: str = "0.5.134"
+    public_version: str = "0.5.135"
     mount_source: str = default_mount_source
     mount_target: Path = default_mount_target
     mount_type: str = default_mount_type
