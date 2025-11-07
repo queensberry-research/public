@@ -349,7 +349,8 @@ class _Settings(Operator):
     default_direnv_toml: ClassVar[str] = "$url/configs/direnv.toml"
     default_git_config: ClassVar[str] = "$url/configs/git-config"
     default_resolv_conf: ClassVar[str] = "$url/configs/resolv.conf"
-    default_sshd_config: ClassVar[str] = "$url/configs/sshd-config"
+    default_ssh_config: ClassVar[str] = "$url/configs/ssh_config"
+    default_sshd_config: ClassVar[str] = "$url/configs/sshd_config"
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
     default_storage_cfg: ClassVar[str] = "$url/ssh/storage.cfg"
     default_subnet_sh: ClassVar[str] = "$url/ssh/subnet.sh"
@@ -366,6 +367,7 @@ class _Settings(Operator):
     direnv_toml: str = default_direnv_toml
     git_config: str = default_git_config
     resolv_conf: str = default_resolv_conf
+    ssh_config: str = default_ssh_config
     sshd_config: str = default_sshd_config
     starship_toml: str = default_starship_toml
     storage_cfg: str = default_storage_cfg
@@ -435,6 +437,12 @@ class _Settings(Operator):
             help="'resolv.conf' file or URL",
         )
         _ = parser.add_argument(
+            "--ssh-config",
+            default=cls.default_ssh_config,
+            type=str,
+            help="'ssh_config' file or URL",
+        )
+        _ = parser.add_argument(
             "--sshd-config",
             default=cls.default_sshd_config,
             type=str,
@@ -473,6 +481,7 @@ class _Settings(Operator):
         self.direnv_toml = _substitute_str(self.direnv_toml, url=self.url)
         self.git_config = _substitute_str(self.git_config, url=self.url)
         self.resolv_conf = _substitute_str(self.resolv_conf, url=self.url)
+        self.ssh_config = _substitute_str(self.ssh_config, url=self.url)
         self.sshd_config = _substitute_str(self.sshd_config, url=self.url)
         self.starship_toml = _substitute_str(self.starship_toml, url=self.url)
         self.storage_cfg = _substitute_str(self.storage_cfg, url=self.url)
@@ -489,9 +498,10 @@ class _Settings(Operator):
         self._install_sudo()
         for user in [False, True]:
             self._setup_authorized_keys(user=user)
-            self._setup_known_hosts(user=user)
             self._setup_bashrc(user=user)
             self._setup_git_config(user=user)
+            self._setup_known_hosts(user=user)
+            self._setup_ssh_config(user=user)
             self._install_neovim(user=user)
             self._install_starship(user=user)
         self._install_tools()
@@ -558,6 +568,11 @@ class _Settings(Operator):
 
     def _setup_lxc(self) -> None:
         _LOGGER.info("Setting up LXC...")
+        assert 0, [self.age_key, self.deploy_key]
+        for user in [False, True]:
+            self._copy_file_or_url(
+                self.age_key, "~/.config/sops/age/keys.txt", user=user
+            )
 
     def _setup_vm(self) -> None:
         _apt_install("nfs-common")
@@ -607,6 +622,12 @@ class _Settings(Operator):
             self.authorized_keys, "~/.ssh/authorized_keys", user=user
         )
 
+    def _setup_bashrc(self, *, user: bool = False) -> None:
+        self._copy_file_or_url(self.bashrc, "~/.bashrc", user=user)
+
+    def _setup_git_config(self, *, user: bool = False) -> None:
+        self._copy_file_or_url(self.git_config, "~/.config/git/config", user=user)
+
     def _setup_known_hosts(self, *, user: bool = False) -> None:
         if self._grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
             return
@@ -614,11 +635,8 @@ class _Settings(Operator):
         self._mkdir("~/.ssh", user=user)
         _ = self._run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
 
-    def _setup_bashrc(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.bashrc, "~/.bashrc", user=user)
-
-    def _setup_git_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.git_config, "~/.config/git/config", user=user)
+    def _setup_ssh_config(self, *, user: bool = False) -> None:
+        self._copy_file_or_url(self.sshd_config, "~/.ssh/config", user=user)
 
     def _install_neovim(self, *, user: bool = False) -> None:
         desc = self._desc(user=user)
