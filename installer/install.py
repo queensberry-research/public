@@ -16,6 +16,7 @@ from typing import (
     Any,
     ClassVar,
     Literal,
+    Self,
     assert_never,
     get_args,
     override,
@@ -38,7 +39,7 @@ _LOGGER = getLogger(__name__)
 # types
 
 
-type _Machine = Literal["proxmox", "vm"]
+type _Machine = Literal["proxmox", "lxc", "vm"]
 type _PathLike = Path | str
 type _Subnet = Literal["qrt", "main", "test"]
 _MACHINES: list[_Machine] = list(get_args(_Machine.__value__))
@@ -56,6 +57,8 @@ class Operator:
     default_mount_options: ClassVar[str] = "vers=4"
     default_mount_backup: ClassVar[bool] = False
     default_mount_check: ClassVar[bool] = False
+    default_path_qrt: ClassVar[Path] = Path("$mount/qrt")
+    default_path_secrets: ClassVar[Path] = Path("$qrt/secrets")
     default_path_local_bin: ClassVar[Path] = Path("~/.local/bin")
     default_username: ClassVar[str] = "nonroot"
 
@@ -67,13 +70,21 @@ class Operator:
     mount_options: str = default_mount_options
     mount_backup: bool = default_mount_backup
     mount_check: bool = default_mount_check
+    path_qrt: Path = default_path_qrt
+    path_secrets: Path = default_path_secrets
     path_local_bin: Path = default_path_local_bin
     username: str = default_username
 
-    # methods
+    # class methods
 
     @classmethod
-    def _parse_for_operator(cls, parser: ArgumentParser, /) -> None:
+    def parse(cls) -> Self:
+        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        cls._add_arguments(parser)
+        return cls(**vars(parser.parse_args()))
+
+    @classmethod
+    def _add_arguments(cls, parser: ArgumentParser, /) -> None:
         _ = parser.add_argument(
             "--mount-source",
             default=cls.default_mount_source,
@@ -102,6 +113,18 @@ class Operator:
             "--mount-check", action="store_true", help="Mount check"
         )
         _ = parser.add_argument(
+            "--path-qrt",
+            default=cls.default_path_qrt,
+            type=Path,
+            help="Path to the QRT dataset",
+        )
+        _ = parser.add_argument(
+            "--path-secrets",
+            default=cls.default_path_secrets,
+            type=Path,
+            help="Path to the secrets",
+        )
+        _ = parser.add_argument(
             "--path-local-bin",
             default=cls.default_path_local_bin,
             type=Path,
@@ -113,6 +136,12 @@ class Operator:
             type=str,
             help="Non-root username",
         )
+
+    # instance methods
+
+    def __post_init__(self) -> None:
+        self.path_qrt = _substitute_path(self.path_qrt, mount=self.mount_target)
+        self.path_secrets = _substitute_path(self.path_secrets, qrt=self.path_qrt)
 
     def _copy_file_or_url(
         self,
@@ -314,8 +343,10 @@ class _Settings(Operator):
     default_url: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
     )
+    default_age_key: ClassVar[Path] = Path("$secrets/age/secret-key.txt")
     default_authorized_keys: ClassVar[str] = "$url/ssh/keys.txt"
     default_bashrc: ClassVar[str] = "$url/configs/.bashrc"
+    default_deploy_key: ClassVar[Path] = Path("$secrets/deploy-keys/infra")
     default_direnv_toml: ClassVar[str] = "$url/configs/direnv.toml"
     default_git_config: ClassVar[str] = "$url/configs/git-config"
     default_resolv_conf: ClassVar[str] = "$url/configs/resolv.conf"
@@ -329,8 +360,10 @@ class _Settings(Operator):
     root_password: str | None = None
     password: str | None = None
     url: str = default_url
+    age_key: Path = default_age_key
     authorized_keys: str = default_authorized_keys
     bashrc: str = default_bashrc
+    deploy_key: Path = default_deploy_key
     direnv_toml: str = default_direnv_toml
     git_config: str = default_git_config
     resolv_conf: str = default_resolv_conf
@@ -341,10 +374,12 @@ class _Settings(Operator):
     tools: bool = False
     docker: bool = False
 
+    # class methods
+
     @classmethod
-    def parse(cls) -> _Settings:
-        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-        super()._parse_for_operator(parser)
+    @override
+    def _add_arguments(cls, parser: ArgumentParser, /) -> None:
+        super()._add_arguments(parser)
         _ = parser.add_argument(
             "--machine",
             default=None,
@@ -362,6 +397,9 @@ class _Settings(Operator):
             "--url", default=cls.default_url, type=str, help="Config repo URL"
         )
         _ = parser.add_argument(
+            "--age-key", default=cls.default_age_key, type=Path, help="'age' key"
+        )
+        _ = parser.add_argument(
             "--authorized-keys",
             default=cls.default_authorized_keys,
             type=str,
@@ -372,6 +410,12 @@ class _Settings(Operator):
             default=cls.default_bashrc,
             type=str,
             help="'.bashrc' file or URL",
+        )
+        _ = parser.add_argument(
+            "--deploy-key",
+            default=cls.default_deploy_key,
+            type=Path,
+            help="'infra' repo deploy key",
         )
         _ = parser.add_argument(
             "--direnv-toml",
@@ -417,9 +461,14 @@ class _Settings(Operator):
         )
         _ = parser.add_argument("--tools", action="store_true", help="Install tools")
         _ = parser.add_argument("--docker", action="store_true", help="Install Docker")
-        return _Settings(**vars(parser.parse_args()))
 
-    # installer
+    # instance methods
+
+    @override
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self.age_key = _substitute_path(self.age_key, secrets=self.path_secrets)
+        self.deploy_key = _substitute_path(self.deploy_key, secrets=self.path_secrets)
 
     def install(self) -> None:
         _LOGGER.info("Running version %s...", self.public_version)
@@ -444,6 +493,8 @@ class _Settings(Operator):
         match self.machine:
             case "proxmox":
                 self._setup_proxmox()
+            case "lxc":
+                self._setup_lxc()
             case "vm":
                 self._setup_vm()
             case None:
@@ -496,6 +547,9 @@ class _Settings(Operator):
             return subnet
         msg = f"Invalid subnet; got {subnet!r}"
         raise ValueError(msg)
+
+    def _setup_lxc(self) -> None:
+        _LOGGER.info("Setting up LXC...")
 
     def _setup_vm(self) -> None:
         _apt_install("nfs-common")
@@ -738,6 +792,10 @@ def _run(
         ).rstrip("\n")
         results.append(result)
     return "\n".join(results)
+
+
+def _substitute_path(path: _PathLike, /, **kwargs: Any) -> Path:
+    return Path(Template(str(path)).substitute(**kwargs))
 
 
 if __name__ == "__main__":
