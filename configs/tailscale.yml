@@ -9,7 +9,6 @@ services:
       - TS_USERSPACE=false
     hostname: ${HOSTNAME:?}
     image: tailscale/tailscale:latest
-    network_mode: host
     restart: unless-stopped
     secrets:
       - auth_key.txt
