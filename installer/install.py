@@ -189,6 +189,7 @@ class Operator:
         cmd: str,
         /,
         *,
+        jq: bool = False,
         user: bool = False,
         cwd: _PathLike | None = None,
         env: Mapping[str, str] | None = None,
@@ -196,6 +197,8 @@ class Operator:
     ) -> str:
         if not self._which("curl"):
             _apt_install("curl")
+        if jq and not self._which("jq"):
+            _apt_install("jq")
         return self._run(f"curl {cmd}", user=user, cwd=cwd, env=env, input_=input_)
 
     def _desc(self, *, user: bool = False) -> str:
@@ -207,6 +210,20 @@ class Operator:
             cmd = f"sudo {cmd}"
         _ = self._run(cmd, user=user)
 
+    def _git(
+        self,
+        cmd: str,
+        /,
+        *,
+        user: bool = False,
+        cwd: _PathLike | None = None,
+        env: Mapping[str, str] | None = None,
+        input_: str | None = None,
+    ) -> None:
+        if not self._which("git"):
+            _apt_install("git")
+        _ = self._run(f"git {cmd}", user=user, cwd=cwd, env=env, input_=input_)
+
     @contextmanager
     def _github_binary(
         self, owner: str, repo: str, filename: str, /, *, user: bool = False
@@ -214,6 +231,7 @@ class Operator:
         releases = f"{owner}/{repo}/releases"
         tag = self._curl(
             f"-s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
+            jq=True,
             user=user,
         )
         filename_use = _substitute_str(filename, tag=tag, tag_without=tag.lstrip("v"))
@@ -529,8 +547,6 @@ class _Settings(Operator):
         self._setup_machine()
         self._set_root_password()
         self._create_user()
-        for cmd in ["git", "jq"]:
-            _apt_install(cmd)
         self._setup_sshd_config()
         self._install_sudo()
         for user in [False, True]:
@@ -542,6 +558,7 @@ class _Settings(Operator):
             self._setup_ssh_github_infra_mirror(user=user)
             self._install_neovim(user=user)
             self._install_starship(user=user)
+        self._clone_infra(user=True)
         self._install_tools()
         self._install_docker()
 
@@ -609,7 +626,7 @@ class _Settings(Operator):
         for (from_, to), user in product(
             [
                 (self.age_key, "~/.config/sops/age/keys.txt"),
-                (self.deploy_key, "~/.ssh/githb-infra-mirror"),
+                (self.deploy_key, "~/.ssh/github-infra-mirror"),
             ],
             [False, True],
         ):
@@ -710,8 +727,8 @@ class _Settings(Operator):
         if not self._is_dir(config_nvim := "~/.config/nvim", user=user):
             _LOGGER.info("Installing 'lazyvim' for %r...", desc)
             url = "https://github.com/LazyVim/starter"
+            _ = self._git(f"clone {url} {config_nvim}", user=user)
             _ = self._run(
-                f"git clone {url} {config_nvim}",
                 "nvim --headless '+Lazy! sync' +qa",
                 env={"PATH": f"{self.path_local_bin}:{environ['PATH']}"},
                 user=user,
@@ -726,6 +743,10 @@ class _Settings(Operator):
                 user=user,
             )
         self._copy_file_or_url(self.starship_toml, "~/.config/starship.toml", user=user)
+
+    def _clone_infra(self, *, user: bool = False) -> None:
+        url = "ssh://git@github-infra-mirror/queensberry-research/infra-mirror"
+        self._git(f"clone --recurse-submodules {url} ~", user=user)
 
     def _install_tools(self) -> None:
         if not self.tools:
