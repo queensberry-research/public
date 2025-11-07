@@ -318,7 +318,7 @@ class _Settings(Operator):
     default_direnv_toml: ClassVar[str] = "$url/configs/direnv.toml"
     default_git_config: ClassVar[str] = "$url/configs/git-config"
     default_resolv_conf: ClassVar[str] = "$url/configs/resolv.conf"
-    default_sshd_config: ClassVar[str] = "$url/configs/sshd_config"
+    default_sshd_config: ClassVar[str] = "$url/configs/sshd-config"
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
     default_storage_cfg: ClassVar[str] = "$url/ssh/storage.cfg"
     default_subnet_sh: ClassVar[str] = "$url/ssh/subnet.sh"

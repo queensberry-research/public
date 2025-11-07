@@ -1,4 +1,0 @@
-Host gitlab
-    HostName gitlab.${subnet}
-    Port 2424
-    User git
