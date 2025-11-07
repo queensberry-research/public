@@ -745,8 +745,11 @@ class _Settings(Operator):
         self._copy_file_or_url(self.starship_toml, "~/.config/starship.toml", user=user)
 
     def _clone_infra(self, *, user: bool = False) -> None:
-        url = "ssh://git@github-infra-mirror/queensberry-research/infra-mirror"
-        self._git(f"clone --recurse-submodules {url} ~", user=user)
+        path = "~/infra"
+        if not self._is_dir(path, user=user):
+            _LOGGER.info("Cloning 'infra' for %r...", self._desc(user=user))
+            url = "ssh://git@github-infra-mirror/queensberry-research/infra-mirror"
+            self._git(f"clone --recurse-submodules {url} {path}", user=user)
 
     def _install_tools(self) -> None:
         if not self.tools:
