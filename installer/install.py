@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import contextmanager
 from dataclasses import dataclass
 from ipaddress import IPv4Address
+from itertools import product
 from logging import basicConfig, getLogger
 from os import environ
 from pathlib import Path
@@ -144,6 +146,9 @@ class Operator:
         self.path_qrt = _substitute_path(self.path_qrt, mount=self.mount_target)
         self.path_secrets = _substitute_path(self.path_secrets, qrt=self.path_qrt)
 
+    def _chmod(self, perms: str, path: _PathLike, /, *, user: bool = False) -> None:
+        _ = self._run(f"chmod {perms} {path}", user=user)
+
     def _copy_file_or_url(
         self,
         from_: _PathLike,
@@ -152,6 +157,7 @@ class Operator:
         *,
         user: bool = False,
         substitute: Mapping[str, Any] | None = None,
+        perms: str | None = None,
     ) -> None:
         match from_:
             case Path():
@@ -166,12 +172,14 @@ class Operator:
                 assert_never(never)
         if substitute is not None:
             text_from = _substitute_str(text_from, **substitute)
-        if self._is_file(to, user=user) and (
-            self._read_text(to, user=user) == text_from
+        if (
+            self._is_file(to, user=user)
+            and (self._read_text(to, user=user) == text_from)
+            and ((perms is None) or (self._perms(to, user=user) == perms))
         ):
             return
         _LOGGER.info("Writing %r for %r...", str(to), self._desc(user=user))
-        self._write_text(text_from, to, user=user)
+        self._write_text(text_from, to, user=user, perms=perms)
 
     def _cp(self, from_: _PathLike, to: _PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"cp {from_} {to}", user=user)
@@ -257,6 +265,12 @@ class Operator:
     def _mv(self, from_: _PathLike, to: _PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"mv {from_} {to}", user=user)
 
+    def _perms(self, path: _PathLike, /, *, user: bool = False) -> str:
+        result = self._run(f"ls -ld {path}", user=user)
+        first = result.split()[0][1:10]
+        u, g, o = [first[i : i + 3].replace("-", "") for i in [0, 3, 6]]
+        return f"u={u},g={g},o={o}"
+
     def _predicate(self, predicate: str, /, *, user: bool = False) -> bool:
         result = self._run(f"if {predicate}; then echo 1; fi", user=user)
         return result == "1"
@@ -326,13 +340,23 @@ class Operator:
             return False
         return result != ""
 
-    def _write_text(self, text: str, path: _PathLike, /, *, user: bool = False) -> None:
+    def _write_text(
+        self,
+        text: str,
+        path: _PathLike,
+        /,
+        *,
+        user: bool = False,
+        perms: str | None = None,
+    ) -> None:
         self._mkdir(Path(path).parent, user=user)
         _ = self._run(
             f"cat > {path} <<'WRITETEXTEOF'\n{text}\nWRITETEXTEOF",
             input_=text,
             user=user,
         )
+        if perms is not None:
+            self._chmod(perms, path, user=user)
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
@@ -349,8 +373,11 @@ class _Settings(Operator):
     default_direnv_toml: ClassVar[str] = "$url/configs/direnv.toml"
     default_git_config: ClassVar[str] = "$url/configs/git-config"
     default_resolv_conf: ClassVar[str] = "$url/configs/resolv.conf"
-    default_ssh_config: ClassVar[str] = "$url/configs/ssh_config"
-    default_sshd_config: ClassVar[str] = "$url/configs/sshd_config"
+    default_ssh_config: ClassVar[str] = "$url/configs/ssh-config"
+    default_ssh_github_infra_mirror: ClassVar[str] = (
+        "$url/configs/ssh-github-infra-mirror"
+    )
+    default_sshd_config: ClassVar[str] = "$url/configs/sshd-config"
     default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
     default_storage_cfg: ClassVar[str] = "$url/ssh/storage.cfg"
     default_subnet_sh: ClassVar[str] = "$url/ssh/subnet.sh"
@@ -368,6 +395,7 @@ class _Settings(Operator):
     git_config: str = default_git_config
     resolv_conf: str = default_resolv_conf
     ssh_config: str = default_ssh_config
+    ssh_github_infra_mirror: str = default_ssh_github_infra_mirror
     sshd_config: str = default_sshd_config
     starship_toml: str = default_starship_toml
     storage_cfg: str = default_storage_cfg
@@ -440,7 +468,13 @@ class _Settings(Operator):
             "--ssh-config",
             default=cls.default_ssh_config,
             type=str,
-            help="'ssh_config' file or URL",
+            help="'ssh/config' file or URL",
+        )
+        _ = parser.add_argument(
+            "--ssh-github-infra-mirror",
+            default=cls.default_ssh_github_infra_mirror,
+            type=str,
+            help="'ssh/github-infra-mirror' file or URL",
         )
         _ = parser.add_argument(
             "--sshd-config",
@@ -482,6 +516,9 @@ class _Settings(Operator):
         self.git_config = _substitute_str(self.git_config, url=self.url)
         self.resolv_conf = _substitute_str(self.resolv_conf, url=self.url)
         self.ssh_config = _substitute_str(self.ssh_config, url=self.url)
+        self.ssh_github_infra_mirror = _substitute_str(
+            self.ssh_github_infra_mirror, url=self.url
+        )
         self.sshd_config = _substitute_str(self.sshd_config, url=self.url)
         self.starship_toml = _substitute_str(self.starship_toml, url=self.url)
         self.storage_cfg = _substitute_str(self.storage_cfg, url=self.url)
@@ -502,6 +539,7 @@ class _Settings(Operator):
             self._setup_git_config(user=user)
             self._setup_known_hosts(user=user)
             self._setup_ssh_config(user=user)
+            self._setup_ssh_github_infra_mirror(user=user)
             self._install_neovim(user=user)
             self._install_starship(user=user)
         self._install_tools()
@@ -568,12 +606,14 @@ class _Settings(Operator):
 
     def _setup_lxc(self) -> None:
         _LOGGER.info("Setting up LXC...")
-        assert 0, [self.age_key, self.deploy_key]
-        self._copy_file_or_url(self.deploy_key, "~/")
-        for user in [False, True]:
-            self._copy_file_or_url(
-                self.age_key, "~/.config/sops/age/keys.txt", user=user
-            )
+        for (from_, to), user in product(
+            [
+                (self.age_key, "~/.config/sops/age/keys.txt"),
+                (self.deploy_key, "~/.ssh/githb-infra-mirror"),
+            ],
+            [False, True],
+        ):
+            self._copy_file_or_url(from_, to, user=user, perms="u=rw,g=,o=")
 
     def _setup_vm(self) -> None:
         _apt_install("nfs-common")
@@ -637,7 +677,14 @@ class _Settings(Operator):
         _ = self._run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
 
     def _setup_ssh_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.sshd_config, "~/.ssh/config", user=user)
+        self._copy_file_or_url(self.ssh_config, "~/.ssh/config", user=user)
+
+    def _setup_ssh_github_infra_mirror(self, *, user: bool = False) -> None:
+        self._copy_file_or_url(
+            self.ssh_github_infra_mirror,
+            "~/.ssh/config.d/github-infra-mirror",
+            user=user,
+        )
 
     def _install_neovim(self, *, user: bool = False) -> None:
         desc = self._desc(user=user)
