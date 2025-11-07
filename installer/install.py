@@ -422,7 +422,7 @@ class _Settings(Operator):
     # installer
 
     def install(self) -> None:
-        _LOGGER.info("Public version: %s", self.public_version)
+        _LOGGER.info("Running version %s...", self.public_version)
         self._setup_machine()
         self._set_root_password()
         self._create_user()
