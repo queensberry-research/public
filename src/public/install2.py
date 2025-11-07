@@ -38,10 +38,11 @@ _LOGGER = getLogger(__name__)
 # types
 
 
+type _Machine = Literal["proxmox", "vm"]
 type _PathLike = Path | str
 type _Subnet = Literal["qrt", "main", "test"]
-_SUBNETS: tuple[_Subnet, ...] = get_args(_Subnet.__value__)
-
+_MACHINES: list[_Machine] = list(get_args(_Machine.__value__))
+_SUBNETS: list[_Subnet] = list(get_args(_Subnet.__value__))
 
 # classes
 
@@ -269,7 +270,7 @@ class _Settings(Operator):
     default_subnet_sh: ClassVar[str] = "$url/ssh/subnet.sh"
 
     # fields
-    proxmox: bool = False
+    machine: _Machine | None = None
     root_password: str | None = None
     password: str | None = None
     url: str = default_url
@@ -288,15 +289,25 @@ class _Settings(Operator):
     @classmethod
     def parse(cls) -> _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-        _ = parser.add_argument("--proxmox", action="store_true", help="Setup Proxmox")
-        _ = parser.add_argument("--root-password", type=str, help="'root' password")
+        _ = parser.add_argument(
+            "--machine",
+            default=None,
+            type=str,
+            choices=_MACHINES,
+            help="Setup a specific type of machine",
+        )
+        _ = parser.add_argument(
+            "--root-password", default=None, type=str, help="'root' password"
+        )
         _ = parser.add_argument(
             "--username",
             default=cls.default_username,
             type=str,
             help="Non-root username",
         )
-        _ = parser.add_argument("--password", type=str, help="Non-root password")
+        _ = parser.add_argument(
+            "--password", default=None, type=str, help="Non-root password"
+        )
         _ = parser.add_argument(
             "--path-local-bin",
             default=cls.default_path_bin,
@@ -367,7 +378,7 @@ class _Settings(Operator):
     # installer
 
     def install(self) -> None:
-        self._setup_proxmox()
+        self._setup_machine()
         self._set_root_password()
         self._create_user()
         for cmd in ["git", "jq"]:
@@ -384,9 +395,18 @@ class _Settings(Operator):
         self._install_tools()
         self._install_docker()
 
+    def _setup_machine(self) -> None:
+        match self.machine:
+            case "proxmox":
+                self._setup_proxmox()
+            case "vm":
+                self._setup_vm()
+            case None:
+                ...
+            case never:
+                assert_never(never)
+
     def _setup_proxmox(self) -> None:
-        if not self.proxmox:
-            return
         if any(
             self._rm(f"/etc/apt/sources.list.d/{name}.sources")
             for name in ["ceph", "pve-enterprise"]
