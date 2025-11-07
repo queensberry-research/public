@@ -165,7 +165,7 @@ class Operator:
             case never:
                 assert_never(never)
         if substitute is not None:
-            text_from = Template(text_from).substitute(**substitute)
+            text_from = _substitute_str(text_from, **substitute)
         if self._is_file(to, user=user) and (
             self._read_text(to, user=user) == text_from
         ):
@@ -208,9 +208,7 @@ class Operator:
             f"-s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
             user=user,
         )
-        filename_use = Template(filename).substitute(
-            tag=tag, tag_without=tag.lstrip("v")
-        )
+        filename_use = _substitute_str(filename, tag=tag, tag_without=tag.lstrip("v"))
         url = f"https://github.com/{releases}/download/{tag}/{filename_use}"
         with self._temp_dir(user=user) as temp:
             path = temp / filename
@@ -469,7 +467,16 @@ class _Settings(Operator):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.age_key = _substitute_path(self.age_key, secrets=self.path_secrets)
+        self.authorized_keys = _substitute_str(self.authorized_keys, url=self.url)
+        self.bashrc = _substitute_str(self.bashrc, url=self.url)
         self.deploy_key = _substitute_path(self.deploy_key, secrets=self.path_secrets)
+        self.direnv_toml = _substitute_str(self.direnv_toml, url=self.url)
+        self.git_config = _substitute_str(self.git_config, url=self.url)
+        self.resolv_conf = _substitute_str(self.resolv_conf, url=self.url)
+        self.sshd_config = _substitute_str(self.sshd_config, url=self.url)
+        self.starship_toml = _substitute_str(self.starship_toml, url=self.url)
+        self.storage_cfg = _substitute_str(self.storage_cfg, url=self.url)
+        self.subnet_sh = _substitute_str(self.subnet_sh, url=self.url)
 
     def install(self) -> None:
         _LOGGER.info("Running version %s...", self.public_version)
@@ -733,27 +740,6 @@ DOCKEREOF""",
             f"usermod -aG docker {self.username}",
         )
 
-    # utilities
-
-    @override
-    def _copy_file_or_url(
-        self,
-        from_: _PathLike,
-        to: _PathLike,
-        /,
-        *,
-        user: bool = False,
-        substitute: Mapping[str, Any] | None = None,
-    ) -> None:
-        match from_:
-            case Path() as from_use:
-                ...
-            case str():
-                from_use = Template(from_).substitute(url=self.url)
-            case never:
-                assert_never(never)
-        super()._copy_file_or_url(from_use, to, user=user, substitute=substitute)
-
 
 # main
 
@@ -797,6 +783,10 @@ def _run(
 
 def _substitute_path(path: _PathLike, /, **kwargs: Any) -> Path:
     return Path(Template(str(path)).substitute(**kwargs))
+
+
+def _substitute_str(text: str, /, **kwargs: Any) -> str:
+    return Template(text).substitute(**kwargs)
 
 
 if __name__ == "__main__":
