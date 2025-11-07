@@ -569,6 +569,7 @@ class _Settings(Operator):
     def _setup_lxc(self) -> None:
         _LOGGER.info("Setting up LXC...")
         assert 0, [self.age_key, self.deploy_key]
+        self._copy_file_or_url(self.deploy_key, '~/')
         for user in [False, True]:
             self._copy_file_or_url(
                 self.age_key, "~/.config/sops/age/keys.txt", user=user
