@@ -50,14 +50,68 @@ _SUBNETS: list[_Subnet] = list(get_args(_Subnet.__value__))
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
 class Operator:
     # defaults
-    default_path_bin: ClassVar[Path] = Path("~/.local/bin")
+    default_mount_source: ClassVar[str] = "truenas.qrt:/mnt/qrt-pool/qrt-dataset"
+    default_mount_target: ClassVar[Path] = Path("/mnt/qrt-dataset")
+    default_mount_type: ClassVar[str] = "nfs"
+    default_mount_options: ClassVar[str] = "vers=4"
+    default_mount_backup: ClassVar[bool] = False
+    default_mount_check: ClassVar[bool] = False
+    default_path_local_bin: ClassVar[Path] = Path("~/.local/bin")
     default_username: ClassVar[str] = "nonroot"
 
     # fields
+    mount_source: str = default_mount_source
+    mount_target: Path = default_mount_target
+    mount_type: str = default_mount_type
+    mount_options: str = default_mount_options
+    mount_backup: bool = default_mount_backup
+    mount_check: bool = default_mount_check
+    path_local_bin: Path = default_path_local_bin
     username: str = default_username
-    path_local_bin: Path = default_path_bin
 
     # methods
+
+    @classmethod
+    def _parse_for_operator(cls, parser: ArgumentParser, /) -> None:
+        _ = parser.add_argument(
+            "--mount-source",
+            default=cls.default_mount_source,
+            type=str,
+            help="Mount source",
+        )
+        _ = parser.add_argument(
+            "--mount-target",
+            default=cls.default_mount_target,
+            type=Path,
+            help="Mount target",
+        )
+        _ = parser.add_argument(
+            "--mount-type", default=cls.default_mount_type, type=str, help="Mount type"
+        )
+        _ = parser.add_argument(
+            "--mount-options",
+            default=cls.default_mount_options,
+            type=str,
+            help="Mount options",
+        )
+        _ = parser.add_argument(
+            "--mount-backup", action="store_true", help="Mount backup"
+        )
+        _ = parser.add_argument(
+            "--mount-check", action="store_true", help="Mount check"
+        )
+        _ = parser.add_argument(
+            "--path-local-bin",
+            default=cls.default_path_local_bin,
+            type=Path,
+            help="Path to the local binaries",
+        )
+        _ = parser.add_argument(
+            "--username",
+            default=cls.default_username,
+            type=str,
+            help="Non-root username",
+        )
 
     def _copy_file_or_url(
         self,
@@ -289,6 +343,7 @@ class _Settings(Operator):
     @classmethod
     def parse(cls) -> _Settings:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        super()._parse_for_operator(parser)
         _ = parser.add_argument(
             "--machine",
             default=None,
@@ -300,19 +355,7 @@ class _Settings(Operator):
             "--root-password", default=None, type=str, help="'root' password"
         )
         _ = parser.add_argument(
-            "--username",
-            default=cls.default_username,
-            type=str,
-            help="Non-root username",
-        )
-        _ = parser.add_argument(
             "--password", default=None, type=str, help="Non-root password"
-        )
-        _ = parser.add_argument(
-            "--path-local-bin",
-            default=cls.default_path_bin,
-            type=Path,
-            help="Path to the local binaries",
         )
         _ = parser.add_argument(
             "--url", default=cls.default_url, type=str, help="Config repo URL"
@@ -407,11 +450,7 @@ class _Settings(Operator):
                 assert_never(never)
 
     def _setup_proxmox(self) -> None:
-        if any(
-            self._rm(f"/etc/apt/sources.list.d/{name}.sources")
-            for name in ["ceph", "pve-enterprise"]
-        ):
-            _apt_update()
+        self._delete_proxmox_sources()
         subnet = self._get_subnet()
         self._copy_file_or_url(
             self.resolv_conf,
@@ -429,6 +468,13 @@ class _Settings(Operator):
                 user=user,
                 substitute={"subnet": subnet},
             )
+
+    def _delete_proxmox_sources(self) -> None:
+        if any(
+            self._rm(f"/etc/apt/sources.list.d/{name}.sources")
+            for name in ["ceph", "pve-enterprise"]
+        ):
+            _apt_update()
 
     def _get_subnet(self) -> _Subnet:
         try:
@@ -448,6 +494,21 @@ class _Settings(Operator):
             return subnet
         msg = f"Invalid subnet; got {subnet!r}"
         raise ValueError(msg)
+
+    def _setup_vm(self) -> None:
+        _apt_install("nfs-common")
+        if not self._grep(fstab := "/etc/fstab", str(self.mount_target)):
+            self._mkdir(self.mount_target)
+            parts = [
+                self.mount_source,
+                self.mount_target,
+                self.mount_type,
+                self.mount_options,
+                int(self.mount_backup),
+                int(self.mount_check),
+            ]
+            line = " ".join(map(str, parts))
+            _ = self._run(f"echo {line} >> {fstab}", "mount -a")
 
     def _set_root_password(self) -> None:
         if (password := self.root_password) is None:
