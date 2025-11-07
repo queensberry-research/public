@@ -8,6 +8,11 @@
     search = "version = \"{current_version}\""
 
   [[tool.bumpversion.files]]
+    filename = "installer/install.py"
+    replace = "public_version: str = \"{new_version}\""
+    search = "public_version: str = \"{current_version}\""
+
+  [[tool.bumpversion.files]]
     filename = "src/public/__init__.py"
     replace = "__version__ = \"{new_version}\""
     search = "__version__ = \"{current_version}\""

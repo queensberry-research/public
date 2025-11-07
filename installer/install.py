@@ -60,6 +60,7 @@ class Operator:
     default_username: ClassVar[str] = "nonroot"
 
     # fields
+    public_version: str = "0.5.131"
     mount_source: str = default_mount_source
     mount_target: Path = default_mount_target
     mount_type: str = default_mount_type
@@ -421,6 +422,7 @@ class _Settings(Operator):
     # installer
 
     def install(self) -> None:
+        _LOGGER.info("Public version: %s", self.public_version)
         self._setup_machine()
         self._set_root_password()
         self._create_user()
