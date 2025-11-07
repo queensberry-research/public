@@ -64,7 +64,7 @@ class Operator:
     default_username: ClassVar[str] = "nonroot"
 
     # fields
-    public_version: str = "0.5.131"
+    public_version: str = "0.5.132"
     mount_source: str = default_mount_source
     mount_target: Path = default_mount_target
     mount_type: str = default_mount_type
@@ -569,7 +569,7 @@ class _Settings(Operator):
     def _setup_lxc(self) -> None:
         _LOGGER.info("Setting up LXC...")
         assert 0, [self.age_key, self.deploy_key]
-        self._copy_file_or_url(self.deploy_key, '~/')
+        self._copy_file_or_url(self.deploy_key, "~/")
         for user in [False, True]:
             self._copy_file_or_url(
                 self.age_key, "~/.config/sops/age/keys.txt", user=user
