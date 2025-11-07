@@ -1,11 +1,16 @@
 [tool.bumpversion]
   allow_dirty = true
-  current_version = "0.5.134"
+  current_version = "0.5.135"
 
   [[tool.bumpversion.files]]
     filename = "pyproject.toml"
     replace = "version = \"{new_version}\""
     search = "version = \"{current_version}\""
+
+  [[tool.bumpversion.files]]
+    filename = "installer/install.py"
+    replace = "public_version: str = \"{new_version}\""
+    search = "public_version: str = \"{current_version}\""
 
   [[tool.bumpversion.files]]
     filename = "src/public/__init__.py"
