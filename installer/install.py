@@ -53,7 +53,7 @@ _SUBNETS: list[_Subnet] = list(get_args(_Subnet.__value__))
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
-class Operator:
+class BaseOperator:
     # defaults
     default_mount_source: ClassVar[str] = "truenas.qrt:/mnt/qrt-pool/qrt-dataset"
     default_mount_target: ClassVar[Path] = Path("/mnt/qrt-dataset")
@@ -67,7 +67,7 @@ class Operator:
     default_username: ClassVar[str] = "nonroot"
 
     # fields
-    public_version: str = "0.5.136"
+    public_version: str = "0.5.137"
     mount_source: str = default_mount_source
     mount_target: Path = default_mount_target
     mount_type: str = default_mount_type
@@ -379,7 +379,7 @@ class Operator:
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
-class _Settings(Operator):
+class _PublicOperator(BaseOperator):
     # defaults
     default_subnets: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
     default_url: ClassVar[str] = (
@@ -881,5 +881,5 @@ def _substitute_str(text: str, /, **kwargs: Any) -> str:
 
 
 if __name__ == "__main__":
-    settings = _Settings.parse()
+    settings = _PublicOperator.parse()
     settings.install()
