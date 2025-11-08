@@ -674,7 +674,7 @@ class PublicOperator(BaseOperator):
         self.symlink("/bin/fdfind", "/bin/fd")
 
     def _install_bump_my_version(self, *, user: bool = False) -> None:
-        if not self.which("bump-my-version", user=user):
+        if not self.which("bump-my-version", user=user, path=[self.path_local_bin]):
             _LOGGER.info("Installing 'bump-my-version' for %r...", self.desc(user=user))
             _ = self.uv("tool install bump-my-version", user=user)
 
