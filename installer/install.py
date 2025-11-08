@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.5"
+__version__ = "0.6.6"
 
 
 # types
@@ -225,8 +225,10 @@ class BaseOperator:
     def _run(
         self,
         *cmds: str,
+        executable: str | None = None,
         user: bool = False,
         cwd: PathLike | None = None,
+        eof: str | None = None,
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> str:
@@ -241,8 +243,10 @@ class BaseOperator:
                 assert_never(never)
         return run(
             *cmds,
+            executable=executable,
             user=self.username if user else None,
             cwd=cwd_use,
+            eof=eof,
             env=env,
             input_=input_,
         )
@@ -640,29 +644,33 @@ DOCKEREOF""",
 
 def run(
     *cmds: str,
+    executable: str | None = None,
     user: str | None = None,
     cwd: PathLike | None = None,
-    executable: str | None = None,
+    eof: str | None = None,
     env: Mapping[str, str] | None = None,
     input_: str | None = None,
 ) -> str:
-    results: list[str] = []
-    user_use = "root" if user is None else user
-    for cmd in cmds:
-        cmd_use = f"su - {user_use} -c 'sh -s' <<'RUNEOF'"
-        if cwd is not None:
-            cmd_use = f"{cmd_use}\ncd {cwd} || exit 1"
-        cmd_use = f"{cmd_use}\n{cmd}\nRUNEOF"
-        result = check_output(
-            cmd_use,
-            executable=executable,
+    exec_use = "sh" if executable is None else executable
+    eof_use = "EOF" if eof is None else eof
+    cmd1 = f"{exec_use} -s"
+    cmd2 = cmd1 if user is None else f"su - {user} -c '{cmd1}'"
+    cmd3 = f"{cmd2} <<'{eof}'"
+
+    def run_one(cmd: str, /) -> str:
+        lines: list[str] = [cmd3]
+        if user is not None:
+            lines.append(f"cd {cwd}")
+        lines.extend([cmd, eof_use])
+        return check_output(
+            "\n".join(eof_use),
             shell=True,
             env=None if env is None else {**environ, **env},
             input=input_,
             text=True,
         ).rstrip("\n")
-        results.append(result)
-    return "\n".join(results)
+
+    return "\n".join(map(run_one, cmds))
 
 
 def _apt_install(cmd: str, /) -> None:
