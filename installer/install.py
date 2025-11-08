@@ -48,6 +48,7 @@ type _Subnet = Literal["qrt", "main", "test"]
 _MACHINES: list[_Machine] = list(get_args(_Machine.__value__))
 _SUBNETS: list[_Subnet] = list(get_args(_Subnet.__value__))
 
+
 # classes
 
 
@@ -66,7 +67,7 @@ class Operator:
     default_username: ClassVar[str] = "nonroot"
 
     # fields
-    public_version: str = "0.5.135"
+    public_version: str = "0.5.136"
     mount_source: str = default_mount_source
     mount_target: Path = default_mount_target
     mount_type: str = default_mount_type
