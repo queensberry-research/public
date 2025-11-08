@@ -36,7 +36,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.38"
+__version__ = "0.6.39"
 
 
 # types
@@ -412,6 +412,7 @@ class PublicOperator(BaseOperator):
             self._install_sops(user=user)
             self._install_starship(user=user)
             self._install_uv(user=user)
+            self._install_yq(user=user)
             self._clone_infra(user=user)
         self._install_tools()
         self._install_docker()
@@ -609,6 +610,9 @@ class PublicOperator(BaseOperator):
                 env={"UV_NO_MODIFY_PATH": "1"},
             )
 
+    def _install_yq(self, *, user: bool = False) -> None:
+        self._github_install("yq", "mikefarah", "yq", "yq_linux_amd64", user=user)
+
     def _clone_infra(self, *, user: bool = False) -> None:
         path = "~/infra"
         if not self.is_dir(path, user=user):
@@ -628,8 +632,6 @@ class PublicOperator(BaseOperator):
             ("delta", "dandavison", "delta", "git-delta_${tag}_amd64.deb"),
         ]:
             self._github_install(cmd, owner, repo, filename, dpkg=True)
-        for cmd, owner, repo, filename in [("yq", "mikefarah", "yq", "yq_linux_amd64")]:
-            self._github_install(cmd, owner, repo, filename, user=True)
         self._install_bump_my_version(user=True)  # after uv
 
     def _install_fd(self) -> None:
