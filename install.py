@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.16"
+__version__ = "0.6.15"
 
 
 # types
@@ -67,7 +67,6 @@ class BaseOperator:
             f"cat >> {path} <<'APPENDTEXTEOF'\n{text}\nAPPENDTEXTEOF",
             user=user,
             eof="RUNEOF",
-            input_=text,
         )
 
     def _chmod(self, perms: str, path: PathLike, /, *, user: bool = False) -> None:
@@ -327,7 +326,6 @@ class BaseOperator:
             f"cat > {path} <<'WRITETEXTEOF'\n{text}\nWRITETEXTEOF",
             user=user,
             eof="RUNEOF",
-            input_=text,
         )
         if perms is not None:
             self._chmod(perms, path, user=user)
