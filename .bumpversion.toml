@@ -1,6 +1,6 @@
 [tool.bumpversion]
   allow_dirty = true
-  current_version = "0.6.37"
+  current_version = "0.6.38"
 
   [[tool.bumpversion.files]]
     filename = "install.py"
