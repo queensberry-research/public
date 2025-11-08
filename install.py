@@ -36,7 +36,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.32"
+__version__ = "0.6.33"
 
 
 # types
@@ -396,6 +396,7 @@ class PublicOperator(BaseOperator):
         self._set_root_password()
         self._create_user()
         self._setup_sshd_config()
+        _apt_install("age")
         self._install_sudo()
         for user in [False, True]:
             self._setup_authorized_keys(user=user)
@@ -411,7 +412,6 @@ class PublicOperator(BaseOperator):
             self._install_sops(user=user)
             self._install_starship(user=user)
             self._clone_infra(user=user)
-        _apt_install("age")
         self._install_tools()
         self._install_docker()
 
