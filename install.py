@@ -294,6 +294,8 @@ APPENDTEXTEOF""",
         eof: str | None = None,
         cwd: PathLike | None = None,
     ) -> str:
+        if not self.which("uv", user=user, path=[self.path_local_bin]):
+            self._install_uv(user=user)
         return self.run(
             f"uv {cmd}",
             user=user,
@@ -304,9 +306,11 @@ APPENDTEXTEOF""",
             cwd=cwd,
         )
 
-    def which(self, cmd: str, /, *, user: bool = False) -> bool:
+    def which(
+        self, cmd: str, /, *, user: bool = False, path: Sequence[Path] | None = None
+    ) -> bool:
         try:
-            result = self.run(f"which {cmd}", user=user)
+            result = self.run(f"which {cmd}", user=user, path=path)
         except CalledProcessError:
             return False
         return result != ""
@@ -331,6 +335,15 @@ WRITETEXTEOF""",
         )
         if perms is not None:
             self.chmod(perms, path, user=user)
+
+    def _install_uv(self, *, user: bool = False) -> None:
+        if not self.which("uv", user=user, path=[self.path_local_bin]):
+            _LOGGER.info("Installing 'uv' for %r...", self.desc(user=user))
+            _ = self.curl(
+                "-LsSf https://astral.sh/uv/install.sh | sh -s",
+                user=user,
+                env={"UV_NO_MODIFY_PATH": "1"},
+            )
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
@@ -630,15 +643,6 @@ class PublicOperator(BaseOperator):
         self.copy_file_or_url(
             self.url_starship_toml, "~/.config/starship.toml", user=user
         )
-
-    def _install_uv(self, *, user: bool = False) -> None:
-        if not self.which("uv", user=user):
-            _LOGGER.info("Installing 'uv' for %r...", self.desc(user=user))
-            _ = self.curl(
-                "-LsSf https://astral.sh/uv/install.sh | sh -s",
-                user=user,
-                env={"UV_NO_MODIFY_PATH": "1"},
-            )
 
     def _install_yq(self, *, user: bool = False) -> None:
         self._github_install("yq", "mikefarah", "yq", "yq_linux_amd64", user=user)
