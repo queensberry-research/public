@@ -314,9 +314,9 @@ class BaseOperator:
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
-class _PublicOperator(BaseOperator):
+class PublicOperator(BaseOperator):
     # constants
-    version: ClassVar[str] = "0.5.137"
+    version: ClassVar[str] = "0.5.138"
     subnet_mapping: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
     url_public: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
@@ -703,5 +703,5 @@ def _substitute(text: str, /, **kwargs: Any) -> str:
 
 
 if __name__ == "__main__":
-    settings = _PublicOperator.parse()
+    settings = PublicOperator.parse()
     settings.install()
