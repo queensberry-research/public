@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.44"
+__version__ = "0.6.45"
 
 
 # types
@@ -281,6 +281,28 @@ APPENDTEXTEOF""",
             yield path
         finally:
             _ = self.run(f"rm -rf {path}", user=user)
+
+    def uv(
+        self,
+        cmd: str,
+        /,
+        *,
+        user: bool = False,
+        env: Mapping[str, str] | None = None,
+        path: Sequence[Path] | None = None,
+        executable: str | None = None,
+        eof: str | None = None,
+        cwd: PathLike | None = None,
+    ) -> str:
+        return self.run(
+            f"uv {cmd}",
+            user=user,
+            env=env,
+            path=[self.path_local_bin, *([] if path is None else path)],
+            executable=executable,
+            eof=eof,
+            cwd=cwd,
+        )
 
     def which(self, cmd: str, /, *, user: bool = False) -> bool:
         try:
@@ -588,7 +610,7 @@ class PublicOperator(BaseOperator):
             _ = self.git(f"clone {url} {config_nvim}", user=user)
             _ = self.run(
                 "nvim --headless '+Lazy! sync' +qa",
-                env={"PATH": f"{self.path_local_bin}:{environ['PATH']}"},
+                path=[self.path_local_bin],
                 user=user,
             )
 
@@ -650,7 +672,7 @@ class PublicOperator(BaseOperator):
     def _install_bump_my_version(self, *, user: bool = False) -> None:
         if not self.which("bump-my-version", user=user):
             _LOGGER.info("Installing 'bump-my-version' for %r...", self.desc(user=user))
-            _ = self.run("uv tool install bump-my-version", user=user)
+            _ = self.uv("tool install bump-my-version", user=user)
 
     def _install_docker(self) -> None:
         if self.which("docker"):
