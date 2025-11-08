@@ -37,7 +37,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.28"
+__version__ = "0.6.29"
 
 
 # types
@@ -407,7 +407,7 @@ class PublicOperator(BaseOperator):
             self._setup_ssh_github_infra_mirror(user=user)
             self._install_neovim(user=user)
             self._install_starship(user=user)
-        self._clone_infra(user=True)
+            self._clone_infra(user=user)
         self._install_tools()
         self._install_docker()
 
