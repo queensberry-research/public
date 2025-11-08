@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.44"
+__version__ = "0.6.45"
 
 
 # types
@@ -137,7 +137,7 @@ APPENDTEXTEOF""",
         jq: bool = False,
         user: bool = False,
         env: Mapping[str, str] | None = None,
-        path: Sequence[Path] | None = None,
+        path: Sequence[PathLike] | None = None,
         executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
@@ -166,7 +166,7 @@ APPENDTEXTEOF""",
         *,
         user: bool = False,
         env: Mapping[str, str] | None = None,
-        path: Sequence[Path] | None = None,
+        path: Sequence[PathLike] | None = None,
         executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
@@ -240,7 +240,7 @@ APPENDTEXTEOF""",
         *cmds: str,
         user: bool = False,
         env: Mapping[str, str] | None = None,
-        path: Sequence[Path] | None = None,
+        path: Sequence[PathLike] | None = None,
         executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
@@ -282,9 +282,35 @@ APPENDTEXTEOF""",
         finally:
             _ = self.run(f"rm -rf {path}", user=user)
 
-    def which(self, cmd: str, /, *, user: bool = False) -> bool:
+    def uv(
+        self,
+        cmd: str,
+        /,
+        *,
+        user: bool = False,
+        env: Mapping[str, str] | None = None,
+        path: Sequence[PathLike] | None = None,
+        executable: str | None = None,
+        eof: str | None = None,
+        cwd: PathLike | None = None,
+    ) -> str:
+        if not self.which("uv", user=user, path=[self.path_local_bin]):
+            self._install_uv(user=user)
+        return self.run(
+            f"uv {cmd}",
+            user=user,
+            env=env,
+            path=[self.path_local_bin, *([] if path is None else path)],
+            executable=executable,
+            eof=eof,
+            cwd=cwd,
+        )
+
+    def which(
+        self, cmd: str, /, *, user: bool = False, path: Sequence[PathLike] | None = None
+    ) -> bool:
         try:
-            result = self.run(f"which {cmd}", user=user)
+            result = self.run(f"which {cmd}", user=user, path=path)
         except CalledProcessError:
             return False
         return result != ""
@@ -309,6 +335,15 @@ WRITETEXTEOF""",
         )
         if perms is not None:
             self.chmod(perms, path, user=user)
+
+    def _install_uv(self, *, user: bool = False) -> None:
+        if not self.which("uv", user=user, path=[self.path_local_bin]):
+            _LOGGER.info("Installing 'uv' for %r...", self.desc(user=user))
+            _ = self.curl(
+                "-LsSf https://astral.sh/uv/install.sh | sh -s",
+                user=user,
+                env={"UV_NO_MODIFY_PATH": "1"},
+            )
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
@@ -588,7 +623,7 @@ class PublicOperator(BaseOperator):
             _ = self.git(f"clone {url} {config_nvim}", user=user)
             _ = self.run(
                 "nvim --headless '+Lazy! sync' +qa",
-                env={"PATH": f"{self.path_local_bin}:{environ['PATH']}"},
+                path=[self.path_local_bin],
                 user=user,
             )
 
@@ -608,15 +643,6 @@ class PublicOperator(BaseOperator):
         self.copy_file_or_url(
             self.url_starship_toml, "~/.config/starship.toml", user=user
         )
-
-    def _install_uv(self, *, user: bool = False) -> None:
-        if not self.which("uv", user=user):
-            _LOGGER.info("Installing 'uv' for %r...", self.desc(user=user))
-            _ = self.curl(
-                "-LsSf https://astral.sh/uv/install.sh | sh -s",
-                user=user,
-                env={"UV_NO_MODIFY_PATH": "1"},
-            )
 
     def _install_yq(self, *, user: bool = False) -> None:
         self._github_install("yq", "mikefarah", "yq", "yq_linux_amd64", user=user)
@@ -648,9 +674,9 @@ class PublicOperator(BaseOperator):
         self.symlink("/bin/fdfind", "/bin/fd")
 
     def _install_bump_my_version(self, *, user: bool = False) -> None:
-        if not self.which("bump-my-version", user=user):
+        if not self.which("bump-my-version", user=user, path=[self.path_local_bin]):
             _LOGGER.info("Installing 'bump-my-version' for %r...", self.desc(user=user))
-            _ = self.run("uv tool install bump-my-version", user=user)
+            _ = self.uv("tool install bump-my-version", user=user)
 
     def _install_docker(self) -> None:
         if self.which("docker"):
