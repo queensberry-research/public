@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.6"
+__version__ = "0.6.7"
 
 
 # types
@@ -288,8 +288,9 @@ class BaseOperator:
         self._mkdir(Path(path).parent, user=user)
         _ = self._run(
             f"cat > {path} <<'WRITETEXTEOF'\n{text}\nWRITETEXTEOF",
-            input_=text,
             user=user,
+            eof="RUNEOF",
+            input_=text,
         )
         if perms is not None:
             self._chmod(perms, path, user=user)
