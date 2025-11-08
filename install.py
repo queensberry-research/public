@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.20"
+__version__ = "0.6.21"
 
 
 # types
@@ -72,6 +72,11 @@ class BaseOperator:
 
     def _chmod(self, perms: str, path: PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"chmod {perms} {path}", user=user)
+
+    def _chown(
+        self, owner: str, group: str, path: PathLike, /, *, user: bool = False
+    ) -> None:
+        _ = self._run(f"chown {owner}:{group} {path}", user=user)
 
     def _copy_file_or_url(
         self,
