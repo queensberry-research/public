@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
@@ -38,7 +37,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.26"
+__version__ = "0.6.27"
 
 
 # types
@@ -328,7 +327,7 @@ class PublicOperator(BaseOperator):
     url_ssh_github_infra_mirror: ClassVar[str] = (
         f"{url_configs}/ssh-github-infra-mirror"
     )
-    url_sshd_config: ClassVar[str] = f"{url_configs}/sshd-config"
+    url_sshd_config: ClassVar[str] = f"{url_configs}/sshd_config"
     url_starship_toml: ClassVar[str] = f"{url_configs}/starship.toml"
     url_storage_cfg: ClassVar[str] = f"{url_configs}/storage.cfg"
     url_subnet_sh: ClassVar[str] = f"{url_configs}/subnet.sh"
