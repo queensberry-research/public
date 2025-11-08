@@ -1,6 +1,3 @@
-[submodule "submodules/installer"]
-	path = submodules/installer
-	url = https://github.com/dycw/installer.git
 [submodule "submodules/lazyvim"]
 	path = submodules/lazyvim
 	url = https://github.com/lazyvim/starter

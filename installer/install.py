@@ -27,7 +27,7 @@ basicConfig(
     level="INFO",
 )
 _LOGGER = getLogger(__name__)
-__version__ = "0.5.142"
+__version__ = "0.6.0"
 
 
 # types
