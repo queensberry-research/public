@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.9"
+__version__ = "0.6.10"
 
 
 # types
@@ -657,7 +657,7 @@ def run(
     eof_use = "EOF" if eof is None else eof
     cmd1 = f"{exec_use} -s"
     cmd2 = cmd1 if user is None else f"su - {user} -c '{cmd1}'"
-    cmd3 = f"{cmd2} <<'{eof}'"
+    cmd3 = f"{cmd2} <<'{eof_use}'"
 
     def run_one(cmd: str, /) -> str:
         lines: list[str] = [cmd3]
