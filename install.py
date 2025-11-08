@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.15"
+__version__ = "0.6.16"
 
 
 # types
@@ -61,6 +61,14 @@ class BaseOperator:
     username: ClassVar[str] = "nonroot"
 
     # instance methods
+
+    def _append_text(self, path: PathLike, text: str, /, *, user: bool = False) -> None:
+        _ = self._run(
+            f"cat >> {path} <<'APPENDTEXTEOF'\n{text}\nAPPENDTEXTEOF",
+            user=user,
+            eof="RUNEOF",
+            input_=text,
+        )
 
     def _chmod(self, perms: str, path: PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"chmod {perms} {path}", user=user)
@@ -95,7 +103,7 @@ class BaseOperator:
         ):
             return
         _LOGGER.info("Writing %r for %r...", str(to), self._desc(user=user))
-        self._write_text(text_from, to, user=user, perms=perms)
+        self._write_text(to, text_from, user=user, perms=perms)
 
     def _cp(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"cp {from_} {to}", user=user)
@@ -242,7 +250,7 @@ class BaseOperator:
             raise ValueError(msg)
         for i in range(0, n, 2):
             text = text.replace(lines[i], lines[i + 1])
-        self._write_text(text, path, user=user)
+        self._write_text(path, text, user=user)
 
     def _rm(self, path: PathLike, /, *, user: bool = False) -> bool:
         if self._is_file(path, user=user):
@@ -307,8 +315,8 @@ class BaseOperator:
 
     def _write_text(
         self,
-        text: str,
         path: PathLike,
+        text: str,
         /,
         *,
         user: bool = False,
