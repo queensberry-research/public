@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.14"
+__version__ = "0.6.15"
 
 
 # types
@@ -106,8 +106,10 @@ class BaseOperator:
         /,
         *,
         jq: bool = False,
+        executable: str | None = None,
         user: bool = False,
         cwd: PathLike | None = None,
+        eof: str | None = None,
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> str:
@@ -115,7 +117,15 @@ class BaseOperator:
             _apt_install("curl")
         if jq and not self._which("jq"):
             _apt_install("jq")
-        return self._run(f"curl {cmd}", user=user, cwd=cwd, env=env, input_=input_)
+        return self._run(
+            f"curl {cmd}",
+            executable=executable,
+            user=user,
+            cwd=cwd,
+            eof=eof,
+            env=env,
+            input_=input_,
+        )
 
     def _desc(self, *, user: bool = False) -> str:
         return self.username if user else "root"
@@ -131,14 +141,24 @@ class BaseOperator:
         cmd: str,
         /,
         *,
+        executable: str | None = None,
         user: bool = False,
         cwd: PathLike | None = None,
+        eof: str | None = None,
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> None:
         if not self._which("git"):
             _apt_install("git")
-        _ = self._run(f"git {cmd}", user=user, cwd=cwd, env=env, input_=input_)
+        _ = self._run(
+            f"git {cmd}",
+            executable=executable,
+            user=user,
+            cwd=cwd,
+            eof=eof,
+            env=env,
+            input_=input_,
+        )
 
     @contextmanager
     def _github_binary(
