@@ -404,17 +404,17 @@ class _PublicOperator(BaseOperator):
         self._delete_proxmox_sources()
         subnet = self._get_subnet()
         self._copy_file_or_url(
-            self.resolv_conf,
+            self.url_resolv_conf,
             "/etc/resolv.conf",
             substitute={"n": self.subnet_mapping[subnet], "subnet": subnet},
         )
         if not self._grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
             self._copy_file_or_url(
-                self.storage_cfg, storage_cfg, substitute={"subnet": subnet}
+                self.url_storage_cfg, storage_cfg, substitute={"subnet": subnet}
             )
         for user in [False, True]:
             self._copy_file_or_url(
-                self.subnet_sh,
+                self.url_subnet_sh,
                 "~/.bashrc.d/subnet.sh",
                 user=user,
                 substitute={"subnet": subnet},
@@ -450,8 +450,8 @@ class _PublicOperator(BaseOperator):
         _LOGGER.info("Setting up LXC...")
         for (from_, to), user in product(
             [
-                (self.age_key, "~/.config/sops/age/keys.txt"),
-                (self.deploy_key, "~/.ssh/github-infra-mirror"),
+                (self.path_age_key, "~/.config/sops/age/keys.txt"),
+                (self.path_deploy_key, "~/.ssh/github-infra-mirror"),
             ],
             [False, True],
         ):
@@ -494,7 +494,7 @@ class _PublicOperator(BaseOperator):
         _ = self._run(f"echo '{username}:{password}' | chpasswd")
 
     def _setup_sshd_config(self) -> None:
-        self._copy_file_or_url(self.sshd_config, "/etc/ssh/sshd_config")
+        self._copy_file_or_url(self.url_sshd_config, "/etc/ssh/sshd_config")
 
     def _install_sudo(self) -> None:
         _apt_install("sudo")
@@ -502,14 +502,14 @@ class _PublicOperator(BaseOperator):
 
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
         self._copy_file_or_url(
-            self.authorized_keys, "~/.ssh/authorized_keys", user=user
+            self.url_authorized_keys, "~/.ssh/authorized_keys", user=user
         )
 
     def _setup_bashrc(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.bashrc, "~/.bashrc", user=user)
+        self._copy_file_or_url(self.url_bashrc, "~/.bashrc", user=user)
 
     def _setup_git_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.git_config, "~/.config/git/config", user=user)
+        self._copy_file_or_url(self.url_git_config, "~/.config/git/config", user=user)
 
     def _setup_known_hosts(self, *, user: bool = False) -> None:
         if self._grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
@@ -519,11 +519,11 @@ class _PublicOperator(BaseOperator):
         _ = self._run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
 
     def _setup_ssh_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.ssh_config, "~/.ssh/config", user=user)
+        self._copy_file_or_url(self.url_ssh_config, "~/.ssh/config", user=user)
 
     def _setup_ssh_github_infra_mirror(self, *, user: bool = False) -> None:
         self._copy_file_or_url(
-            self.ssh_github_infra_mirror,
+            self.url_ssh_github_infra_mirror,
             "~/.ssh/config.d/github-infra-mirror",
             user=user,
         )
@@ -541,12 +541,12 @@ class _PublicOperator(BaseOperator):
                 _ = self._run(
                     f"./{appimage} --appimage-extract", user=user, cwd=temp_dir
                 )
-                self._mkdir(self._local_path, user=user)
+                self._mkdir(self.path_local_bin, user=user)
                 squashfs_root = "squashfs-root"
-                self._mv(temp_dir / squashfs_root, self._local_path, user=user)
+                self._mv(temp_dir / squashfs_root, self.path_local_bin, user=user)
             self._symlink(
-                self._local_path / squashfs_root / "usr/bin/nvim",
-                self._local_path / "nvim",
+                self.path_local_bin / squashfs_root / "usr/bin/nvim",
+                self.path_local_bin / "nvim",
                 user=user,
             )
         if not self._is_dir(config_nvim := "~/.config/nvim", user=user):
@@ -555,19 +555,21 @@ class _PublicOperator(BaseOperator):
             _ = self._git(f"clone {url} {config_nvim}", user=user)
             _ = self._run(
                 "nvim --headless '+Lazy! sync' +qa",
-                env={"PATH": f"{self._local_path}:{environ['PATH']}"},
+                env={"PATH": f"{self.path_local_bin}:{environ['PATH']}"},
                 user=user,
             )
 
     def _install_starship(self, *, user: bool = False) -> None:
         if not self._which("starship", user=user):
             _LOGGER.info("Installing 'starship' for %r...", self._desc(user=user))
-            self._mkdir(self._local_path, user=user)
+            self._mkdir(self.path_local_bin, user=user)
             _ = self._curl(
-                f"-sS https://starship.rs/install.sh | sh -s -- -b {self._local_path} -y",
+                f"-sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 user=user,
             )
-        self._copy_file_or_url(self.starship_toml, "~/.config/starship.toml", user=user)
+        self._copy_file_or_url(
+            self.url_starship_toml, "~/.config/starship.toml", user=user
+        )
 
     def _clone_infra(self, *, user: bool = False) -> None:
         path = "~/infra"
@@ -616,10 +618,10 @@ class _PublicOperator(BaseOperator):
             _ = self._curl(
                 "-sfL https://direnv.net/install.sh | bash",
                 user=user,
-                env={"bin_path": str(self._local_path)},
+                env={"bin_path": str(self.path_local_bin)},
             )
         self._copy_file_or_url(
-            self.direnv_toml, "~/.config/direnv/direnv.toml", user=user
+            self.url_direnv_toml, "~/.config/direnv/direnv.toml", user=user
         )
 
     def _install_uv(self, *, user: bool = False) -> None:
