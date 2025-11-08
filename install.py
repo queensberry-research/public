@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.12"
+__version__ = "0.6.13"
 
 
 # types
@@ -214,6 +214,15 @@ class BaseOperator:
 
     def _read_text(self, path: PathLike, /, *, user: bool = False) -> str:
         return self._run(f"cat {path}", user=user)
+
+    def _replace_text(self, path: PathLike, /, *lines: str, user: bool = False) -> None:
+        text = self._read_text(path, user=user)
+        if (n := len(lines)) % 2 != 0:
+            msg = f"Expected an even number of lines; got {n}"
+            raise ValueError(msg)
+        for i in range(0, n, 2):
+            text = text.replace(lines[i], lines[i + 1])
+        self._write_text(text, path, user=user)
 
     def _rm(self, path: PathLike, /, *, user: bool = False) -> bool:
         if self._is_file(path, user=user):
