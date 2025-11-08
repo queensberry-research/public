@@ -9,8 +9,8 @@
 
   [[tool.bumpversion.files]]
     filename = "installer/install.py"
-    replace = "public_version: str = \"{new_version}\""
-    search = "public_version: str = \"{current_version}\""
+    replace = "version: ClassVar[str] = \"{new_version}\""
+    search = "version: ClassVar[str] = \"{current_version}\""
 
   [[tool.bumpversion.files]]
     filename = "src/public/__init__.py"
