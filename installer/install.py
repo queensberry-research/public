@@ -27,17 +27,18 @@ basicConfig(
     level="INFO",
 )
 _LOGGER = getLogger(__name__)
-__version__ = "0.6.1"
+__all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet"]
+__version__ = "0.6.2"
 
 
 # types
 
 
+type PathLike = Path | str
+type Subnet = Literal["qrt", "main", "test"]
 type _Machine = Literal["proxmox", "lxc", "vm"]
-type _PathLike = Path | str
-type _Subnet = Literal["qrt", "main", "test"]
+SUBNETS: list[Subnet] = list(get_args(Subnet.__value__))
 _MACHINES: list[_Machine] = list(get_args(_Machine.__value__))
-_SUBNETS: list[_Subnet] = list(get_args(_Subnet.__value__))
 
 
 # classes
@@ -61,13 +62,13 @@ class BaseOperator:
 
     # instance methods
 
-    def _chmod(self, perms: str, path: _PathLike, /, *, user: bool = False) -> None:
+    def _chmod(self, perms: str, path: PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"chmod {perms} {path}", user=user)
 
     def _copy_file_or_url(
         self,
-        from_: _PathLike,
-        to: _PathLike,
+        from_: PathLike,
+        to: PathLike,
         /,
         *,
         user: bool = False,
@@ -96,7 +97,7 @@ class BaseOperator:
         _LOGGER.info("Writing %r for %r...", str(to), self._desc(user=user))
         self._write_text(text_from, to, user=user, perms=perms)
 
-    def _cp(self, from_: _PathLike, to: _PathLike, /, *, user: bool = False) -> None:
+    def _cp(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"cp {from_} {to}", user=user)
 
     def _curl(
@@ -106,7 +107,7 @@ class BaseOperator:
         *,
         jq: bool = False,
         user: bool = False,
-        cwd: _PathLike | None = None,
+        cwd: PathLike | None = None,
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> str:
@@ -119,7 +120,7 @@ class BaseOperator:
     def _desc(self, *, user: bool = False) -> str:
         return self.username if user else "root"
 
-    def _dpkg_install(self, path: _PathLike, /, *, user: bool = False) -> None:
+    def _dpkg_install(self, path: PathLike, /, *, user: bool = False) -> None:
         cmd = f"dpkg -i {path}"
         if user:
             cmd = f"sudo {cmd}"
@@ -131,7 +132,7 @@ class BaseOperator:
         /,
         *,
         user: bool = False,
-        cwd: _PathLike | None = None,
+        cwd: PathLike | None = None,
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> None:
@@ -178,27 +179,27 @@ class BaseOperator:
             else:
                 self._dpkg_install(binary, user=user)
 
-    def _grep(self, path: _PathLike, text: str, /, *, user: bool = False) -> bool:
+    def _grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
         return self._is_file(path, user=user) and self._predicate(
             f"grep -q {text} {path}", user=user
         )
 
-    def _is_dir(self, path: _PathLike, /, *, user: bool = False) -> bool:
+    def _is_dir(self, path: PathLike, /, *, user: bool = False) -> bool:
         return self._predicate(f"[ -d {path} ]", user=user)
 
-    def _is_file(self, path: _PathLike, /, *, user: bool = False) -> bool:
+    def _is_file(self, path: PathLike, /, *, user: bool = False) -> bool:
         return self._predicate(f"[ -f {path} ]", user=user)
 
-    def _is_symlink(self, path: _PathLike, /, *, user: bool = False) -> bool:
+    def _is_symlink(self, path: PathLike, /, *, user: bool = False) -> bool:
         return self._predicate(f"[ -L {path} ]", user=user)
 
-    def _mkdir(self, path: _PathLike, /, *, user: bool = False) -> None:
+    def _mkdir(self, path: PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"mkdir -p {path}", user=user)
 
-    def _mv(self, from_: _PathLike, to: _PathLike, /, *, user: bool = False) -> None:
+    def _mv(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"mv {from_} {to}", user=user)
 
-    def _perms(self, path: _PathLike, /, *, user: bool = False) -> str:
+    def _perms(self, path: PathLike, /, *, user: bool = False) -> str:
         result = self._run(f"ls -ld {path}", user=user)
         first = result.split()[0][1:10]
         u, g, o = [first[i : i + 3].replace("-", "") for i in [0, 3, 6]]
@@ -208,13 +209,13 @@ class BaseOperator:
         result = self._run(f"if {predicate}; then echo 1; fi", user=user)
         return result == "1"
 
-    def _read_link(self, path: _PathLike, /, *, user: bool = False) -> Path:
+    def _read_link(self, path: PathLike, /, *, user: bool = False) -> Path:
         return Path(self._run(f"readlink {path}", user=user))
 
-    def _read_text(self, path: _PathLike, /, *, user: bool = False) -> str:
+    def _read_text(self, path: PathLike, /, *, user: bool = False) -> str:
         return self._run(f"cat {path}", user=user)
 
-    def _rm(self, path: _PathLike, /, *, user: bool = False) -> bool:
+    def _rm(self, path: PathLike, /, *, user: bool = False) -> bool:
         if self._is_file(path, user=user):
             _LOGGER.info("Removing %r...", str(path))
             _ = self._run(f"rm {path}", user=user)
@@ -225,7 +226,7 @@ class BaseOperator:
         self,
         *cmds: str,
         user: bool = False,
-        cwd: _PathLike | None = None,
+        cwd: PathLike | None = None,
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> str:
@@ -246,9 +247,7 @@ class BaseOperator:
             input_=input_,
         )
 
-    def _symlink(
-        self, from_: _PathLike, to: _PathLike, /, *, user: bool = False
-    ) -> None:
+    def _symlink(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
         if self._is_symlink(to, user=user) and (self._read_link(to, user=user)) == Path(
             from_
         ):
@@ -276,7 +275,7 @@ class BaseOperator:
     def _write_text(
         self,
         text: str,
-        path: _PathLike,
+        path: PathLike,
         /,
         *,
         user: bool = False,
@@ -295,7 +294,7 @@ class BaseOperator:
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
 class _PublicOperator(BaseOperator):
     # constants
-    subnet_mapping: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
+    subnet_mapping: ClassVar[dict[Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
     url_public: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
     )
@@ -405,7 +404,7 @@ class _PublicOperator(BaseOperator):
         ):
             _apt_update()
 
-    def _get_subnet(self) -> _Subnet:
+    def _get_subnet(self) -> Subnet:
         try:
             subnet = environ["SUBNET"]
         except KeyError:
@@ -414,12 +413,12 @@ class _PublicOperator(BaseOperator):
                 ip = IPv4Address(s.getsockname()[0])
             _, _, third, _ = str(ip).split(".")
             third = int(third)
-            for subnet in _SUBNETS:
+            for subnet in SUBNETS:
                 if third == self.subnet_mapping[subnet]:
                     return subnet
             msg = f"Invalid IP; got {ip}"
             raise ValueError(msg) from None
-        if subnet in _SUBNETS:
+        if subnet in SUBNETS:
             return subnet
         msg = f"Invalid subnet; got {subnet!r}"
         raise ValueError(msg)
@@ -654,7 +653,7 @@ def _apt_update() -> None:
 def _run(
     *cmds: str,
     user: str | None = None,
-    cwd: _PathLike | None = None,
+    cwd: PathLike | None = None,
     env: Mapping[str, str] | None = None,
     input_: str | None = None,
 ) -> str:
