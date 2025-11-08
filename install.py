@@ -5,7 +5,6 @@ from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import contextmanager
 from dataclasses import dataclass
 from ipaddress import IPv4Address
-from itertools import product
 from logging import basicConfig, getLogger
 from os import environ
 from pathlib import Path
@@ -37,7 +36,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.31"
+__version__ = "0.6.32"
 
 
 # types
@@ -409,8 +408,10 @@ class PublicOperator(BaseOperator):
             self._setup_ssh_github_infra_mirror(user=user)
             self._install_direnv(user=user)
             self._install_neovim(user=user)
+            self._install_sops(user=user)
             self._install_starship(user=user)
             self._clone_infra(user=user)
+        _apt_install("age")
         self._install_tools()
         self._install_docker()
 
@@ -456,14 +457,6 @@ class PublicOperator(BaseOperator):
 
     def _setup_lxc(self) -> None:
         _LOGGER.info("Setting up LXC...")
-        for (from_, to), user in product(
-            [
-                (self.path_age_key, "~/.config/sops/age/keys.txt"),
-                (self.path_deploy_key, "~/.ssh/github-infra-mirror"),
-            ],
-            [False, True],
-        ):
-            self.copy_file_or_url(from_, to, user=user, perms="u=rw,g=,o=")
 
     def _setup_vm(self) -> None:
         _apt_install("nfs-common")
@@ -595,6 +588,11 @@ class PublicOperator(BaseOperator):
                 user=user,
             )
 
+    def _install_sops(self, *, user: bool = False) -> None:
+        self._github_install(
+            "sops", "getsops", "sops", "sops-${tag}.linux.amd64", user=user
+        )
+
     def _install_starship(self, *, user: bool = False) -> None:
         if not self.which("starship", user=user):
             _LOGGER.info("Installing 'starship' for %r...", self.desc(user=user))
@@ -618,7 +616,7 @@ class PublicOperator(BaseOperator):
         if not self.tools:
             return
         _LOGGER.info("Installing tools...")
-        for cmd in ["age", "fzf", "just", "ripgrep", "rsync", "vim"]:
+        for cmd in ["fzf", "just", "ripgrep", "rsync", "vim"]:
             _apt_install(cmd)
         self._install_fd()
         for cmd, owner, repo, filename in [
@@ -626,10 +624,7 @@ class PublicOperator(BaseOperator):
             ("delta", "dandavison", "delta", "git-delta_${tag}_amd64.deb"),
         ]:
             self._github_install(cmd, owner, repo, filename, dpkg=True)
-        for cmd, owner, repo, filename in [
-            ("sops", "getsops", "sops", "sops-${tag}.linux.amd64"),
-            ("yq", "mikefarah", "yq", "yq_linux_amd64"),
-        ]:
+        for cmd, owner, repo, filename in [("yq", "mikefarah", "yq", "yq_linux_amd64")]:
             self._github_install(cmd, owner, repo, filename, user=True)
         self._install_uv(user=True)
         self._install_bump_my_version(user=True)  # after uv
