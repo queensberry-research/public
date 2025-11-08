@@ -14,16 +14,7 @@ from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from string import Template
 from subprocess import CalledProcessError, check_output
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    ClassVar,
-    Literal,
-    Self,
-    assert_never,
-    get_args,
-    override,
-)
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, assert_never, get_args
 from urllib.request import urlopen
 
 if TYPE_CHECKING:
@@ -67,18 +58,6 @@ class BaseOperator:
     path_deploy_key: ClassVar[Path] = path_secrets / "deploy-keys/infra"
     path_local_bin: ClassVar[Path] = Path("~/.local/bin")
     username: ClassVar[str] = "nonroot"
-
-    # class methods
-
-    @classmethod
-    def parse(cls) -> Self:
-        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-        cls._add_arguments(parser)
-        return cls(**vars(parser.parse_args()))
-
-    @classmethod
-    def _add_arguments(cls, parser: ArgumentParser, /) -> None:
-        _ = parser
 
     # instance methods
 
@@ -316,7 +295,7 @@ class BaseOperator:
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
 class PublicOperator(BaseOperator):
     # constants
-    version: ClassVar[str] = "0.5.138"
+    version: ClassVar[str] = "0.5.139"
     subnet_mapping: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
     url_public: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
@@ -346,9 +325,8 @@ class PublicOperator(BaseOperator):
     # class methods
 
     @classmethod
-    @override
-    def _add_arguments(cls, parser: ArgumentParser, /) -> None:
-        super()._add_arguments(parser)
+    def parse(cls) -> Self:
+        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         _ = parser.add_argument(
             "--machine",
             default=None,
@@ -364,6 +342,7 @@ class PublicOperator(BaseOperator):
         )
         _ = parser.add_argument("--tools", action="store_true", help="Install tools")
         _ = parser.add_argument("--docker", action="store_true", help="Install Docker")
+        return cls(**vars(parser.parse_args()))
 
     # instance methods
 
