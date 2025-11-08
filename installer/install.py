@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.8"
+__version__ = "0.6.9"
 
 
 # types
@@ -665,7 +665,7 @@ def run(
             lines.append(f"cd {cwd}")
         lines.extend([cmd, eof_use])
         return check_output(
-            "\n".join(eof_use),
+            "\n".join(lines),
             shell=True,
             env=None if env is None else {**environ, **env},
             input=input_,
