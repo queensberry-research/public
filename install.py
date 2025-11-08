@@ -37,7 +37,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.30"
+__version__ = "0.6.31"
 
 
 # types
@@ -407,6 +407,7 @@ class PublicOperator(BaseOperator):
             self._setup_known_hosts(user=user)
             self._setup_ssh_config(user=user)
             self._setup_ssh_github_infra_mirror(user=user)
+            self._install_direnv(user=user)
             self._install_neovim(user=user)
             self._install_starship(user=user)
             self._clone_infra(user=user)
@@ -551,6 +552,18 @@ class PublicOperator(BaseOperator):
             user=user,
         )
 
+    def _install_direnv(self, *, user: bool = False) -> None:
+        if not self.which("direnv", user=user):
+            _LOGGER.info("Installing 'direnv' for %r...", self.desc(user=user))
+            _ = self.curl(
+                "-sfL https://direnv.net/install.sh | bash",
+                user=user,
+                env={"bin_path": str(self.path_local_bin)},
+            )
+        self.copy_file_or_url(
+            self.url_direnv_toml, "~/.config/direnv/direnv.toml", user=user
+        )
+
     def _install_neovim(self, *, user: bool = False) -> None:
         desc = self.desc(user=user)
         if not self.which("nvim", user=user):
@@ -618,7 +631,6 @@ class PublicOperator(BaseOperator):
             ("yq", "mikefarah", "yq", "yq_linux_amd64"),
         ]:
             self._github_install(cmd, owner, repo, filename, user=True)
-        self._install_direnv(user=True)
         self._install_uv(user=True)
         self._install_bump_my_version(user=True)  # after uv
 
@@ -632,18 +644,6 @@ class PublicOperator(BaseOperator):
         if not self.which("bump-my-version", user=user):
             _LOGGER.info("Installing 'bump-my-version' for %r...", self.desc(user=user))
             _ = self.run("uv tool install bump-my-version", user=user)
-
-    def _install_direnv(self, *, user: bool = False) -> None:
-        if not self.which("direnv", user=user):
-            _LOGGER.info("Installing 'direnv' for %r...", self.desc(user=user))
-            _ = self.curl(
-                "-sfL https://direnv.net/install.sh | bash",
-                user=user,
-                env={"bin_path": str(self.path_local_bin)},
-            )
-        self.copy_file_or_url(
-            self.url_direnv_toml, "~/.config/direnv/direnv.toml", user=user
-        )
 
     def _install_uv(self, *, user: bool = False) -> None:
         if not self.which("uv", user=user):
