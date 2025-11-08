@@ -37,7 +37,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.29"
+__version__ = "0.6.30"
 
 
 # types
@@ -400,7 +400,9 @@ class PublicOperator(BaseOperator):
         self._install_sudo()
         for user in [False, True]:
             self._setup_authorized_keys(user=user)
+            self._setup_age_key(user=user)
             self._setup_bashrc(user=user)
+            self._setup_deploy_key(user=user)
             self._setup_git_config(user=user)
             self._setup_known_hosts(user=user)
             self._setup_ssh_config(user=user)
@@ -505,6 +507,14 @@ class PublicOperator(BaseOperator):
         _apt_install("sudo")
         _ = self.run(f"usermod -aG sudo {self.username}")
 
+    def _setup_age_key(self, *, user: bool = False) -> None:
+        self.copy_file_or_url(
+            self.path_age_key,
+            "~/.config/sops/age/keys.txt",
+            user=user,
+            perms="u=rw,g=,o=",
+        )
+
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
         self.copy_file_or_url(
             self.url_authorized_keys, "~/.ssh/authorized_keys", user=user
@@ -512,6 +522,14 @@ class PublicOperator(BaseOperator):
 
     def _setup_bashrc(self, *, user: bool = False) -> None:
         self.copy_file_or_url(self.url_bashrc, "~/.bashrc", user=user)
+
+    def _setup_deploy_key(self, *, user: bool = False) -> None:
+        self.copy_file_or_url(
+            self.path_deploy_key,
+            "~/.ssh/github-infra-mirror",
+            user=user,
+            perms="u=rw,g=,o=",
+        )
 
     def _setup_git_config(self, *, user: bool = False) -> None:
         self.copy_file_or_url(self.url_git_config, "~/.config/git/config", user=user)
