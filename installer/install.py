@@ -27,8 +27,8 @@ basicConfig(
     level="INFO",
 )
 _LOGGER = getLogger(__name__)
-__all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet"]
-__version__ = "0.6.2"
+__all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
+__version__ = "0.6.3"
 
 
 # types
@@ -239,7 +239,7 @@ class BaseOperator:
                 cwd_use = Path(f"/home/{self.username}")
             case never:
                 assert_never(never)
-        return _run(
+        return run(
             *cmds,
             user=self.username if user else None,
             cwd=cwd_use,
@@ -638,19 +638,7 @@ DOCKEREOF""",
 # main
 
 
-def _apt_install(cmd: str, /) -> None:
-    if which(cmd) is not None:
-        return
-    _LOGGER.info("Installing %r...", cmd)
-    _ = _run(f"apt install -y {cmd}")
-
-
-def _apt_update() -> None:
-    _LOGGER.info("Updating 'apt'...")
-    _ = _run("apt update -y")
-
-
-def _run(
+def run(
     *cmds: str,
     user: str | None = None,
     cwd: PathLike | None = None,
@@ -673,6 +661,18 @@ def _run(
         ).rstrip("\n")
         results.append(result)
     return "\n".join(results)
+
+
+def _apt_install(cmd: str, /) -> None:
+    if which(cmd) is not None:
+        return
+    _LOGGER.info("Installing %r...", cmd)
+    _ = run(f"apt install -y {cmd}")
+
+
+def _apt_update() -> None:
+    _LOGGER.info("Updating 'apt'...")
+    _ = run("apt update -y")
 
 
 def _substitute(text: str, /, **kwargs: Any) -> str:
