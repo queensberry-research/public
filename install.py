@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.46"
+__version__ = "0.6.47"
 
 
 # types
@@ -541,6 +541,7 @@ class PublicOperator(BaseOperator):
 
     def _setup_sshd_config(self) -> None:
         self.copy_file_or_url(self.url_sshd_config, "/etc/ssh/sshd_config.d/config")
+        _ = self.run("systemctl restart ssh")
 
     def _install_sudo(self) -> None:
         _apt_install("sudo")
