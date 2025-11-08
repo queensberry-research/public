@@ -36,7 +36,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.39"
+__version__ = "0.6.40"
 
 
 # types
@@ -138,9 +138,9 @@ class BaseOperator:
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> str:
-        if not self.which("curl"):
+        if not self.which("curl", user=user):
             _apt_install("curl")
-        if jq and not self.which("jq"):
+        if jq and not self.which("jq", user=user):
             _apt_install("jq")
         return self.run(
             f"curl {cmd}",
@@ -167,7 +167,7 @@ class BaseOperator:
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> None:
-        if not self.which("git"):
+        if not self.which("git", user=user):
             _apt_install("git")
         _ = self.run(
             f"git {cmd}",
@@ -413,6 +413,7 @@ class PublicOperator(BaseOperator):
             self._install_starship(user=user)
             self._install_uv(user=user)
             self._install_yq(user=user)
+            self._install_bump_my_version(user=user)  # after uv
             self._clone_infra(user=user)
         self._install_tools()
         self._install_docker()
@@ -632,7 +633,6 @@ class PublicOperator(BaseOperator):
             ("delta", "dandavison", "delta", "git-delta_${tag}_amd64.deb"),
         ]:
             self._github_install(cmd, owner, repo, filename, dpkg=True)
-        self._install_bump_my_version(user=True)  # after uv
 
     def _install_fd(self) -> None:
         if not self.which("fd"):
