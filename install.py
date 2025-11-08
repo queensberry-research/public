@@ -36,7 +36,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.40"
+__version__ = "0.6.41"
 
 
 # types
@@ -136,20 +136,13 @@ class BaseOperator:
         cwd: PathLike | None = None,
         eof: str | None = None,
         env: Mapping[str, str] | None = None,
-        input_: str | None = None,
     ) -> str:
         if not self.which("curl", user=user):
             _apt_install("curl")
         if jq and not self.which("jq", user=user):
             _apt_install("jq")
         return self.run(
-            f"curl {cmd}",
-            executable=executable,
-            user=user,
-            cwd=cwd,
-            eof=eof,
-            env=env,
-            input_=input_,
+            f"curl {cmd}", executable=executable, user=user, cwd=cwd, eof=eof, env=env
         )
 
     def desc(self, *, user: bool = False) -> str:
@@ -165,18 +158,11 @@ class BaseOperator:
         cwd: PathLike | None = None,
         eof: str | None = None,
         env: Mapping[str, str] | None = None,
-        input_: str | None = None,
     ) -> None:
         if not self.which("git", user=user):
             _apt_install("git")
         _ = self.run(
-            f"git {cmd}",
-            executable=executable,
-            user=user,
-            cwd=cwd,
-            eof=eof,
-            env=env,
-            input_=input_,
+            f"git {cmd}", executable=executable, user=user, cwd=cwd, eof=eof, env=env
         )
 
     def grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
@@ -239,7 +225,6 @@ class BaseOperator:
         cwd: PathLike | None = None,
         eof: str | None = None,
         env: Mapping[str, str] | None = None,
-        input_: str | None = None,
     ) -> str:
         match cwd, user:
             case Path() | str() as cwd_use, _:
@@ -257,7 +242,6 @@ class BaseOperator:
             cwd=cwd_use,
             eof=eof,
             env=env,
-            input_=input_,
         )
 
     def symlink(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
