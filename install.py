@@ -36,7 +36,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.37"
+__version__ = "0.6.38"
 
 
 # types
