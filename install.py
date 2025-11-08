@@ -27,8 +27,8 @@ basicConfig(
     level="INFO",
 )
 _LOGGER = getLogger(__name__)
-__all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.21"
+__all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "get_subnet", "run"]
+__version__ = "0.6.22"
 
 
 # types
@@ -63,22 +63,22 @@ class BaseOperator:
 
     # instance methods
 
-    def _append_text(self, path: PathLike, text: str, /, *, user: bool = False) -> None:
-        _ = self._run(
+    def append_text(self, path: PathLike, text: str, /, *, user: bool = False) -> None:
+        _ = self.run(
             f"cat >> {path} <<'APPENDTEXTEOF'\n{text}\nAPPENDTEXTEOF",
             user=user,
             eof="RUNEOF",
         )
 
-    def _chmod(self, perms: str, path: PathLike, /, *, user: bool = False) -> None:
-        _ = self._run(f"chmod {perms} {path}", user=user)
+    def chmod(self, perms: str, path: PathLike, /, *, user: bool = False) -> None:
+        _ = self.run(f"chmod {perms} {path}", user=user)
 
-    def _chown(
+    def chown(
         self, owner: str, group: str, path: PathLike, /, *, user: bool = False
     ) -> None:
-        _ = self._run(f"chown {owner}:{group} {path}", user=user)
+        _ = self.run(f"chown {owner}:{group} {path}", user=user)
 
-    def _copy_file_or_url(
+    def copy_file_or_url(
         self,
         from_: PathLike,
         to: PathLike,
@@ -90,10 +90,10 @@ class BaseOperator:
     ) -> None:
         match from_:
             case Path():
-                text_from = self._read_text(from_, user=user)
+                text_from = self.read_text(from_, user=user)
             case str():
-                if self._is_file(from_, user=user):
-                    text_from = self._read_text(from_, user=user)
+                if self.is_file(from_, user=user):
+                    text_from = self.read_text(from_, user=user)
                 else:
                     with urlopen(from_) as resp:
                         text_from: str = resp.read().decode("utf-8").rstrip("\n")
@@ -102,18 +102,18 @@ class BaseOperator:
         if substitute is not None:
             text_from = _substitute(text_from, **substitute)
         if (
-            self._is_file(to, user=user)
-            and (self._read_text(to, user=user) == text_from)
-            and ((perms is None) or (self._perms(to, user=user) == perms))
+            self.is_file(to, user=user)
+            and (self.read_text(to, user=user) == text_from)
+            and ((perms is None) or (self.perms(to, user=user) == perms))
         ):
             return
-        _LOGGER.info("Writing %r for %r...", str(to), self._desc(user=user))
-        self._write_text(to, text_from, user=user, perms=perms)
+        _LOGGER.info("Writing %r for %r...", str(to), self.desc(user=user))
+        self.write_text(to, text_from, user=user, perms=perms)
 
-    def _cp(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
-        _ = self._run(f"cp {from_} {to}", user=user)
+    def cp(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
+        _ = self.run(f"cp {from_} {to}", user=user)
 
-    def _curl(
+    def curl(
         self,
         cmd: str,
         /,
@@ -126,11 +126,11 @@ class BaseOperator:
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> str:
-        if not self._which("curl"):
+        if not self.which("curl"):
             _apt_install("curl")
-        if jq and not self._which("jq"):
+        if jq and not self.which("jq"):
             _apt_install("jq")
-        return self._run(
+        return self.run(
             f"curl {cmd}",
             executable=executable,
             user=user,
@@ -140,16 +140,10 @@ class BaseOperator:
             input_=input_,
         )
 
-    def _desc(self, *, user: bool = False) -> str:
+    def desc(self, *, user: bool = False) -> str:
         return self.username if user else "root"
 
-    def _dpkg_install(self, path: PathLike, /, *, user: bool = False) -> None:
-        cmd = f"dpkg -i {path}"
-        if user:
-            cmd = f"sudo {cmd}"
-        _ = self._run(cmd, user=user)
-
-    def _git(
+    def git(
         self,
         cmd: str,
         /,
@@ -161,9 +155,9 @@ class BaseOperator:
         env: Mapping[str, str] | None = None,
         input_: str | None = None,
     ) -> None:
-        if not self._which("git"):
+        if not self.which("git"):
             _apt_install("git")
-        _ = self._run(
+        _ = self.run(
             f"git {cmd}",
             executable=executable,
             user=user,
@@ -173,98 +167,59 @@ class BaseOperator:
             input_=input_,
         )
 
-    @contextmanager
-    def _github_binary(
-        self, owner: str, repo: str, filename: str, /, *, user: bool = False
-    ) -> Iterator[Path]:
-        releases = f"{owner}/{repo}/releases"
-        tag = self._curl(
-            f"-s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
-            jq=True,
-            user=user,
-        )
-        filename_use = _substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
-        url = f"https://github.com/{releases}/download/{tag}/{filename_use}"
-        with self._temp_dir(user=user) as temp:
-            path = temp / filename
-            _ = self._curl(f"-L {url} -o {path}", user=user)
-            _ = self._run(f"chmod +x {path}", user=user)
-            yield path
-
-    def _github_install(
-        self,
-        cmd: str,
-        owner: str,
-        repo: str,
-        filename: str,
-        /,
-        *,
-        user: bool = False,
-        dpkg: bool = False,
-    ) -> None:
-        if self._which(cmd, user=user):
-            return
-        _LOGGER.info("Installing %r for %r...", cmd, self._desc(user=user))
-        with self._github_binary(owner, repo, filename, user=user) as binary:
-            if not dpkg:
-                self._mkdir(self.path_local_bin, user=user)
-                self._mv(binary, self.path_local_bin / cmd, user=user)
-            else:
-                self._dpkg_install(binary, user=user)
-
-    def _grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
-        return self._is_file(path, user=user) and self._predicate(
+    def grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
+        return self.is_file(path, user=user) and self.predicate(
             f"grep -q {text} {path}", user=user
         )
 
-    def _is_dir(self, path: PathLike, /, *, user: bool = False) -> bool:
-        return self._predicate(f"[ -d {path} ]", user=user)
+    def is_dir(self, path: PathLike, /, *, user: bool = False) -> bool:
+        return self.predicate(f"[ -d {path} ]", user=user)
 
-    def _is_file(self, path: PathLike, /, *, user: bool = False) -> bool:
-        return self._predicate(f"[ -f {path} ]", user=user)
+    def is_file(self, path: PathLike, /, *, user: bool = False) -> bool:
+        return self.predicate(f"[ -f {path} ]", user=user)
 
-    def _is_symlink(self, path: PathLike, /, *, user: bool = False) -> bool:
-        return self._predicate(f"[ -L {path} ]", user=user)
+    def is_symlink(self, path: PathLike, /, *, user: bool = False) -> bool:
+        return self.predicate(f"[ -L {path} ]", user=user)
 
-    def _mkdir(self, path: PathLike, /, *, user: bool = False) -> None:
-        _ = self._run(f"mkdir -p {path}", user=user)
+    def mkdir(self, path: PathLike, /, *, user: bool = False) -> None:
+        _ = self.run(f"mkdir -p {path}", user=user)
 
-    def _mv(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
-        _ = self._run(f"mv {from_} {to}", user=user)
+    def mv(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
+        _ = self.run(f"mv {from_} {to}", user=user)
 
-    def _perms(self, path: PathLike, /, *, user: bool = False) -> str:
-        result = self._run(f"ls -ld {path}", user=user)
+    def perms(self, path: PathLike, /, *, user: bool = False) -> str:
+        result = self.run(f"ls -ld {path}", user=user)
         first = result.split()[0][1:10]
         u, g, o = [first[i : i + 3].replace("-", "") for i in [0, 3, 6]]
         return f"u={u},g={g},o={o}"
 
-    def _predicate(self, predicate: str, /, *, user: bool = False) -> bool:
-        result = self._run(f"if {predicate}; then echo 1; fi", user=user)
+    def predicate(self, predicate: str, /, *, user: bool = False) -> bool:
+        result = self.run(f"if {predicate}; then echo 1; fi", user=user)
         return result == "1"
 
-    def _read_link(self, path: PathLike, /, *, user: bool = False) -> Path:
-        return Path(self._run(f"readlink {path}", user=user))
+    def read_link(self, path: PathLike, /, *, user: bool = False) -> Path:
+        return Path(self.run(f"readlink {path}", user=user))
 
-    def _read_text(self, path: PathLike, /, *, user: bool = False) -> str:
-        return self._run(f"cat {path}", user=user)
+    def read_text(self, path: PathLike, /, *, user: bool = False) -> str:
+        return self.run(f"cat {path}", user=user)
 
-    def _replace_text(self, path: PathLike, /, *lines: str, user: bool = False) -> None:
-        text = self._read_text(path, user=user)
+    def replace_text(self, path: PathLike, /, *lines: str, user: bool = False) -> None:
+        text = self.read_text(path, user=user)
         if (n := len(lines)) % 2 != 0:
             msg = f"Expected an even number of lines; got {n}"
             raise ValueError(msg)
         for i in range(0, n, 2):
             text = text.replace(lines[i], lines[i + 1])
-        self._write_text(path, text, user=user)
+        self.write_text(path, text, user=user)
 
-    def _rm(self, path: PathLike, /, *, user: bool = False) -> bool:
-        if self._is_file(path, user=user):
+    def rm(self, path: PathLike, /, *, user: bool = False) -> bool:
+        if self.is_file(path, user=user):
             _LOGGER.info("Removing %r...", str(path))
-            _ = self._run(f"rm {path}", user=user)
+            _ = self.run(f"rm {path}", user=user)
             return True
         return False
 
-    def _run(
+    def run(
         self,
         *cmds: str,
         executable: str | None = None,
@@ -293,32 +248,32 @@ class BaseOperator:
             input_=input_,
         )
 
-    def _symlink(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
-        if self._is_symlink(to, user=user) and (self._read_link(to, user=user)) == Path(
+    def symlink(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
+        if self.is_symlink(to, user=user) and (self.read_link(to, user=user)) == Path(
             from_
         ):
             return
         _LOGGER.info(
-            "Symlinking %r -> %r for %r...", str(from_), str(to), self._desc(user=user)
+            "Symlinking %r -> %r for %r...", str(from_), str(to), self.desc(user=user)
         )
-        _ = self._run(f"ln -s {from_} {to}", user=user)
+        _ = self.run(f"ln -s {from_} {to}", user=user)
 
     @contextmanager
-    def _temp_dir(self, *, user: bool = False) -> Iterator[Path]:
-        path = Path(self._run("mktemp -d", user=user))
+    def temp_dir(self, *, user: bool = False) -> Iterator[Path]:
+        path = Path(self.run("mktemp -d", user=user))
         try:
             yield path
         finally:
-            _ = self._run(f"rm -rf {path}", user=user)
+            _ = self.run(f"rm -rf {path}", user=user)
 
-    def _which(self, cmd: str, /, *, user: bool = False) -> bool:
+    def which(self, cmd: str, /, *, user: bool = False) -> bool:
         try:
-            result = self._run(f"which {cmd}", user=user)
+            result = self.run(f"which {cmd}", user=user)
         except CalledProcessError:
             return False
         return result != ""
 
-    def _write_text(
+    def write_text(
         self,
         path: PathLike,
         text: str,
@@ -327,14 +282,14 @@ class BaseOperator:
         user: bool = False,
         perms: str | None = None,
     ) -> None:
-        self._mkdir(Path(path).parent, user=user)
-        _ = self._run(
+        self.mkdir(Path(path).parent, user=user)
+        _ = self.run(
             f"cat > {path} <<'WRITETEXTEOF'\n{text}\nWRITETEXTEOF",
             user=user,
             eof="RUNEOF",
         )
         if perms is not None:
-            self._chmod(perms, path, user=user)
+            self.chmod(perms, path, user=user)
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
@@ -458,18 +413,18 @@ class PublicOperator(BaseOperator):
 
     def _setup_proxmox(self) -> None:
         self._delete_proxmox_sources()
-        subnet = self._get_subnet()
-        self._copy_file_or_url(
+        subnet = get_subnet()
+        self.copy_file_or_url(
             self.url_resolv_conf,
             "/etc/resolv.conf",
             substitute={"n": self.subnet_mapping[subnet], "subnet": subnet},
         )
-        if not self._grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
-            self._copy_file_or_url(
+        if not self.grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
+            self.copy_file_or_url(
                 self.url_storage_cfg, storage_cfg, substitute={"subnet": subnet}
             )
         for user in [False, True]:
-            self._copy_file_or_url(
+            self.copy_file_or_url(
                 self.url_subnet_sh,
                 "~/.bashrc.d/subnet.sh",
                 user=user,
@@ -478,29 +433,10 @@ class PublicOperator(BaseOperator):
 
     def _delete_proxmox_sources(self) -> None:
         if any(
-            self._rm(f"/etc/apt/sources.list.d/{name}.sources")
+            self.rm(f"/etc/apt/sources.list.d/{name}.sources")
             for name in ["ceph", "pve-enterprise"]
         ):
             _apt_update()
-
-    def _get_subnet(self) -> Subnet:
-        try:
-            subnet = environ["SUBNET"]
-        except KeyError:
-            with socket(AF_INET, SOCK_DGRAM) as s:
-                s.connect(("1.1.1.1", 80))
-                ip = IPv4Address(s.getsockname()[0])
-            _, _, third, _ = str(ip).split(".")
-            third = int(third)
-            for subnet in SUBNETS:
-                if third == self.subnet_mapping[subnet]:
-                    return subnet
-            msg = f"Invalid IP; got {ip}"
-            raise ValueError(msg) from None
-        if subnet in SUBNETS:
-            return subnet
-        msg = f"Invalid subnet; got {subnet!r}"
-        raise ValueError(msg)
 
     def _setup_lxc(self) -> None:
         _LOGGER.info("Setting up LXC...")
@@ -511,12 +447,12 @@ class PublicOperator(BaseOperator):
             ],
             [False, True],
         ):
-            self._copy_file_or_url(from_, to, user=user, perms="u=rw,g=,o=")
+            self.copy_file_or_url(from_, to, user=user, perms="u=rw,g=,o=")
 
     def _setup_vm(self) -> None:
         _apt_install("nfs-common")
-        if not self._grep(fstab := "/etc/fstab", str(self.mount_target)):
-            self._mkdir(self.mount_target)
+        if not self.grep(fstab := "/etc/fstab", str(self.mount_target)):
+            self.mkdir(self.mount_target)
             parts = [
                 self.mount_source,
                 self.mount_target,
@@ -526,113 +462,113 @@ class PublicOperator(BaseOperator):
                 int(self.mount_check),
             ]
             line = " ".join(map(str, parts))
-            _ = self._run(f"echo {line} >> {fstab}", "mount -a")
+            _ = self.run(f"echo {line} >> {fstab}", "mount -a")
 
     def _set_root_password(self) -> None:
         if (password := self.root_password) is None:
             return
         _LOGGER.info("Setting 'root' password...")
-        _ = self._run(f"echo 'root:{password}' | chpasswd")
+        _ = self.run(f"echo 'root:{password}' | chpasswd")
 
     def _create_user(self) -> None:
         username = self.username
         try:
-            _ = self._run(f"id -u {username}")
+            _ = self.run(f"id -u {username}")
         except CalledProcessError:
             _LOGGER.info("Creating %r...", username)
-            _ = self._run(
+            _ = self.run(
                 f"useradd --create-home --shell /bin/bash {username}",
                 f"usermod -aG sudo {username}",
             )
         if (password := self.password) is None:
             return
         _LOGGER.info("Setting %r password...", username)
-        _ = self._run(f"echo '{username}:{password}' | chpasswd")
+        _ = self.run(f"echo '{username}:{password}' | chpasswd")
 
     def _setup_sshd_config(self) -> None:
-        self._copy_file_or_url(self.url_sshd_config, "/etc/ssh/sshd_config")
+        self.copy_file_or_url(self.url_sshd_config, "/etc/ssh/sshd_config")
 
     def _install_sudo(self) -> None:
         _apt_install("sudo")
-        _ = self._run(f"usermod -aG sudo {self.username}")
+        _ = self.run(f"usermod -aG sudo {self.username}")
 
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(
+        self.copy_file_or_url(
             self.url_authorized_keys, "~/.ssh/authorized_keys", user=user
         )
 
     def _setup_bashrc(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.url_bashrc, "~/.bashrc", user=user)
+        self.copy_file_or_url(self.url_bashrc, "~/.bashrc", user=user)
 
     def _setup_git_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.url_git_config, "~/.config/git/config", user=user)
+        self.copy_file_or_url(self.url_git_config, "~/.config/git/config", user=user)
 
     def _setup_known_hosts(self, *, user: bool = False) -> None:
-        if self._grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
+        if self.grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
             return
-        _LOGGER.info("Adding GitHub to known hosts for %r...", self._desc(user=user))
-        self._mkdir("~/.ssh", user=user)
-        _ = self._run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
+        _LOGGER.info("Adding GitHub to known hosts for %r...", self.desc(user=user))
+        self.mkdir("~/.ssh", user=user)
+        _ = self.run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
 
     def _setup_ssh_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.url_ssh_config, "~/.ssh/config", user=user)
+        self.copy_file_or_url(self.url_ssh_config, "~/.ssh/config", user=user)
 
     def _setup_ssh_github_infra_mirror(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(
+        self.copy_file_or_url(
             self.url_ssh_github_infra_mirror,
             "~/.ssh/config.d/github-infra-mirror",
             user=user,
         )
 
     def _install_neovim(self, *, user: bool = False) -> None:
-        desc = self._desc(user=user)
-        if not self._which("nvim", user=user):
+        desc = self.desc(user=user)
+        if not self.which("nvim", user=user):
             _LOGGER.info("Installing 'nvim' for %r...", desc)
             appimage = "nvim-linux-x86_64.appimage"
             with (
                 self._github_binary("neovim", "neovim", appimage) as binary,
-                self._temp_dir(user=user) as temp_dir,
+                self.temp_dir(user=user) as temp_dir,
             ):
-                self._mv(binary, temp_dir / appimage)
-                _ = self._run(
+                self.mv(binary, temp_dir / appimage)
+                _ = self.run(
                     f"./{appimage} --appimage-extract", user=user, cwd=temp_dir
                 )
-                self._mkdir(self.path_local_bin, user=user)
+                self.mkdir(self.path_local_bin, user=user)
                 squashfs_root = "squashfs-root"
-                self._mv(temp_dir / squashfs_root, self.path_local_bin, user=user)
-            self._symlink(
+                self.mv(temp_dir / squashfs_root, self.path_local_bin, user=user)
+            self.symlink(
                 self.path_local_bin / squashfs_root / "usr/bin/nvim",
                 self.path_local_bin / "nvim",
                 user=user,
             )
-        if not self._is_dir(config_nvim := "~/.config/nvim", user=user):
+        if not self.is_dir(config_nvim := "~/.config/nvim", user=user):
             _LOGGER.info("Installing 'lazyvim' for %r...", desc)
             url = "https://github.com/LazyVim/starter"
-            _ = self._git(f"clone {url} {config_nvim}", user=user)
-            _ = self._run(
+            _ = self.git(f"clone {url} {config_nvim}", user=user)
+            _ = self.run(
                 "nvim --headless '+Lazy! sync' +qa",
                 env={"PATH": f"{self.path_local_bin}:{environ['PATH']}"},
                 user=user,
             )
 
     def _install_starship(self, *, user: bool = False) -> None:
-        if not self._which("starship", user=user):
-            _LOGGER.info("Installing 'starship' for %r...", self._desc(user=user))
-            self._mkdir(self.path_local_bin, user=user)
-            _ = self._curl(
+        if not self.which("starship", user=user):
+            _LOGGER.info("Installing 'starship' for %r...", self.desc(user=user))
+            self.mkdir(self.path_local_bin, user=user)
+            _ = self.curl(
                 f"-sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 user=user,
             )
-        self._copy_file_or_url(
+        self.copy_file_or_url(
             self.url_starship_toml, "~/.config/starship.toml", user=user
         )
 
     def _clone_infra(self, *, user: bool = False) -> None:
         path = "~/infra"
-        if not self._is_dir(path, user=user):
-            _LOGGER.info("Cloning 'infra' for %r...", self._desc(user=user))
+        if not self.is_dir(path, user=user):
+            _LOGGER.info("Cloning 'infra' for %r...", self.desc(user=user))
             url = "ssh://git@github-infra-mirror/queensberry-research/infra-mirror"
-            self._git(f"clone --recurse-submodules {url} {path}", user=user)
+            self.git(f"clone --recurse-submodules {url} {path}", user=user)
 
     def _install_tools(self) -> None:
         if not self.tools:
@@ -656,44 +592,42 @@ class PublicOperator(BaseOperator):
         self._install_bump_my_version(user=True)  # after uv
 
     def _install_fd(self) -> None:
-        if not self._which("fd"):
+        if not self.which("fd"):
             _LOGGER.info("Installing 'fd'...")
             _apt_install("fd-find")
-        self._symlink("/bin/fdfind", "/bin/fd")
+        self.symlink("/bin/fdfind", "/bin/fd")
 
     def _install_bump_my_version(self, *, user: bool = False) -> None:
-        if not self._which("bump-my-version", user=user):
-            _LOGGER.info(
-                "Installing 'bump-my-version' for %r...", self._desc(user=user)
-            )
-            _ = self._run("uv tool install bump-my-version", user=user)
+        if not self.which("bump-my-version", user=user):
+            _LOGGER.info("Installing 'bump-my-version' for %r...", self.desc(user=user))
+            _ = self.run("uv tool install bump-my-version", user=user)
 
     def _install_direnv(self, *, user: bool = False) -> None:
-        if not self._which("direnv", user=user):
-            _LOGGER.info("Installing 'direnv' for %r...", self._desc(user=user))
-            _ = self._curl(
+        if not self.which("direnv", user=user):
+            _LOGGER.info("Installing 'direnv' for %r...", self.desc(user=user))
+            _ = self.curl(
                 "-sfL https://direnv.net/install.sh | bash",
                 user=user,
                 env={"bin_path": str(self.path_local_bin)},
             )
-        self._copy_file_or_url(
+        self.copy_file_or_url(
             self.url_direnv_toml, "~/.config/direnv/direnv.toml", user=user
         )
 
     def _install_uv(self, *, user: bool = False) -> None:
-        if not self._which("uv", user=user):
-            _LOGGER.info("Installing 'uv' for %r...", self._desc(user=user))
-            _ = self._curl(
+        if not self.which("uv", user=user):
+            _LOGGER.info("Installing 'uv' for %r...", self.desc(user=user))
+            _ = self.curl(
                 "-LsSf https://astral.sh/uv/install.sh | sh -s",
                 user=user,
                 env={"UV_NO_MODIFY_PATH": "1"},
             )
 
     def _install_docker(self) -> None:
-        if self._which("docker"):
+        if self.which("docker"):
             return
         _LOGGER.info("Installing 'docker'...")
-        _ = self._run(
+        _ = self.run(
             "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do apt-get remove $pkg; done",
             "apt-get update",
             "apt-get install -y ca-certificates curl",
@@ -713,6 +647,51 @@ DOCKEREOF""",
             f"usermod -aG docker {self.username}",
             eof="RUNEOF",
         )
+
+    @contextmanager
+    def _github_binary(
+        self, owner: str, repo: str, filename: str, /, *, user: bool = False
+    ) -> Iterator[Path]:
+        releases = f"{owner}/{repo}/releases"
+        tag = self.curl(
+            f"-s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
+            jq=True,
+            user=user,
+        )
+        filename_use = _substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
+        url = f"https://github.com/{releases}/download/{tag}/{filename_use}"
+        with self.temp_dir(user=user) as temp:
+            path = temp / filename
+            _ = self.curl(f"-L {url} -o {path}", user=user)
+            _ = self.run(f"chmod +x {path}", user=user)
+            yield path
+
+    def _github_install(
+        self,
+        cmd: str,
+        owner: str,
+        repo: str,
+        filename: str,
+        /,
+        *,
+        user: bool = False,
+        dpkg: bool = False,
+    ) -> None:
+        if self.which(cmd, user=user):
+            return
+        _LOGGER.info("Installing %r for %r...", cmd, self.desc(user=user))
+        with self._github_binary(owner, repo, filename, user=user) as binary:
+            if not dpkg:
+                self.mkdir(self.path_local_bin, user=user)
+                self.mv(binary, self.path_local_bin / cmd, user=user)
+            else:
+                self._dpkg_install(binary, user=user)
+
+    def _dpkg_install(self, path: PathLike, /, *, user: bool = False) -> None:
+        cmd = f"dpkg -i {path}"
+        if user:
+            cmd = f"sudo {cmd}"
+        _ = self.run(cmd, user=user)
 
 
 # main
@@ -747,6 +726,26 @@ def run(
         ).rstrip("\n")
 
     return "\n".join(map(run_one, cmds))
+
+
+def get_subnet() -> Subnet:
+    try:
+        subnet = environ["SUBNET"]
+    except KeyError:
+        with socket(AF_INET, SOCK_DGRAM) as s:
+            s.connect(("1.1.1.1", 80))
+            ip = IPv4Address(s.getsockname()[0])
+        _, _, third, _ = str(ip).split(".")
+        third = int(third)
+        for subnet in SUBNETS:
+            if third == BaseOperator.subnet_mapping[subnet]:
+                return subnet
+        msg = f"Invalid IP; got {ip}"
+        raise ValueError(msg) from None
+    if subnet in SUBNETS:
+        return subnet
+    msg = f"Invalid subnet; got {subnet!r}"
+    raise ValueError(msg)
 
 
 def _apt_install(cmd: str, /) -> None:
