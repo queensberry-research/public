@@ -1,13 +1,8 @@
 [tool.bumpversion]
   allow_dirty = true
-  current_version = "0.6.10"
+  current_version = "0.6.11"
 
   [[tool.bumpversion.files]]
-    filename = "pyproject.toml"
-    replace = "version = \"{new_version}\""
-    search = "version = \"{current_version}\""
-
-  [[tool.bumpversion.files]]
-    filename = "installer/install.py"
+    filename = "install.py"
     replace = "__version__ = \"{new_version}\""
     search = "__version__ = \"{current_version}\""
