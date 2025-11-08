@@ -37,7 +37,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.27"
+__version__ = "0.6.28"
 
 
 # types
@@ -727,8 +727,8 @@ def run(
 
     def run_one(cmd: str, /) -> str:
         lines: list[str] = [cmd3]
-        if user is not None:
-            lines.append(f"cd {cwd}")
+        if cwd is not None:
+            lines.append(f"cd {cwd} || exit 1")
         lines.extend([cmd, eof_use])
         return check_output(
             "\n".join(lines),
