@@ -28,6 +28,7 @@ basicConfig(
     level="INFO",
 )
 _LOGGER = getLogger(__name__)
+__version__ = "0.5.140"
 
 
 # types
@@ -295,7 +296,6 @@ class BaseOperator:
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
 class PublicOperator(BaseOperator):
     # constants
-    version: ClassVar[str] = "0.5.139"
     subnet_mapping: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
     url_public: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
@@ -347,7 +347,7 @@ class PublicOperator(BaseOperator):
     # instance methods
 
     def install(self) -> None:
-        _LOGGER.info("Running version %s...", self.version)
+        _LOGGER.info("Running version %s...", __version__)
         self._setup_machine()
         self._set_root_password()
         self._create_user()
