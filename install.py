@@ -27,7 +27,7 @@ basicConfig(
     level="INFO",
 )
 _LOGGER = getLogger(__name__)
-__all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
+__all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "get_subnet", "run"]
 __version__ = "0.6.22"
 
 
@@ -413,7 +413,7 @@ class PublicOperator(BaseOperator):
 
     def _setup_proxmox(self) -> None:
         self._delete_proxmox_sources()
-        subnet = self._get_subnet()
+        subnet = get_subnet()
         self.copy_file_or_url(
             self.url_resolv_conf,
             "/etc/resolv.conf",
@@ -437,25 +437,6 @@ class PublicOperator(BaseOperator):
             for name in ["ceph", "pve-enterprise"]
         ):
             _apt_update()
-
-    def _get_subnet(self) -> Subnet:
-        try:
-            subnet = environ["SUBNET"]
-        except KeyError:
-            with socket(AF_INET, SOCK_DGRAM) as s:
-                s.connect(("1.1.1.1", 80))
-                ip = IPv4Address(s.getsockname()[0])
-            _, _, third, _ = str(ip).split(".")
-            third = int(third)
-            for subnet in SUBNETS:
-                if third == self.subnet_mapping[subnet]:
-                    return subnet
-            msg = f"Invalid IP; got {ip}"
-            raise ValueError(msg) from None
-        if subnet in SUBNETS:
-            return subnet
-        msg = f"Invalid subnet; got {subnet!r}"
-        raise ValueError(msg)
 
     def _setup_lxc(self) -> None:
         _LOGGER.info("Setting up LXC...")
@@ -745,6 +726,26 @@ def run(
         ).rstrip("\n")
 
     return "\n".join(map(run_one, cmds))
+
+
+def get_subnet() -> Subnet:
+    try:
+        subnet = environ["SUBNET"]
+    except KeyError:
+        with socket(AF_INET, SOCK_DGRAM) as s:
+            s.connect(("1.1.1.1", 80))
+            ip = IPv4Address(s.getsockname()[0])
+        _, _, third, _ = str(ip).split(".")
+        third = int(third)
+        for subnet in SUBNETS:
+            if third == BaseOperator.subnet_mapping[subnet]:
+                return subnet
+        msg = f"Invalid IP; got {ip}"
+        raise ValueError(msg) from None
+    if subnet in SUBNETS:
+        return subnet
+    msg = f"Invalid subnet; got {subnet!r}"
+    raise ValueError(msg)
 
 
 def _apt_install(cmd: str, /) -> None:
