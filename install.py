@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
@@ -14,6 +15,7 @@ from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from string import Template
 from subprocess import CalledProcessError, check_output
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, assert_never, get_args
+from urllib.error import HTTPError
 from urllib.request import urlopen
 
 if TYPE_CHECKING:
@@ -28,7 +30,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "get_subnet", "run"]
-__version__ = "0.6.24"
+__version__ = "0.6.25"
 
 
 # types
@@ -95,8 +97,12 @@ class BaseOperator:
                 if self.is_file(from_, user=user):
                     text_from = self.read_text(from_, user=user)
                 else:
-                    with urlopen(from_) as resp:
-                        text_from: str = resp.read().decode("utf-8").rstrip("\n")
+                    try:
+                        with urlopen(from_) as resp:
+                            text_from: str = resp.read().decode("utf-8").rstrip("\n")
+                    except HTTPError:
+                        _LOGGER.exception("Unable to find %r", from_)
+                        raise
             case never:
                 assert_never(never)
         if substitute is not None:
