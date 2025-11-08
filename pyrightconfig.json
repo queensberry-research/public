@@ -1,1 +1,6 @@
-repo/pyright/pyrightconfig.json
+{
+  "extends": "repo/pyright/pyrightconfig.json",
+  "include": [
+    "."
+  ]
+}
