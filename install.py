@@ -36,7 +36,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.41"
+__version__ = "0.6.42"
 
 
 # types
@@ -73,7 +73,10 @@ class BaseOperator:
 
     def append_text(self, path: PathLike, text: str, /, *, user: bool = False) -> None:
         _ = self.run(
-            f"cat >> {path} <<'APPENDTEXTEOF'\n{text}\nAPPENDTEXTEOF",
+            f"""\
+cat >> {path} <<'APPENDTEXTEOF'
+{text}
+APPENDTEXTEOF""",
             user=user,
             eof="RUNEOF",
         )
@@ -131,18 +134,18 @@ class BaseOperator:
         /,
         *,
         jq: bool = False,
-        executable: str | None = None,
         user: bool = False,
-        cwd: PathLike | None = None,
-        eof: str | None = None,
         env: Mapping[str, str] | None = None,
+        executable: str | None = None,
+        eof: str | None = None,
+        cwd: PathLike | None = None,
     ) -> str:
         if not self.which("curl", user=user):
             _apt_install("curl")
         if jq and not self.which("jq", user=user):
             _apt_install("jq")
         return self.run(
-            f"curl {cmd}", executable=executable, user=user, cwd=cwd, eof=eof, env=env
+            f"curl {cmd}", user=user, env=env, executable=executable, eof=eof, cwd=cwd
         )
 
     def desc(self, *, user: bool = False) -> str:
@@ -153,16 +156,16 @@ class BaseOperator:
         cmd: str,
         /,
         *,
-        executable: str | None = None,
         user: bool = False,
-        cwd: PathLike | None = None,
-        eof: str | None = None,
         env: Mapping[str, str] | None = None,
+        executable: str | None = None,
+        eof: str | None = None,
+        cwd: PathLike | None = None,
     ) -> None:
         if not self.which("git", user=user):
             _apt_install("git")
         _ = self.run(
-            f"git {cmd}", executable=executable, user=user, cwd=cwd, eof=eof, env=env
+            f"git {cmd}", user=user, env=env, executable=executable, eof=eof, cwd=cwd
         )
 
     def grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
@@ -220,11 +223,11 @@ class BaseOperator:
     def run(
         self,
         *cmds: str,
-        executable: str | None = None,
         user: bool = False,
-        cwd: PathLike | None = None,
-        eof: str | None = None,
         env: Mapping[str, str] | None = None,
+        executable: str | None = None,
+        eof: str | None = None,
+        cwd: PathLike | None = None,
     ) -> str:
         match cwd, user:
             case Path() | str() as cwd_use, _:
@@ -237,11 +240,11 @@ class BaseOperator:
                 assert_never(never)
         return run(
             *cmds,
-            executable=executable,
             user=self.username if user else None,
-            cwd=cwd_use,
-            eof=eof,
             env=env,
+            executable=executable,
+            eof=eof,
+            cwd=cwd_use,
         )
 
     def symlink(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
@@ -280,7 +283,10 @@ class BaseOperator:
     ) -> None:
         self.mkdir(Path(path).parent, user=user)
         _ = self.run(
-            f"cat > {path} <<'WRITETEXTEOF'\n{text}\nWRITETEXTEOF",
+            f"""\
+cat > {path} <<'WRITETEXTEOF'
+{text}
+WRITETEXTEOF""",
             user=user,
             eof="RUNEOF",
         )
@@ -705,33 +711,28 @@ DOCKEREOF""",
 
 def run(
     *cmds: str,
-    executable: str | None = None,
     user: str | None = None,
-    cwd: PathLike | None = None,
-    eof: str | None = None,
     env: Mapping[str, str] | None = None,
-    input_: str | None = None,
+    executable: str | None = None,
+    eof: str | None = None,
+    cwd: PathLike | None = None,
 ) -> str:
-    exec_use = "sh" if executable is None else executable
-    eof_use = "EOF" if eof is None else eof
-    cmd1 = f"{exec_use} -s"
-    cmd2 = cmd1 if user is None else f"su - {user} -c '{cmd1}'"
-    cmd3 = f"{cmd2} <<'{eof_use}'"
-
-    def run_one(cmd: str, /) -> str:
-        lines: list[str] = [cmd3]
-        if cwd is not None:
-            lines.append(f"cd {cwd} || exit 1")
-        lines.extend([cmd, eof_use])
-        return check_output(
-            "\n".join(lines),
-            shell=True,
-            env=None if env is None else {**environ, **env},
-            input=input_,
-            text=True,
-        ).rstrip("\n")
-
-    return "\n".join(map(run_one, cmds))
+    template = """\
+${user_cmd} ${quote} ${env_vars} ${executable} -s ${quote} <<'${eof}'
+${cd_cmd}
+${cmds}
+${eof}"""
+    cmd = _substitute(
+        template,
+        user_cmd="" if user is None else f"su - {user} -c",
+        quote="" if user is None else "'",
+        env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
+        executable="sh" if executable is None else executable,
+        eof="EOF" if eof is None else eof,
+        cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
+        cmds="\n".join(cmds),
+    )
+    return check_output(cmd, shell=True, text=True).rstrip("\n")
 
 
 def get_subnet() -> Subnet:
