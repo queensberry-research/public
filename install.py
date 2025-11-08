@@ -35,8 +35,9 @@ __all__ = [
     "Subnet",
     "get_subnet",
     "run",
+    "substitute",
 ]
-__version__ = "0.6.42"
+__version__ = "0.6.43"
 
 
 # types
@@ -115,7 +116,7 @@ APPENDTEXTEOF""",
             case never:
                 assert_never(never)
         if substitute is not None:
-            text_from = _substitute(text_from, **substitute)
+            text_from = substitute(text_from, **substitute)
         if (
             self.is_file(to, user=user)
             and (self.read_text(to, user=user) == text_from)
@@ -670,7 +671,7 @@ DOCKEREOF""",
             jq=True,
             user=user,
         )
-        filename_use = _substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
+        filename_use = substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
         url = f"https://github.com/{releases}/download/{tag}/{filename_use}"
         with self.temp_dir(user=user) as temp:
             path = temp / filename
@@ -722,7 +723,7 @@ ${user_cmd} ${quote} ${env_vars} ${executable} -s ${quote} <<'${eof}'
 ${cd_cmd}
 ${cmds}
 ${eof}"""
-    cmd = _substitute(
+    cmd = substitute(
         template,
         user_cmd="" if user is None else f"su - {user} -c",
         quote="" if user is None else "'",
@@ -755,6 +756,10 @@ def get_subnet() -> Subnet:
     raise ValueError(msg)
 
 
+def substitute(text: str, /, **kwargs: Any) -> str:
+    return Template(text).substitute(**kwargs)
+
+
 def _apt_install(cmd: str, /) -> None:
     if which(cmd) is not None:
         return
@@ -765,10 +770,6 @@ def _apt_install(cmd: str, /) -> None:
 def _apt_update() -> None:
     _LOGGER.info("Updating 'apt'...")
     _ = run("apt update -y")
-
-
-def _substitute(text: str, /, **kwargs: Any) -> str:
-    return Template(text).substitute(**kwargs)
 
 
 if __name__ == "__main__":
