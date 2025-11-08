@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.48"
+__version__ = "0.6.49"
 
 
 # types
@@ -294,7 +294,7 @@ APPENDTEXTEOF""",
         eof: str | None = None,
         cwd: PathLike | None = None,
     ) -> str:
-        if not self.which("uv", user=user, path=[self.path_local_bin]):
+        if not self.which("uv", user=user):
             self._install_uv(user=user)
         return self.run(
             f"uv {cmd}",
@@ -306,11 +306,9 @@ APPENDTEXTEOF""",
             cwd=cwd,
         )
 
-    def which(
-        self, cmd: str, /, *, user: bool = False, path: Sequence[PathLike] | None = None
-    ) -> bool:
+    def which(self, cmd: str, /, *, user: bool = False) -> bool:
         try:
-            result = self.run(f"which {cmd}", user=user, path=path)
+            result = self.run(f"which {cmd}", user=user, path=[self.path_local_bin])
         except CalledProcessError:
             return False
         return result != ""
@@ -364,7 +362,7 @@ DOCKEREOF""",
         )
 
     def _install_uv(self, *, user: bool = False) -> None:
-        if not self.which("uv", user=user, path=[self.path_local_bin]):
+        if not self.which("uv", user=user):
             _LOGGER.info("Installing 'uv' for %r...", self.desc(user=user))
             _ = self.curl(
                 "-LsSf https://astral.sh/uv/install.sh | sh -s",
@@ -619,7 +617,9 @@ class PublicOperator(BaseOperator):
         )
 
     def _install_direnv(self, *, user: bool = False) -> None:
-        self._github_install("direnv", "direnv", "direnv", "direnv.linux-amd64")
+        self._github_install(
+            "direnv", "direnv", "direnv", "direnv.linux-amd64", user=user
+        )
         self.copy_file_or_url(
             self.url_direnv_toml, "~/.config/direnv/direnv.toml", user=user
         )
@@ -702,7 +702,7 @@ class PublicOperator(BaseOperator):
         self.symlink("/bin/fdfind", "/bin/fd")
 
     def _install_bump_my_version(self, *, user: bool = False) -> None:
-        if not self.which("bump-my-version", user=user, path=[self.path_local_bin]):
+        if not self.which("bump-my-version", user=user):
             _LOGGER.info("Installing 'bump-my-version' for %r...", self.desc(user=user))
             _ = self.uv("tool install bump-my-version", user=user)
 
