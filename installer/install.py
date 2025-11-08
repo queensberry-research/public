@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
@@ -28,7 +27,7 @@ basicConfig(
     level="INFO",
 )
 _LOGGER = getLogger(__name__)
-__version__ = "0.5.140"
+__version__ = "0.5.141"
 
 
 # types
@@ -294,7 +293,7 @@ class BaseOperator:
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
-class PublicOperator(BaseOperator):
+class _PublicOperator(BaseOperator):
     # constants
     subnet_mapping: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
     url_public: ClassVar[str] = (
@@ -682,5 +681,5 @@ def _substitute(text: str, /, **kwargs: Any) -> str:
 
 
 if __name__ == "__main__":
-    settings = PublicOperator.parse()
-    settings.install()
+    operator = _PublicOperator.parse()
+    operator.install()
