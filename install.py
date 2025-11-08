@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.18"
+__version__ = "0.6.19"
 
 
 # types
@@ -58,6 +58,24 @@ class BaseOperator:
     path_age_key: ClassVar[Path] = path_secrets / "age/secret-key.txt"
     path_deploy_key: ClassVar[Path] = path_secrets / "deploy-keys/infra"
     path_local_bin: ClassVar[Path] = Path("~/.local/bin")
+    url_public: ClassVar[str] = (
+        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
+    )
+    url_configs: ClassVar[str] = f"{url_public}/configs"
+    url_authorized_keys: ClassVar[str] = f"{url_public}/ssh/keys.txt"
+    url_bashrc: ClassVar[str] = f"{url_configs}/.bashrc"
+    url_direnv_toml: ClassVar[str] = f"{url_configs}/direnv.toml"
+    url_git_config: ClassVar[str] = f"{url_configs}/git-config"
+    url_install: ClassVar[str] = f"{url_public}/install.py"
+    url_resolv_conf: ClassVar[str] = f"{url_configs}/resolv.conf"
+    url_ssh_config: ClassVar[str] = f"{url_configs}/ssh-config"
+    url_ssh_github_infra_mirror: ClassVar[str] = (
+        f"{url_configs}/ssh-github-infra-mirror"
+    )
+    url_sshd_config: ClassVar[str] = f"{url_configs}/sshd-config"
+    url_starship_toml: ClassVar[str] = f"{url_configs}/starship.toml"
+    url_storage_cfg: ClassVar[str] = f"{url_configs}/storage.cfg"
+    url_subnet_sh: ClassVar[str] = f"{url_configs}/subnet.sh"
     username: ClassVar[str] = "nonroot"
 
     # instance methods
@@ -335,23 +353,6 @@ class BaseOperator:
 class _PublicOperator(BaseOperator):
     # constants
     subnet_mapping: ClassVar[dict[Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
-    url_public: ClassVar[str] = (
-        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
-    )
-    url_configs: ClassVar[str] = f"{url_public}/configs"
-    url_authorized_keys: ClassVar[str] = f"{url_public}/ssh/keys.txt"
-    url_bashrc: ClassVar[str] = f"{url_configs}/.bashrc"
-    url_direnv_toml: ClassVar[str] = f"{url_configs}/direnv.toml"
-    url_git_config: ClassVar[str] = f"{url_configs}/git-config"
-    url_resolv_conf: ClassVar[str] = f"{url_configs}/resolv.conf"
-    url_ssh_config: ClassVar[str] = f"{url_configs}/ssh-config"
-    url_ssh_github_infra_mirror: ClassVar[str] = (
-        f"{url_configs}/ssh-github-infra-mirror"
-    )
-    url_sshd_config: ClassVar[str] = f"{url_configs}/sshd-config"
-    url_starship_toml: ClassVar[str] = f"{url_configs}/starship.toml"
-    url_storage_cfg: ClassVar[str] = f"{url_configs}/storage.cfg"
-    url_subnet_sh: ClassVar[str] = f"{url_configs}/subnet.sh"
 
     # fields
     machine: _Machine | None = None
