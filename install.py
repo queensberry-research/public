@@ -17,7 +17,7 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping
+    from collections.abc import Iterator, Mapping, Sequence
 
 
 basicConfig(
@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.43"
+__version__ = "0.6.44"
 
 
 # types
@@ -97,7 +97,7 @@ APPENDTEXTEOF""",
         /,
         *,
         user: bool = False,
-        substitute: Mapping[str, Any] | None = None,
+        subs: Mapping[str, Any] | None = None,
         perms: str | None = None,
     ) -> None:
         match from_:
@@ -115,8 +115,8 @@ APPENDTEXTEOF""",
                         raise
             case never:
                 assert_never(never)
-        if substitute is not None:
-            text_from = substitute(text_from, **substitute)
+        if subs is not None:
+            text_from = substitute(text_from, **subs)
         if (
             self.is_file(to, user=user)
             and (self.read_text(to, user=user) == text_from)
@@ -137,6 +137,7 @@ APPENDTEXTEOF""",
         jq: bool = False,
         user: bool = False,
         env: Mapping[str, str] | None = None,
+        path: Sequence[Path] | None = None,
         executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
@@ -146,7 +147,13 @@ APPENDTEXTEOF""",
         if jq and not self.which("jq", user=user):
             _apt_install("jq")
         return self.run(
-            f"curl {cmd}", user=user, env=env, executable=executable, eof=eof, cwd=cwd
+            f"curl {cmd}",
+            user=user,
+            env=env,
+            path=path,
+            executable=executable,
+            eof=eof,
+            cwd=cwd,
         )
 
     def desc(self, *, user: bool = False) -> str:
@@ -159,6 +166,7 @@ APPENDTEXTEOF""",
         *,
         user: bool = False,
         env: Mapping[str, str] | None = None,
+        path: Sequence[Path] | None = None,
         executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
@@ -166,7 +174,13 @@ APPENDTEXTEOF""",
         if not self.which("git", user=user):
             _apt_install("git")
         _ = self.run(
-            f"git {cmd}", user=user, env=env, executable=executable, eof=eof, cwd=cwd
+            f"git {cmd}",
+            user=user,
+            env=env,
+            path=path,
+            executable=executable,
+            eof=eof,
+            cwd=cwd,
         )
 
     def grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
@@ -226,6 +240,7 @@ APPENDTEXTEOF""",
         *cmds: str,
         user: bool = False,
         env: Mapping[str, str] | None = None,
+        path: Sequence[Path] | None = None,
         executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
@@ -243,6 +258,7 @@ APPENDTEXTEOF""",
             *cmds,
             user=self.username if user else None,
             env=env,
+            path=path,
             executable=executable,
             eof=eof,
             cwd=cwd_use,
@@ -428,18 +444,18 @@ class PublicOperator(BaseOperator):
         self.copy_file_or_url(
             self.url_resolv_conf,
             "/etc/resolv.conf",
-            substitute={"n": self.subnet_mapping[subnet], "subnet": subnet},
+            subs={"n": self.subnet_mapping[subnet], "subnet": subnet},
         )
         if not self.grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
             self.copy_file_or_url(
-                self.url_storage_cfg, storage_cfg, substitute={"subnet": subnet}
+                self.url_storage_cfg, storage_cfg, subs={"subnet": subnet}
             )
         for user in [False, True]:
             self.copy_file_or_url(
                 self.url_subnet_sh,
                 "~/.bashrc.d/subnet.sh",
                 user=user,
-                substitute={"subnet": subnet},
+                subs={"subnet": subnet},
             )
 
     def _delete_proxmox_sources(self) -> None:
@@ -714,6 +730,7 @@ def run(
     *cmds: str,
     user: str | None = None,
     env: Mapping[str, str] | None = None,
+    path: Sequence[PathLike] | None = None,
     executable: str | None = None,
     eof: str | None = None,
     cwd: PathLike | None = None,
@@ -723,11 +740,14 @@ ${user_cmd} ${quote} ${env_vars} ${executable} -s ${quote} <<'${eof}'
 ${cd_cmd}
 ${cmds}
 ${eof}"""
+    env_use = ({} if env is None else dict(env)) | (
+        {} if path is None else {"PATH": ":".join([*map(str, path), environ["PATH"]])}
+    )
     cmd = substitute(
         template,
         user_cmd="" if user is None else f"su - {user} -c",
         quote="" if user is None else "'",
-        env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
+        env_vars=" ".join(f"{k}={v}" for k, v in env_use.items()),
         executable="sh" if executable is None else executable,
         eof="EOF" if eof is None else eof,
         cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
