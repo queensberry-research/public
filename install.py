@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.19"
+__version__ = "0.6.20"
 
 
 # types
@@ -58,24 +58,7 @@ class BaseOperator:
     path_age_key: ClassVar[Path] = path_secrets / "age/secret-key.txt"
     path_deploy_key: ClassVar[Path] = path_secrets / "deploy-keys/infra"
     path_local_bin: ClassVar[Path] = Path("~/.local/bin")
-    url_public: ClassVar[str] = (
-        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
-    )
-    url_configs: ClassVar[str] = f"{url_public}/configs"
-    url_authorized_keys: ClassVar[str] = f"{url_public}/ssh/keys.txt"
-    url_bashrc: ClassVar[str] = f"{url_configs}/.bashrc"
-    url_direnv_toml: ClassVar[str] = f"{url_configs}/direnv.toml"
-    url_git_config: ClassVar[str] = f"{url_configs}/git-config"
-    url_install: ClassVar[str] = f"{url_public}/install.py"
-    url_resolv_conf: ClassVar[str] = f"{url_configs}/resolv.conf"
-    url_ssh_config: ClassVar[str] = f"{url_configs}/ssh-config"
-    url_ssh_github_infra_mirror: ClassVar[str] = (
-        f"{url_configs}/ssh-github-infra-mirror"
-    )
-    url_sshd_config: ClassVar[str] = f"{url_configs}/sshd-config"
-    url_starship_toml: ClassVar[str] = f"{url_configs}/starship.toml"
-    url_storage_cfg: ClassVar[str] = f"{url_configs}/storage.cfg"
-    url_subnet_sh: ClassVar[str] = f"{url_configs}/subnet.sh"
+    subnet_mapping: ClassVar[dict[Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
     username: ClassVar[str] = "nonroot"
 
     # instance methods
@@ -350,9 +333,31 @@ class BaseOperator:
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
-class _PublicOperator(BaseOperator):
+class PublicOperator(BaseOperator):
     # constants
-    subnet_mapping: ClassVar[dict[Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
+    flag_machine: ClassVar[str] = "--machine"
+    flag_root_password: ClassVar[str] = "--root-password"  # noqa: S105
+    flag_password: ClassVar[str] = "--password"  # noqa: S105
+    flag_tools: ClassVar[str] = "--tools"
+    flag_docker: ClassVar[str] = "--docker"
+    url_public: ClassVar[str] = (
+        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
+    )
+    url_configs: ClassVar[str] = f"{url_public}/configs"
+    url_authorized_keys: ClassVar[str] = f"{url_public}/ssh/keys.txt"
+    url_bashrc: ClassVar[str] = f"{url_configs}/.bashrc"
+    url_direnv_toml: ClassVar[str] = f"{url_configs}/direnv.toml"
+    url_git_config: ClassVar[str] = f"{url_configs}/git-config"
+    url_install: ClassVar[str] = f"{url_public}/install.py"
+    url_resolv_conf: ClassVar[str] = f"{url_configs}/resolv.conf"
+    url_ssh_config: ClassVar[str] = f"{url_configs}/ssh-config"
+    url_ssh_github_infra_mirror: ClassVar[str] = (
+        f"{url_configs}/ssh-github-infra-mirror"
+    )
+    url_sshd_config: ClassVar[str] = f"{url_configs}/sshd-config"
+    url_starship_toml: ClassVar[str] = f"{url_configs}/starship.toml"
+    url_storage_cfg: ClassVar[str] = f"{url_configs}/storage.cfg"
+    url_subnet_sh: ClassVar[str] = f"{url_configs}/subnet.sh"
 
     # fields
     machine: _Machine | None = None
@@ -364,23 +369,51 @@ class _PublicOperator(BaseOperator):
     # class methods
 
     @classmethod
+    def curl_cmd(
+        cls,
+        *,
+        machine: _Machine | None = None,
+        root_password: str | None = None,
+        password: str | None = None,
+        tools: bool = False,
+        docker: bool = False,
+    ) -> str:
+        parts: list[str] = []
+        if machine is not None:
+            parts.extend([cls.flag_machine, machine])
+        if root_password is not None:
+            parts.extend([cls.flag_root_password, root_password])
+        if password is not None:
+            parts.extend([cls.flag_password, password])
+        if tools:
+            parts.append(cls.flag_tools)
+        if docker:
+            parts.append(cls.flag_docker)
+        cmd = " ".join(parts)
+        return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS {cls.url_install} | python3 - {cmd}"""
+
+    @classmethod
     def parse(cls) -> Self:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         _ = parser.add_argument(
-            "--machine",
+            cls.flag_machine,
             default=None,
             type=str,
             choices=_MACHINES,
             help="Setup a specific type of machine",
         )
         _ = parser.add_argument(
-            "--root-password", default=None, type=str, help="'root' password"
+            cls.flag_root_password, default=None, type=str, help="'root' password"
         )
         _ = parser.add_argument(
-            "--password", default=None, type=str, help="Non-root password"
+            cls.flag_password, default=None, type=str, help="Non-root password"
         )
-        _ = parser.add_argument("--tools", action="store_true", help="Install tools")
-        _ = parser.add_argument("--docker", action="store_true", help="Install Docker")
+        _ = parser.add_argument(
+            cls.flag_tools, action="store_true", help="Install tools"
+        )
+        _ = parser.add_argument(
+            cls.flag_docker, action="store_true", help="Install Docker"
+        )
         return cls(**vars(parser.parse_args()))
 
     # instance methods
@@ -728,5 +761,5 @@ def _substitute(text: str, /, **kwargs: Any) -> str:
 
 
 if __name__ == "__main__":
-    operator = _PublicOperator.parse()
+    operator = PublicOperator.parse()
     operator.install()
