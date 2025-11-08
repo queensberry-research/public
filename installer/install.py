@@ -53,31 +53,20 @@ _SUBNETS: list[_Subnet] = list(get_args(_Subnet.__value__))
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
-class Operator:
-    # defaults
-    default_mount_source: ClassVar[str] = "truenas.qrt:/mnt/qrt-pool/qrt-dataset"
-    default_mount_target: ClassVar[Path] = Path("/mnt/qrt-dataset")
-    default_mount_type: ClassVar[str] = "nfs"
-    default_mount_options: ClassVar[str] = "vers=4"
-    default_mount_backup: ClassVar[bool] = False
-    default_mount_check: ClassVar[bool] = False
-    default_path_qrt: ClassVar[Path] = Path("$mount/qrt")
-    default_path_secrets: ClassVar[Path] = Path("$qrt/secrets")
-    default_path_local_bin: ClassVar[Path] = Path("~/.local/bin")
-    default_username: ClassVar[str] = "nonroot"
-
-    # fields
-    public_version: str = "0.5.136"
-    mount_source: str = default_mount_source
-    mount_target: Path = default_mount_target
-    mount_type: str = default_mount_type
-    mount_options: str = default_mount_options
-    mount_backup: bool = default_mount_backup
-    mount_check: bool = default_mount_check
-    path_qrt: Path = default_path_qrt
-    path_secrets: Path = default_path_secrets
-    path_local_bin: Path = default_path_local_bin
-    username: str = default_username
+class BaseOperator:
+    # constants
+    mount_source: ClassVar[str] = "truenas.qrt:/mnt/qrt-pool/qrt-dataset"
+    mount_target: ClassVar[Path] = Path("/mnt/qrt-dataset")
+    mount_type: ClassVar[str] = "nfs"
+    mount_options: ClassVar[str] = "vers=4"
+    mount_backup: ClassVar[bool] = False
+    mount_check: ClassVar[bool] = False
+    path_qrt: ClassVar[Path] = mount_target / "qrt"
+    path_secrets: ClassVar[Path] = path_qrt / "secrets"
+    path_age_key: ClassVar[Path] = path_secrets / "age/secret-key.txt"
+    path_deploy_key: ClassVar[Path] = path_secrets / "deploy-keys/infra"
+    path_local_bin: ClassVar[Path] = Path("~/.local/bin")
+    username: ClassVar[str] = "nonroot"
 
     # class methods
 
@@ -89,63 +78,9 @@ class Operator:
 
     @classmethod
     def _add_arguments(cls, parser: ArgumentParser, /) -> None:
-        _ = parser.add_argument(
-            "--mount-source",
-            default=cls.default_mount_source,
-            type=str,
-            help="Mount source",
-        )
-        _ = parser.add_argument(
-            "--mount-target",
-            default=cls.default_mount_target,
-            type=Path,
-            help="Mount target",
-        )
-        _ = parser.add_argument(
-            "--mount-type", default=cls.default_mount_type, type=str, help="Mount type"
-        )
-        _ = parser.add_argument(
-            "--mount-options",
-            default=cls.default_mount_options,
-            type=str,
-            help="Mount options",
-        )
-        _ = parser.add_argument(
-            "--mount-backup", action="store_true", help="Mount backup"
-        )
-        _ = parser.add_argument(
-            "--mount-check", action="store_true", help="Mount check"
-        )
-        _ = parser.add_argument(
-            "--path-qrt",
-            default=cls.default_path_qrt,
-            type=Path,
-            help="Path to the QRT dataset",
-        )
-        _ = parser.add_argument(
-            "--path-secrets",
-            default=cls.default_path_secrets,
-            type=Path,
-            help="Path to the secrets",
-        )
-        _ = parser.add_argument(
-            "--path-local-bin",
-            default=cls.default_path_local_bin,
-            type=Path,
-            help="Path to the local binaries",
-        )
-        _ = parser.add_argument(
-            "--username",
-            default=cls.default_username,
-            type=str,
-            help="Non-root username",
-        )
+        _ = parser
 
     # instance methods
-
-    def __post_init__(self) -> None:
-        self.path_qrt = _substitute_path(self.path_qrt, mount=self.mount_target)
-        self.path_secrets = _substitute_path(self.path_secrets, qrt=self.path_qrt)
 
     def _chmod(self, perms: str, path: _PathLike, /, *, user: bool = False) -> None:
         _ = self._run(f"chmod {perms} {path}", user=user)
@@ -172,7 +107,7 @@ class Operator:
             case never:
                 assert_never(never)
         if substitute is not None:
-            text_from = _substitute_str(text_from, **substitute)
+            text_from = _substitute(text_from, **substitute)
         if (
             self._is_file(to, user=user)
             and (self._read_text(to, user=user) == text_from)
@@ -235,7 +170,7 @@ class Operator:
             jq=True,
             user=user,
         )
-        filename_use = _substitute_str(filename, tag=tag, tag_without=tag.lstrip("v"))
+        filename_use = _substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
         url = f"https://github.com/{releases}/download/{tag}/{filename_use}"
         with self._temp_dir(user=user) as temp:
             path = temp / filename
@@ -379,46 +314,32 @@ class Operator:
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
-class _Settings(Operator):
-    # defaults
-    default_subnets: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
-    default_url: ClassVar[str] = (
+class _PublicOperator(BaseOperator):
+    # constants
+    version: ClassVar[str] = "0.5.137"
+    subnet_mapping: ClassVar[dict[_Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
+    url_public: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
     )
-    default_age_key: ClassVar[Path] = Path("$secrets/age/secret-key.txt")
-    default_authorized_keys: ClassVar[str] = "$url/ssh/keys.txt"
-    default_bashrc: ClassVar[str] = "$url/configs/.bashrc"
-    default_deploy_key: ClassVar[Path] = Path("$secrets/deploy-keys/infra")
-    default_direnv_toml: ClassVar[str] = "$url/configs/direnv.toml"
-    default_git_config: ClassVar[str] = "$url/configs/git-config"
-    default_resolv_conf: ClassVar[str] = "$url/configs/resolv.conf"
-    default_ssh_config: ClassVar[str] = "$url/configs/ssh-config"
-    default_ssh_github_infra_mirror: ClassVar[str] = (
-        "$url/configs/ssh-github-infra-mirror"
+    url_configs: ClassVar[str] = f"{url_public}/configs"
+    url_authorized_keys: ClassVar[str] = f"{url_public}/ssh/keys.txt"
+    url_bashrc: ClassVar[str] = f"{url_configs}/.bashrc"
+    url_direnv_toml: ClassVar[str] = f"{url_configs}/direnv.toml"
+    url_git_config: ClassVar[str] = f"{url_configs}/git-config"
+    url_resolv_conf: ClassVar[str] = f"{url_configs}/resolv.conf"
+    url_ssh_config: ClassVar[str] = f"{url_configs}/ssh-config"
+    url_ssh_github_infra_mirror: ClassVar[str] = (
+        f"{url_configs}/ssh-github-infra-mirror"
     )
-    default_sshd_config: ClassVar[str] = "$url/configs/sshd-config"
-    default_starship_toml: ClassVar[str] = "$url/configs/starship.toml"
-    default_storage_cfg: ClassVar[str] = "$url/ssh/storage.cfg"
-    default_subnet_sh: ClassVar[str] = "$url/ssh/subnet.sh"
+    url_sshd_config: ClassVar[str] = f"{url_configs}/sshd-config"
+    url_starship_toml: ClassVar[str] = f"{url_configs}/starship.toml"
+    url_storage_cfg: ClassVar[str] = f"{url_configs}/storage.cfg"
+    url_subnet_sh: ClassVar[str] = f"{url_configs}/subnet.sh"
 
     # fields
     machine: _Machine | None = None
     root_password: str | None = None
     password: str | None = None
-    url: str = default_url
-    age_key: Path = default_age_key
-    authorized_keys: str = default_authorized_keys
-    bashrc: str = default_bashrc
-    deploy_key: Path = default_deploy_key
-    direnv_toml: str = default_direnv_toml
-    git_config: str = default_git_config
-    resolv_conf: str = default_resolv_conf
-    ssh_config: str = default_ssh_config
-    ssh_github_infra_mirror: str = default_ssh_github_infra_mirror
-    sshd_config: str = default_sshd_config
-    starship_toml: str = default_starship_toml
-    storage_cfg: str = default_storage_cfg
-    subnet_sh: str = default_subnet_sh
     tools: bool = False
     docker: bool = False
 
@@ -441,110 +362,13 @@ class _Settings(Operator):
         _ = parser.add_argument(
             "--password", default=None, type=str, help="Non-root password"
         )
-        _ = parser.add_argument(
-            "--url", default=cls.default_url, type=str, help="Config repo URL"
-        )
-        _ = parser.add_argument(
-            "--age-key", default=cls.default_age_key, type=Path, help="'age' key"
-        )
-        _ = parser.add_argument(
-            "--authorized-keys",
-            default=cls.default_authorized_keys,
-            type=str,
-            help="'authorized_keys' file or URL",
-        )
-        _ = parser.add_argument(
-            "--bashrc",
-            default=cls.default_bashrc,
-            type=str,
-            help="'.bashrc' file or URL",
-        )
-        _ = parser.add_argument(
-            "--deploy-key",
-            default=cls.default_deploy_key,
-            type=Path,
-            help="'infra' repo deploy key",
-        )
-        _ = parser.add_argument(
-            "--direnv-toml",
-            default=cls.default_direnv_toml,
-            type=str,
-            help="'direnv.toml' file or URL",
-        )
-        _ = parser.add_argument(
-            "--git-config",
-            default=cls.default_git_config,
-            type=str,
-            help="'git' config file or URL",
-        )
-        _ = parser.add_argument(
-            "--resolv-conf",
-            default=cls.default_resolv_conf,
-            type=str,
-            help="'resolv.conf' file or URL",
-        )
-        _ = parser.add_argument(
-            "--ssh-config",
-            default=cls.default_ssh_config,
-            type=str,
-            help="'ssh/config' file or URL",
-        )
-        _ = parser.add_argument(
-            "--ssh-github-infra-mirror",
-            default=cls.default_ssh_github_infra_mirror,
-            type=str,
-            help="'ssh/github-infra-mirror' file or URL",
-        )
-        _ = parser.add_argument(
-            "--sshd-config",
-            default=cls.default_sshd_config,
-            type=str,
-            help="'sshd_config' file or URL",
-        )
-        _ = parser.add_argument(
-            "--starship-toml",
-            default=cls.default_starship_toml,
-            type=str,
-            help="'starship.toml' file or URL",
-        )
-        _ = parser.add_argument(
-            "--storage-cfg",
-            default=cls.default_storage_cfg,
-            type=str,
-            help="'storage.cfg' file or URL",
-        )
-        _ = parser.add_argument(
-            "--subnet-sh",
-            default=cls.default_subnet_sh,
-            type=str,
-            help="'subnet.sh' file or URL",
-        )
         _ = parser.add_argument("--tools", action="store_true", help="Install tools")
         _ = parser.add_argument("--docker", action="store_true", help="Install Docker")
 
     # instance methods
 
-    @override
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        self.age_key = _substitute_path(self.age_key, secrets=self.path_secrets)
-        self.authorized_keys = _substitute_str(self.authorized_keys, url=self.url)
-        self.bashrc = _substitute_str(self.bashrc, url=self.url)
-        self.deploy_key = _substitute_path(self.deploy_key, secrets=self.path_secrets)
-        self.direnv_toml = _substitute_str(self.direnv_toml, url=self.url)
-        self.git_config = _substitute_str(self.git_config, url=self.url)
-        self.resolv_conf = _substitute_str(self.resolv_conf, url=self.url)
-        self.ssh_config = _substitute_str(self.ssh_config, url=self.url)
-        self.ssh_github_infra_mirror = _substitute_str(
-            self.ssh_github_infra_mirror, url=self.url
-        )
-        self.sshd_config = _substitute_str(self.sshd_config, url=self.url)
-        self.starship_toml = _substitute_str(self.starship_toml, url=self.url)
-        self.storage_cfg = _substitute_str(self.storage_cfg, url=self.url)
-        self.subnet_sh = _substitute_str(self.subnet_sh, url=self.url)
-
     def install(self) -> None:
-        _LOGGER.info("Running version %s...", self.public_version)
+        _LOGGER.info("Running version %s...", self.version)
         self._setup_machine()
         self._set_root_password()
         self._create_user()
@@ -580,17 +404,17 @@ class _Settings(Operator):
         self._delete_proxmox_sources()
         subnet = self._get_subnet()
         self._copy_file_or_url(
-            self.resolv_conf,
+            self.url_resolv_conf,
             "/etc/resolv.conf",
-            substitute={"n": self.default_subnets[subnet], "subnet": subnet},
+            substitute={"n": self.subnet_mapping[subnet], "subnet": subnet},
         )
         if not self._grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
             self._copy_file_or_url(
-                self.storage_cfg, storage_cfg, substitute={"subnet": subnet}
+                self.url_storage_cfg, storage_cfg, substitute={"subnet": subnet}
             )
         for user in [False, True]:
             self._copy_file_or_url(
-                self.subnet_sh,
+                self.url_subnet_sh,
                 "~/.bashrc.d/subnet.sh",
                 user=user,
                 substitute={"subnet": subnet},
@@ -613,7 +437,7 @@ class _Settings(Operator):
             _, _, third, _ = str(ip).split(".")
             third = int(third)
             for subnet in _SUBNETS:
-                if third == self.default_subnets[subnet]:
+                if third == self.subnet_mapping[subnet]:
                     return subnet
             msg = f"Invalid IP; got {ip}"
             raise ValueError(msg) from None
@@ -626,8 +450,8 @@ class _Settings(Operator):
         _LOGGER.info("Setting up LXC...")
         for (from_, to), user in product(
             [
-                (self.age_key, "~/.config/sops/age/keys.txt"),
-                (self.deploy_key, "~/.ssh/github-infra-mirror"),
+                (self.path_age_key, "~/.config/sops/age/keys.txt"),
+                (self.path_deploy_key, "~/.ssh/github-infra-mirror"),
             ],
             [False, True],
         ):
@@ -670,7 +494,7 @@ class _Settings(Operator):
         _ = self._run(f"echo '{username}:{password}' | chpasswd")
 
     def _setup_sshd_config(self) -> None:
-        self._copy_file_or_url(self.sshd_config, "/etc/ssh/sshd_config")
+        self._copy_file_or_url(self.url_sshd_config, "/etc/ssh/sshd_config")
 
     def _install_sudo(self) -> None:
         _apt_install("sudo")
@@ -678,14 +502,14 @@ class _Settings(Operator):
 
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
         self._copy_file_or_url(
-            self.authorized_keys, "~/.ssh/authorized_keys", user=user
+            self.url_authorized_keys, "~/.ssh/authorized_keys", user=user
         )
 
     def _setup_bashrc(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.bashrc, "~/.bashrc", user=user)
+        self._copy_file_or_url(self.url_bashrc, "~/.bashrc", user=user)
 
     def _setup_git_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.git_config, "~/.config/git/config", user=user)
+        self._copy_file_or_url(self.url_git_config, "~/.config/git/config", user=user)
 
     def _setup_known_hosts(self, *, user: bool = False) -> None:
         if self._grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
@@ -695,11 +519,11 @@ class _Settings(Operator):
         _ = self._run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
 
     def _setup_ssh_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(self.ssh_config, "~/.ssh/config", user=user)
+        self._copy_file_or_url(self.url_ssh_config, "~/.ssh/config", user=user)
 
     def _setup_ssh_github_infra_mirror(self, *, user: bool = False) -> None:
         self._copy_file_or_url(
-            self.ssh_github_infra_mirror,
+            self.url_ssh_github_infra_mirror,
             "~/.ssh/config.d/github-infra-mirror",
             user=user,
         )
@@ -743,7 +567,9 @@ class _Settings(Operator):
                 f"-sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 user=user,
             )
-        self._copy_file_or_url(self.starship_toml, "~/.config/starship.toml", user=user)
+        self._copy_file_or_url(
+            self.url_starship_toml, "~/.config/starship.toml", user=user
+        )
 
     def _clone_infra(self, *, user: bool = False) -> None:
         path = "~/infra"
@@ -795,7 +621,7 @@ class _Settings(Operator):
                 env={"bin_path": str(self.path_local_bin)},
             )
         self._copy_file_or_url(
-            self.direnv_toml, "~/.config/direnv/direnv.toml", user=user
+            self.url_direnv_toml, "~/.config/direnv/direnv.toml", user=user
         )
 
     def _install_uv(self, *, user: bool = False) -> None:
@@ -872,14 +698,10 @@ def _run(
     return "\n".join(results)
 
 
-def _substitute_path(path: _PathLike, /, **kwargs: Any) -> Path:
-    return Path(Template(str(path)).substitute(**kwargs))
-
-
-def _substitute_str(text: str, /, **kwargs: Any) -> str:
+def _substitute(text: str, /, **kwargs: Any) -> str:
     return Template(text).substitute(**kwargs)
 
 
 if __name__ == "__main__":
-    settings = _Settings.parse()
+    settings = _PublicOperator.parse()
     settings.install()
