@@ -36,7 +36,7 @@ __all__ = [
     "get_subnet",
     "run",
 ]
-__version__ = "0.6.33"
+__version__ = "0.6.34"
 
 
 # types
@@ -546,13 +546,7 @@ class PublicOperator(BaseOperator):
         )
 
     def _install_direnv(self, *, user: bool = False) -> None:
-        if not self.which("direnv", user=user):
-            _LOGGER.info("Installing 'direnv' for %r...", self.desc(user=user))
-            _ = self.curl(
-                "-sfL https://direnv.net/install.sh | bash",
-                user=user,
-                env={"bin_path": str(self.path_local_bin)},
-            )
+        self._github_install("direnv", "direnv", "direnv", "direnv.linux-amd64")
         self.copy_file_or_url(
             self.url_direnv_toml, "~/.config/direnv/direnv.toml", user=user
         )
