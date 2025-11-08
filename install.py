@@ -29,8 +29,16 @@ basicConfig(
     level="INFO",
 )
 _LOGGER = getLogger(__name__)
-__all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "get_subnet", "run"]
-__version__ = "0.6.25"
+__all__ = [
+    "SUBNETS",
+    "BaseOperator",
+    "PathLike",
+    "PublicOperator",
+    "Subnet",
+    "get_subnet",
+    "run",
+]
+__version__ = "0.6.26"
 
 
 # types
