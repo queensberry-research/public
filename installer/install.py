@@ -28,7 +28,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = ["SUBNETS", "BaseOperator", "PathLike", "Subnet", "run"]
-__version__ = "0.6.3"
+__version__ = "0.6.4"
 
 
 # types
@@ -642,6 +642,7 @@ def run(
     *cmds: str,
     user: str | None = None,
     cwd: PathLike | None = None,
+    executable: str | None = None,
     env: Mapping[str, str] | None = None,
     input_: str | None = None,
 ) -> str:
@@ -654,6 +655,7 @@ def run(
         cmd_use = f"{cmd_use}\n{cmd}\nRUNEOF"
         result = check_output(
             cmd_use,
+            executable=executable,
             shell=True,
             env=None if env is None else {**environ, **env},
             input=input_,
