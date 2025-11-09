@@ -30,7 +30,7 @@
   is-valid-ref1 = "!f() { git show-ref --verify --quiet refs/$1; }; f"
 
   # submodule
-  submodules-update = "!git submodule update --init --recursive && git submodule foreach --recursive 'git checkout --force $(git default-local-branch) && git pull-default'"
+  submodule-update = "!git submodule update --init --recursive && git submodule foreach --recursive 'git checkout --force $(git default-local-branch) && git pull-default'"
 
   # symbolic-ref
   default-remote-branch = "!git symbolic-ref refs/remotes/origin/HEAD --short"
