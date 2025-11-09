@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.50"
+__version__ = "0.6.51"
 
 
 # types
@@ -474,6 +474,7 @@ class PublicOperator(BaseOperator):
             self._setup_known_hosts(user=user)
             self._setup_ssh_config(user=user)
             self._setup_ssh_github_infra_mirror(user=user)
+            self._setup_subnet_sh(user=user)
             self._install_direnv(user=user)
             self._install_neovim(user=user)
             self._install_sops(user=user)
@@ -509,13 +510,6 @@ class PublicOperator(BaseOperator):
         if not self.grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
             self.copy_file_or_url(
                 self.url_storage_cfg, storage_cfg, subs={"subnet": subnet}
-            )
-        for user in [False, True]:
-            self.copy_file_or_url(
-                self.url_subnet_sh,
-                "~/.bashrc.d/subnet.sh",
-                user=user,
-                subs={"subnet": subnet},
             )
 
     def _delete_proxmox_sources(self) -> None:
@@ -614,6 +608,18 @@ class PublicOperator(BaseOperator):
             self.url_ssh_github_infra_mirror,
             "~/.ssh/config.d/github-infra-mirror",
             user=user,
+        )
+
+    def _setup_subnet_sh(self, *, user: bool = False) -> None:
+        try:
+            subnet = get_subnet()
+        except ValueError:
+            return
+        self.copy_file_or_url(
+            self.url_subnet_sh,
+            "~/.bashrc.d/subnet.sh",
+            user=user,
+            subs={"subnet": subnet},
         )
 
     def _install_direnv(self, *, user: bool = False) -> None:
