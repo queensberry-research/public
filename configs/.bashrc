@@ -66,7 +66,7 @@ alias gf='git fetch-default'
 alias gl='git log-default'
 alias gpl='git pull-default'
 alias gs='git status'
-alias gsu='git submodules-update'
+alias gsu='git submodule-update'
 alias wgp='watch --color --interval 2 "git checkout master && git pull-default && git -c color.ui=always log-default -n10"'
 
 # ls
