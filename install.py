@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.68"
+__version__ = "0.6.69"
 
 
 # types
@@ -139,13 +139,12 @@ APPENDTEXTEOF""",
         user: bool = False,
         env: Mapping[str, str] | None = None,
         eof: str | None = None,
-        cwd: PathLike | None = None,
     ) -> str:
         if not self.which("curl", user=user):
             _apt_install("curl")
         if jq and not self.which("jq", user=user):
             _apt_install("jq")
-        return self.run(f"curl {cmd}", user=user, env=env, eof=eof, cwd=cwd)
+        return self.run(f"curl {cmd}", user=user, env=env, eof=eof)
 
     def desc(self, *, user: bool = False) -> str:
         return self.username if user else "root"
@@ -161,11 +160,10 @@ APPENDTEXTEOF""",
         user: bool = False,
         env: Mapping[str, str] | None = None,
         eof: str | None = None,
-        cwd: PathLike | None = None,
     ) -> None:
         if not self.which("git", user=user):
             _apt_install("git")
-        _ = self.run(f"git {cmd}", user=user, env=env, eof=eof, cwd=cwd)
+        _ = self.run(f"git {cmd}", user=user, env=env, eof=eof)
 
     def grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
         return self.is_file(path, user=user) and self.predicate(
@@ -230,20 +228,8 @@ APPENDTEXTEOF""",
         user: bool = False,
         env: Mapping[str, str] | None = None,
         eof: str | None = None,
-        cwd: PathLike | None = None,
     ) -> str:
-        match cwd, user:
-            case Path() | str() as cwd_use, _:
-                ...
-            case None, False:
-                cwd_use = None
-            case None, True:
-                cwd_use = Path(f"/home/{self.username}")
-            case never:
-                assert_never(never)
-        return run(
-            *cmds, user=self.username if user else None, env=env, eof=eof, cwd=cwd_use
-        )
+        return run(*cmds, user=self.username if user else None, env=env, eof=eof)
 
     def symlink(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
         if self.is_symlink(to, user=user) and (self.read_link(to, user=user)) == Path(
@@ -275,11 +261,10 @@ APPENDTEXTEOF""",
         user: bool = False,
         env: Mapping[str, str] | None = None,
         eof: str | None = None,
-        cwd: PathLike | None = None,
     ) -> str:
         if not self.which("uv", user=user):
             self._install_uv(user=user)
-        return self.run(f"uv {cmd}", user=user, env=env, eof=eof, cwd=cwd)
+        return self.run(f"uv {cmd}", user=user, env=env, eof=eof)
 
     def which(self, cmd: str, /, *, user: bool = False) -> bool:
         try:
@@ -617,7 +602,7 @@ class PublicOperator(BaseOperator):
             ):
                 self.mv(binary, temp_dir / appimage)
                 _ = self.run(
-                    f"./{appimage} --appimage-extract", user=user, cwd=temp_dir
+                    f"cd {temp_dir}", f"./{appimage} --appimage-extract", user=user
                 )
                 self.mkdir(self.path_local_bin, user=user)
                 squashfs_root = "squashfs-root"
@@ -737,13 +722,10 @@ def run(
     user: str | None = None,
     env: Mapping[str, str] | None = None,
     eof: str | None = None,
-    cwd: PathLike | None = None,
 ) -> str:
     template = """\
 ${user_cmd} ${quote} ${env_vars} bash -s ${quote} <<'${eof}'
 if [ -f ~/.bashrc ]; then source ~/.bashrc; fi
-${cd_cmd}
-if command -v direnv >/dev/null 2>&1; then eval "$$(direnv export bash)"; fi
 ${cmds}
 ${eof}"""
     cmd = substitute(
@@ -752,7 +734,6 @@ ${eof}"""
         quote="" if user is None else "'",
         env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
         eof="EOF" if eof is None else eof,
-        cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
         cmds="\n".join(cmds),
     )
     return check_output(cmd, shell=True, text=True).rstrip("\n")
