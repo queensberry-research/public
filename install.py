@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.52"
+__version__ = "0.6.53"
 
 
 # types
@@ -483,7 +483,7 @@ class PublicOperator(BaseOperator):
             self._install_yq(user=user)
             self._install_bump_my_version(user=user)  # after uv
             self._clone_infra(user=user)
-        self._install_tools(user=True)
+        self._install_tools()
         self._install_docker()
 
     def _setup_machine(self) -> None:
@@ -689,7 +689,7 @@ class PublicOperator(BaseOperator):
             url = "ssh://git@github-infra-mirror/queensberry-research/infra-mirror"
             self.git(f"clone --recurse-submodules {url} {path}", user=user)
 
-    def _install_tools(self, *, user: bool = False) -> None:
+    def _install_tools(self) -> None:
         if not self.tools:
             return
         _LOGGER.info("Installing tools...")
@@ -700,7 +700,7 @@ class PublicOperator(BaseOperator):
             ("btm", "clementtsang", "bottom", "bottom_${tag}-1_amd64.deb"),
             ("delta", "dandavison", "delta", "git-delta_${tag}_amd64.deb"),
         ]:
-            self._github_install(cmd, owner, repo, filename, user=user, dpkg=True)
+            self._github_install(cmd, owner, repo, filename, dpkg=True)
 
     def _install_fd(self) -> None:
         if not self.which("fd"):
@@ -750,13 +750,10 @@ class PublicOperator(BaseOperator):
                 self.mkdir(self.path_local_bin, user=user)
                 self.mv(binary, self.path_local_bin / cmd, user=user)
             else:
-                self._dpkg_install(binary, user=user)
+                self._dpkg_install(binary)
 
-    def _dpkg_install(self, path: PathLike, /, *, user: bool = False) -> None:
-        cmd = f"dpkg -i {path}"
-        if user:
-            cmd = f"sudo {cmd}"
-        _ = self.run(cmd, user=user)
+    def _dpkg_install(self, path: PathLike, /) -> None:
+        _ = self.run(f"dpkg -i {path}")
 
 
 # main
