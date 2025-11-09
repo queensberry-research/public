@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.58"
+__version__ = "0.6.59"
 
 
 # types
@@ -127,6 +127,7 @@ APPENDTEXTEOF""",
         self.write_text(to, text_from, user=user, perms=perms)
 
     def cp(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
+        self.mkdir(to, parent=True, user=True)
         _ = self.run(f"cp {from_} {to}", user=user)
 
     def curl(
@@ -177,8 +178,13 @@ APPENDTEXTEOF""",
     def is_symlink(self, path: PathLike, /, *, user: bool = False) -> bool:
         return self.predicate(f"[ -L {path} ]", user=user)
 
-    def mkdir(self, path: PathLike, /, *, user: bool = False) -> None:
-        _ = self.run(f"mkdir -p {path}", user=user)
+    def mkdir(
+        self, path: PathLike, /, *, parent: bool = False, user: bool = False
+    ) -> None:
+        if parent:
+            self.mkdir(f"$(dirname {path})", user=user)
+        else:
+            _ = self.run(f"mkdir -p {path}", user=user)
 
     def mv(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
         _ = self.run(f"mv {from_} {to}", user=user)
@@ -254,6 +260,10 @@ APPENDTEXTEOF""",
         finally:
             _ = self.run(f"rm -rf {path}", user=user)
 
+    def touch(self, path: PathLike, /, *, user: bool = False) -> None:
+        self.mkdir(path, parent=True, user=True)
+        _ = self.run(f"touch {path}", user=user)
+
     def uv(
         self,
         cmd: str,
@@ -284,7 +294,7 @@ APPENDTEXTEOF""",
         user: bool = False,
         perms: str | None = None,
     ) -> None:
-        self.mkdir(Path(path).parent, user=user)
+        self.mkdir(path, parent=True, user=True)
         _ = self.run(
             f"""\
 cat > {path} <<'WRITETEXTEOF'
@@ -560,7 +570,7 @@ class PublicOperator(BaseOperator):
         if self.grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
             return
         _LOGGER.info("Adding GitHub to known hosts for %r...", self.desc(user=user))
-        self.mkdir("~/.ssh", user=user)
+        self.mkdir(known_hosts, parent=True, user=user)
         _ = self.run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
 
     def _setup_ssh_config(self, *, user: bool = False) -> None:
@@ -726,13 +736,9 @@ def run(
 ) -> str:
     template = """\
 ${user_cmd} ${quote} ${env_vars} bash -s ${quote} <<'${eof}'
-if [ -f ~/.bashrc ]; then
-    source ~/.bashrc
-fi
+if [ -f ~/.bashrc ]; then source ~/.bashrc; fi
 ${cd_cmd}
-if command -v direnv >/dev/null 2>&1; then
-    eval "$$(direnv export bash)"
-fi
+if command -v direnv >/dev/null 2>&1; then eval "$$(direnv export bash)"; fi
 ${cmds}
 ${eof}"""
     cmd = substitute(
