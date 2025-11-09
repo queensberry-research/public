@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.59"
+__version__ = "0.6.60"
 
 
 # types
@@ -181,10 +181,11 @@ APPENDTEXTEOF""",
     def mkdir(
         self, path: PathLike, /, *, parent: bool = False, user: bool = False
     ) -> None:
-        if parent:
-            self.mkdir(f"$(dirname {path})", user=user)
-        else:
-            _ = self.run(f"mkdir -p {path}", user=user)
+        if not parent:
+            if not self.is_dir(path, user=user):
+                _ = self.run(f"mkdir -p {path}", user=user)
+            return
+        self.mkdir(f"$(dirname {path})", user=user)
 
     def mv(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
         _ = self.run(f"mv {from_} {to}", user=user)
