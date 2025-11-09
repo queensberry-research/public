@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.70"
+__version__ = "0.6.71"
 
 
 # types
@@ -140,12 +140,15 @@ APPENDTEXTEOF""",
         env: Mapping[str, str] | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
+        direnv: bool = False,
     ) -> str:
         if not self.which("curl", user=user):
             _apt_install("curl")
         if jq and not self.which("jq", user=user):
             _apt_install("jq")
-        return self.run(f"curl {cmd}", user=user, env=env, eof=eof, cwd=cwd)
+        return self.run(
+            f"curl {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv
+        )
 
     def desc(self, *, user: bool = False) -> str:
         return self.username if user else "root"
@@ -162,10 +165,11 @@ APPENDTEXTEOF""",
         env: Mapping[str, str] | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
+        direnv: bool = False,
     ) -> None:
         if not self.which("git", user=user):
             _apt_install("git")
-        _ = self.run(f"git {cmd}", user=user, env=env, eof=eof, cwd=cwd)
+        _ = self.run(f"git {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
 
     def grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
         return self.is_file(path, user=user) and self.predicate(
@@ -231,9 +235,15 @@ APPENDTEXTEOF""",
         env: Mapping[str, str] | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
+        direnv: bool = False,
     ) -> str:
         return run(
-            *cmds, user=self.username if user else None, env=env, eof=eof, cwd=cwd
+            *cmds,
+            user=self.username if user else None,
+            env=env,
+            eof=eof,
+            cwd=cwd,
+            direnv=direnv,
         )
 
     def symlink(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
@@ -267,10 +277,13 @@ APPENDTEXTEOF""",
         env: Mapping[str, str] | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
+        direnv: bool = False,
     ) -> str:
         if not self.which("uv", user=user):
             self._install_uv(user=user)
-        return self.run(f"uv {cmd}", user=user, env=env, eof=eof, cwd=cwd)
+        return self.run(
+            f"uv {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv
+        )
 
     def which(self, cmd: str, /, *, user: bool = False) -> bool:
         try:
@@ -729,12 +742,13 @@ def run(
     env: Mapping[str, str] | None = None,
     eof: str | None = None,
     cwd: PathLike | None = None,
+    direnv: bool = False,
 ) -> str:
     template = """\
 ${user_cmd} ${quote} ${env_vars} bash -s ${quote} <<'${eof}'
 if [ -f ~/.bashrc ]; then source ~/.bashrc; fi
 ${cd_cmd}
-if command -v direnv >/dev/null 2>&1; then eval "$$(direnv export bash)"; fi
+${direnv_cmd}
 ${cmds}
 ${eof}"""
     cmd = substitute(
@@ -744,6 +758,9 @@ ${eof}"""
         env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
         eof="EOF" if eof is None else eof,
         cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
+        direnv_cmd='if command -v direnv >/dev/null 2>&1; then eval "$$(direnv export bash)"; fi'
+        if direnv
+        else "",
         cmds="\n".join(cmds),
     )
     return check_output(cmd, shell=True, text=True).rstrip("\n")
