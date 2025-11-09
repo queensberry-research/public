@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.67"
+__version__ = "0.6.68"
 
 
 # types
@@ -664,8 +664,10 @@ class PublicOperator(BaseOperator):
         if not self.tools:
             return
         _LOGGER.info("Installing tools...")
-        for cmd in ["fzf", "just", "ripgrep", "rsync", "vim"]:
+        for cmd in ["fzf", "just", "rsync", "vim"]:
             _apt_install(cmd)
+        if not self.which("rg"):
+            _apt_install("ripgrep")
         self._install_fd()
         for cmd, owner, repo, filename in [
             ("btm", "clementtsang", "bottom", "bottom_${tag}-1_amd64.deb"),
