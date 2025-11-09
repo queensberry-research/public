@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.60"
+__version__ = "0.6.61"
 
 
 # types
@@ -150,6 +150,9 @@ APPENDTEXTEOF""",
     def desc(self, *, user: bool = False) -> str:
         return self.username if user else "root"
 
+    def dirname(self, path: PathLike, /, *, user: bool = False) -> Path:
+        return Path(self.run(f"dirname {path}", user=user))
+
     def git(
         self,
         cmd: str,
@@ -185,7 +188,7 @@ APPENDTEXTEOF""",
             if not self.is_dir(path, user=user):
                 _ = self.run(f"mkdir -p {path}", user=user)
             return
-        self.mkdir(f"$(dirname {path})", user=user)
+        self.mkdir(self.dirname(path), user=user)
 
     def mv(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
         _ = self.run(f"mv {from_} {to}", user=user)
