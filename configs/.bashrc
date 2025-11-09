@@ -5,10 +5,12 @@ export PATH="$HOME/.local/bin${PATH:+:$PATH}"
 export PATH="/usr/local/bin${PATH:+:$PATH}"
 
 # local
-if [ -d "$HOME/.bashrc.d" ]; then
+if [ -d "$HOME"/.bashrc.d ]; then
 	for file in "$HOME"/.bashrc.d/*; do
-		# shellcheck source=/dev/null
-		source "$file"
+		if [ -f "$file" ]; then
+			# shellcheck source=/dev/null
+			source "$file"
+		fi
 	done
 fi
 
