@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.56"
+__version__ = "0.6.57"
 
 
 # types
@@ -731,7 +731,7 @@ if [ -f ~/.bashrc ]; then
 fi
 ${cd_cmd}
 if command -v direnv >/dev/null 2>&1; then
-    eval "$(direnv export bash)"
+    eval "\\$(direnv export bash)"
 fi
 ${cmds}
 ${eof}"""
