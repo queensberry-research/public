@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.71"
+__version__ = "0.6.72"
 
 
 # types
@@ -758,7 +758,7 @@ ${eof}"""
         env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
         eof="EOF" if eof is None else eof,
         cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
-        direnv_cmd='if command -v direnv >/dev/null 2>&1; then eval "$$(direnv export bash)"; fi'
+        direnv_cmd='if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
         if direnv
         else "",
         cmds="\n".join(cmds),
