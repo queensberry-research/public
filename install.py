@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.51"
+__version__ = "0.6.52"
 
 
 # types
@@ -564,7 +564,8 @@ class PublicOperator(BaseOperator):
 
     def _install_sudo(self) -> None:
         _apt_install("sudo")
-        _ = self.run(f"usermod -aG sudo {self.username}")
+        if not self.predicate(f"id -nG {self.username} | grep -qw sudo"):
+            _ = self.run(f"usermod -aG sudo {self.username}")
 
     def _setup_age_key(self, *, user: bool = False) -> None:
         self.copy_file_or_url(
