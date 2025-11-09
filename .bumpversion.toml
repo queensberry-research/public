@@ -1,12 +1,6 @@
 [tool.bumpversion]
   allow_dirty = true
-<<<<<<< HEAD
   current_version = "0.6.70"
-||||||| a78d591 (Remove `cwd` and `direnv` in `run()` (#482))
-  current_version = "0.6.69"
-=======
-  current_version = "0.6.68"
->>>>>>> parent of a78d591 (Remove `cwd` and `direnv` in `run()` (#482))
 
   [[tool.bumpversion.files]]
     filename = "install.py"
