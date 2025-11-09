@@ -17,7 +17,7 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Mapping, Sequence
+    from collections.abc import Iterator, Mapping
 
 
 basicConfig(
@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.54"
+__version__ = "0.6.55"
 
 
 # types
@@ -137,8 +137,6 @@ APPENDTEXTEOF""",
         jq: bool = False,
         user: bool = False,
         env: Mapping[str, str] | None = None,
-        path: Sequence[PathLike] | None = None,
-        executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
     ) -> str:
@@ -146,15 +144,7 @@ APPENDTEXTEOF""",
             _apt_install("curl")
         if jq and not self.which("jq", user=user):
             _apt_install("jq")
-        return self.run(
-            f"curl {cmd}",
-            user=user,
-            env=env,
-            path=path,
-            executable=executable,
-            eof=eof,
-            cwd=cwd,
-        )
+        return self.run(f"curl {cmd}", user=user, env=env, eof=eof, cwd=cwd)
 
     def desc(self, *, user: bool = False) -> str:
         return self.username if user else "root"
@@ -166,22 +156,12 @@ APPENDTEXTEOF""",
         *,
         user: bool = False,
         env: Mapping[str, str] | None = None,
-        path: Sequence[PathLike] | None = None,
-        executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
     ) -> None:
         if not self.which("git", user=user):
             _apt_install("git")
-        _ = self.run(
-            f"git {cmd}",
-            user=user,
-            env=env,
-            path=path,
-            executable=executable,
-            eof=eof,
-            cwd=cwd,
-        )
+        _ = self.run(f"git {cmd}", user=user, env=env, eof=eof, cwd=cwd)
 
     def grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
         return self.is_file(path, user=user) and self.predicate(
@@ -240,8 +220,6 @@ APPENDTEXTEOF""",
         *cmds: str,
         user: bool = False,
         env: Mapping[str, str] | None = None,
-        path: Sequence[PathLike] | None = None,
-        executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
     ) -> str:
@@ -255,13 +233,7 @@ APPENDTEXTEOF""",
             case never:
                 assert_never(never)
         return run(
-            *cmds,
-            user=self.username if user else None,
-            env=env,
-            path=path,
-            executable=executable,
-            eof=eof,
-            cwd=cwd_use,
+            *cmds, user=self.username if user else None, env=env, eof=eof, cwd=cwd_use
         )
 
     def symlink(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
@@ -289,26 +261,16 @@ APPENDTEXTEOF""",
         *,
         user: bool = False,
         env: Mapping[str, str] | None = None,
-        path: Sequence[PathLike] | None = None,
-        executable: str | None = None,
         eof: str | None = None,
         cwd: PathLike | None = None,
     ) -> str:
         if not self.which("uv", user=user):
             self._install_uv(user=user)
-        return self.run(
-            f"uv {cmd}",
-            user=user,
-            env=env,
-            path=[self.path_local_bin, *([] if path is None else path)],
-            executable=executable,
-            eof=eof,
-            cwd=cwd,
-        )
+        return self.run(f"uv {cmd}", user=user, env=env, eof=eof, cwd=cwd)
 
     def which(self, cmd: str, /, *, user: bool = False) -> bool:
         try:
-            result = self.run(f"which {cmd}", user=user, path=[self.path_local_bin])
+            result = self.run(f"which {cmd}", user=user)
         except CalledProcessError:
             return False
         return result != ""
@@ -656,11 +618,7 @@ class PublicOperator(BaseOperator):
             _LOGGER.info("Installing 'lazyvim' for %r...", desc)
             url = "https://github.com/LazyVim/starter"
             _ = self.git(f"clone {url} {config_nvim}", user=user)
-            _ = self.run(
-                "nvim --headless '+Lazy! sync' +qa",
-                path=[self.path_local_bin],
-                user=user,
-            )
+            _ = self.run("nvim --headless '+Lazy! sync' +qa", user=user)
 
     def _install_sops(self, *, user: bool = False) -> None:
         self._github_install(
@@ -763,25 +721,25 @@ def run(
     *cmds: str,
     user: str | None = None,
     env: Mapping[str, str] | None = None,
-    path: Sequence[PathLike] | None = None,
-    executable: str | None = None,
     eof: str | None = None,
     cwd: PathLike | None = None,
 ) -> str:
     template = """\
-${user_cmd} ${quote} ${env_vars} ${executable} -s ${quote} <<'${eof}'
+${user_cmd} ${quote} ${env_vars} bash -s ${quote} <<'${eof}'
+if [ -f ~/.bashrc ]; then
+    source ~/.bashrc
+fi
+if command -v direnv >/dev/null 2>&1; then
+    eval "$(direnv export bash)"
+fi
 ${cd_cmd}
 ${cmds}
 ${eof}"""
-    env_use = ({} if env is None else dict(env)) | (
-        {} if path is None else {"PATH": ":".join([*map(str, path), environ["PATH"]])}
-    )
     cmd = substitute(
         template,
         user_cmd="" if user is None else f"su - {user} -c",
         quote="" if user is None else "'",
-        env_vars=" ".join(f"{k}={v}" for k, v in env_use.items()),
-        executable="sh" if executable is None else executable,
+        env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
         eof="EOF" if eof is None else eof,
         cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
         cmds="\n".join(cmds),
