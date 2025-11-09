@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.63"
+__version__ = "0.6.64"
 
 
 # types
@@ -127,7 +127,7 @@ APPENDTEXTEOF""",
         self.write_text(to, text_from, user=user, perms=perms)
 
     def cp(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
-        self.mkdir(to, parent=True, user=True)
+        self.mkdir(to, parent=True, user=user)
         _ = self.run(f"cp {from_} {to}", user=user)
 
     def curl(
@@ -264,7 +264,7 @@ APPENDTEXTEOF""",
             _ = self.run(f"rm -rf {path}", user=user)
 
     def touch(self, path: PathLike, /, *, user: bool = False) -> None:
-        self.mkdir(path, parent=True, user=True)
+        self.mkdir(path, parent=True, user=user)
         _ = self.run(f"touch {path}", user=user)
 
     def uv(
@@ -297,7 +297,7 @@ APPENDTEXTEOF""",
         user: bool = False,
         perms: str | None = None,
     ) -> None:
-        self.mkdir(path, parent=True, user=True)
+        self.mkdir(path, parent=True, user=user)
         _ = self.run(
             f"""\
 cat > {path} <<'WRITETEXTEOF'
