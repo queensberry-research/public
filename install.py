@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.76"
+__version__ = "0.6.77"
 
 
 # types
@@ -601,7 +601,7 @@ class PublicOperator(BaseOperator):
 
     def _setup_ssh_gitlab_infra(self, *, user: bool = False) -> None:
         self.copy_file_or_url(
-            self.url_ssh_github_infra_mirror, "~/.ssh/config.d/gitlab-infra", user=user
+            self.url_ssh_gitlab_infra, "~/.ssh/config.d/gitlab-infra", user=user
         )
 
     def _setup_subnet_sh(self, *, user: bool = False) -> None:
