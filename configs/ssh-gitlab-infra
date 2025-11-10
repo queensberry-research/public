@@ -1,0 +1,5 @@
+Host gitlab-infra
+  HostName gitlab.qrt
+  IdentityFile ~/.ssh/gitlab-infra
+  Port 2424
+  User git

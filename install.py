@@ -46,7 +46,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.84"
+__version__ = "0.6.85"
 
 
 # types
