@@ -63,7 +63,7 @@ __all__ = [
     "which",
     "write_text",
 ]
-__version__ = "0.7.4"
+__version__ = "0.7.5"
 
 
 # types
@@ -184,7 +184,6 @@ def curl(
     cmd: str,
     /,
     *,
-    jq: bool = False,
     user: bool = False,
     env: Mapping[str, str] | None = None,
     eof: str | None = None,
@@ -193,8 +192,6 @@ def curl(
 ) -> str:
     if not which("curl", user=user):
         _apt_install("curl")
-    if jq and not which("jq", user=user):
-        _apt_install("jq")
     return run(f"curl {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
 
 
@@ -525,6 +522,7 @@ class CLI:
             _set_password(NONROOT, self.password)
         _setup_sshd_config(version=self.version)
         _install_age()
+        _install_jq()
         _install_sudo()
         for user in [False, True]:
             _setup_authorized_keys(user=user, version=self.version)
@@ -536,12 +534,12 @@ class CLI:
             _setup_ssh_config(user=user, version=self.version)
             _setup_ssh_infra_repo(user=user, version=self.version)
             _setup_subnet_sh(user=user, version=self.version)
-            _install_direnv(user=user, version=self.version)
-            _install_neovim(user=user)
-            _install_sops(user=user)
-            _install_starship(user=user, version=self.version)
+            _install_direnv(user=user, version=self.version)  # after jq
+            _install_neovim(user=user)  # after jq
+            _install_sops(user=user)  # after jq
+            _install_starship(user=user, version=self.version)  # after jq
             _install_uv(user=user)
-            _install_yq(user=user)
+            _install_yq(user=user)  # after jq
             _install_bump_my_version(user=user)  # after uv
             _clone_infra_repo(user=user, github_repo=self.github_repo)
         if self.tools:
@@ -603,7 +601,6 @@ def _github_binary(
     releases = f"{owner}/{repo}/releases"
     tag = curl(
         f"-s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
-        jq=True,
         user=user,
     )
     filename_use = substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
@@ -687,6 +684,10 @@ def _install_fd() -> None:
         _LOGGER.info("Installing 'fd'...")
         _apt_install("fd-find")
     symlink("/bin/fdfind", "/bin/fd")
+
+
+def _install_jq() -> None:
+    _apt_install("jq")
 
 
 def _install_neovim(*, user: bool = False) -> None:
