@@ -903,11 +903,11 @@ def _setup_subnet_sh(*, user: bool = False, version: str | None = None) -> None:
 
 def _setup_vm() -> None:
     _apt_install("nfs-common")
-    target = Path("/mnt/qrt-dataset")
-    if not grep(fstab := "/etc/fstab", str(target)):
-        mkdir(target)
+    if not grep(fstab := "/etc/fstab", str(_QRT_DATASET)):
+        mkdir(_QRT_DATASET)
         append_text(
-            fstab, f"truenas.qrt:/mnt/qrt-pool/qrt-dataset {target} nfs vers=4 0 0"
+            fstab,
+            f"truenas.qrt:/mnt/qrt-pool/qrt-dataset {_QRT_DATASET} nfs vers=4 0 0",
         )
         _ = run("mount -a")
 
