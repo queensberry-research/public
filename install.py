@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.77"
+__version__ = "0.6.78"
 
 
 # types
@@ -676,9 +676,14 @@ class PublicOperator(BaseOperator):
         if not self.is_dir(path, user=user):
             _LOGGER.info("Cloning 'infra' for %r...", self.desc(user=user))
             if self.github_repo:
-                url = "ssh://git@github-infra-mirror/queensberry-research/infra-mirror"
+                key = "github-infra-mirror"
+                owner = "queensberry-research"
+                repo = "infra-mirror"
             else:
-                url = "ssh://git@gitlab-qrt/qrt-public/infra"
+                key = "gitlab-qrt"
+                owner = "qrt-public"
+                repo = "infra"
+            url = f"ssh://git@{key}/{owner}/{repo}"
             self.git(f"clone --recurse-submodules {url} {path}", user=user)
 
     def _install_tools(self) -> None:
