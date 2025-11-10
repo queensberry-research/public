@@ -63,7 +63,7 @@ __all__ = [
     "which",
     "write_text",
 ]
-__version__ = "0.7.3"
+__version__ = "0.7.4"
 
 
 # types
@@ -161,10 +161,21 @@ def copy_file_or_url(
 
 
 def cp(
-    from_: PathLike, to: PathLike, /, *, user: bool = False, ownership: bool = False
+    from_: PathLike,
+    to: PathLike,
+    /,
+    *,
+    user: bool = False,
+    recursive: bool = False,
+    ownership: bool = False,
 ) -> None:
     mkdir(to, parent=True, user=user)
-    _ = run(f"cp {from_} {to}", user=user)
+    parts: list[str] = ["cp"]
+    if recursive:
+        parts.append("-R")
+    parts.extend([str(from_), str(to)])
+    cmd = " ".join(parts)
+    _ = run(cmd, user=user)
     if ownership:
         chown(to, user=user)
 
