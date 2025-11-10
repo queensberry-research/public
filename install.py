@@ -46,7 +46,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.80"
+__version__ = "0.6.81"
 
 
 # types
@@ -434,6 +434,12 @@ class PublicOperator(BaseOperator):
     def parse(cls) -> Self:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
         _ = parser.add_argument(
+            cls.flag_version,
+            default=None,
+            type=str,
+            help=f"Version (latest {__version__})",
+        )
+        _ = parser.add_argument(
             cls.flag_machine,
             default=None,
             type=str,
@@ -464,6 +470,19 @@ class PublicOperator(BaseOperator):
 
     def install(self) -> None:
         _LOGGER.info("Running version %s...", __version__)
+        if self.version is not None:
+            _ = self.run(
+                self.curl_cmd(
+                    version=self.version,
+                    machine=self.machine,
+                    root_password=self.root_password,
+                    password=self.password,
+                    tools=self.tools,
+                    docker=self.docker,
+                    github_repo=self.github_repo,
+                )
+            )
+            return
         self._setup_machine()
         self._set_root_password()
         self._create_user()
