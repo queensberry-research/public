@@ -45,6 +45,7 @@ __all__ = [
     "get_subnet",
     "git",
     "grep",
+    "have_command",
     "is_dir",
     "is_file",
     "is_symlink",
@@ -60,10 +61,9 @@ __all__ = [
     "temp_dir",
     "touch",
     "uv",
-    "which",
     "write_text",
 ]
-__version__ = "0.7.5"
+__version__ = "0.7.6"
 
 
 # types
@@ -185,13 +185,15 @@ def curl(
     /,
     *,
     user: bool = False,
+    jq: bool = False,
     env: Mapping[str, str] | None = None,
     eof: str | None = None,
     cwd: PathLike | None = None,
     direnv: bool = False,
 ) -> str:
-    if not which("curl", user=user):
-        _apt_install("curl")
+    _apt_install("curl")
+    if jq:
+        _apt_install("jq")
     return run(f"curl {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
 
 
@@ -240,13 +242,20 @@ def git(
     cwd: PathLike | None = None,
     direnv: bool = False,
 ) -> None:
-    if not which("git", user=user):
-        _apt_install("git")
+    _apt_install("git")
     _ = run(f"git {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
 
 
 def grep(path: PathLike, text: str, /, *, user: bool = False) -> bool:
     return is_file(path, user=user) and predicate(f"grep -q {text} {path}", user=user)
+
+
+def have_command(cmd: str, /, *, user: bool = False) -> bool:
+    try:
+        result = run(f"which {cmd}", user=user)
+    except CalledProcessError:
+        return False
+    return result != ""
 
 
 def is_dir(path: PathLike, /, *, user: bool = False) -> bool:
@@ -366,17 +375,8 @@ def uv(
     cwd: PathLike | None = None,
     direnv: bool = False,
 ) -> str:
-    if not which("uv", user=user):
-        _install_uv(user=user)
+    _install_uv(user=user)
     return run(f"uv {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
-
-
-def which(cmd: str, /, *, user: bool = False) -> bool:
-    try:
-        result = run(f"which {cmd}", user=user)
-    except CalledProcessError:
-        return False
-    return result != ""
 
 
 def write_text(
@@ -396,7 +396,7 @@ WRITETEXTEOF""",
 
 
 def _install_uv(*, user: bool = False) -> None:
-    if not which("uv", user=user):
+    if not have_command("uv", user=user):
         _LOGGER.info("Installing 'uv' for %r...", desc(user=user))
         _ = curl(
             "-LsSf https://astral.sh/uv/install.sh | sh -s",
@@ -522,7 +522,6 @@ class CLI:
             _set_password(NONROOT, self.password)
         _setup_sshd_config(version=self.version)
         _install_age()
-        _install_jq()
         _install_sudo()
         for user in [False, True]:
             _setup_authorized_keys(user=user, version=self.version)
@@ -534,13 +533,13 @@ class CLI:
             _setup_ssh_config(user=user, version=self.version)
             _setup_ssh_infra_repo(user=user, version=self.version)
             _setup_subnet_sh(user=user, version=self.version)
-            _install_direnv(user=user, version=self.version)  # after jq
-            _install_neovim(user=user)  # after jq
-            _install_sops(user=user)  # after jq
-            _install_starship(user=user, version=self.version)  # after jq
+            _install_bump_my_version(user=user)
+            _install_direnv(user=user, version=self.version)
+            _install_neovim(user=user)
+            _install_sops(user=user)
+            _install_starship(user=user, version=self.version)
             _install_uv(user=user)
-            _install_yq(user=user)  # after jq
-            _install_bump_my_version(user=user)  # after uv
+            _install_yq(user=user)
             _clone_infra_repo(user=user, github_repo=self.github_repo)
         if self.tools:
             _install_tools()
@@ -552,10 +551,9 @@ class CLI:
 
 
 def _apt_install(cmd: str, /) -> None:
-    if which(cmd) is not None:
-        return
-    _LOGGER.info("Installing %r...", cmd)
-    _ = run(f"apt install -y {cmd}")
+    if not have_command(cmd):
+        _LOGGER.info("Installing %r...", cmd)
+        _ = run(f"apt install -y {cmd}")
 
 
 def _apt_update() -> None:
@@ -601,6 +599,7 @@ def _github_binary(
     releases = f"{owner}/{repo}/releases"
     tag = curl(
         f"-s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
+        jq=True,
         user=user,
     )
     filename_use = substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
@@ -622,15 +621,14 @@ def _github_install(
     user: bool = False,
     dpkg: bool = False,
 ) -> None:
-    if which(cmd, user=user):
-        return
-    _LOGGER.info("Installing %r for %r...", cmd, desc(user=user))
-    with _github_binary(owner, repo, filename, user=user) as binary:
-        if not dpkg:
-            mkdir(_PATH_LOCAL_BIN, user=user)
-            mv(binary, _PATH_LOCAL_BIN / cmd, user=user)
-        else:
-            _dpkg_install(binary)
+    if not have_command(cmd, user=user):
+        _LOGGER.info("Installing %r for %r...", cmd, desc(user=user))
+        with _github_binary(owner, repo, filename, user=user) as binary:
+            if not dpkg:
+                mkdir(_PATH_LOCAL_BIN, user=user)
+                mv(binary, _PATH_LOCAL_BIN / cmd, user=user)
+            else:
+                _dpkg_install(binary)
 
 
 def _install_age() -> None:
@@ -638,7 +636,7 @@ def _install_age() -> None:
 
 
 def _install_bump_my_version(*, user: bool = False) -> None:
-    if not which("bump-my-version", user=user):
+    if not have_command("bump-my-version", user=user):
         _LOGGER.info("Installing 'bump-my-version' for %r...", desc(user=user))
         _ = uv("tool install bump-my-version", user=user)
 
@@ -654,17 +652,16 @@ def _install_direnv(*, user: bool = False, version: str | None = None) -> None:
 
 
 def _install_docker() -> None:
-    if which("docker"):
-        return
-    _LOGGER.info("Installing 'docker'...")
-    _ = run(
-        "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do apt-get remove $pkg; done",
-        "apt-get update",
-        "apt-get install -y ca-certificates curl",
-        "install -m 0755 -d /etc/apt/keyrings",
-        "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
-        "chmod a+r /etc/apt/keyrings/docker.asc",
-        """\
+    if not have_command("docker"):
+        _LOGGER.info("Installing 'docker'...")
+        _ = run(
+            "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do apt-get remove $pkg; done",
+            "apt-get update",
+            "apt-get install -y ca-certificates curl",
+            "install -m 0755 -d /etc/apt/keyrings",
+            "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
+            "chmod a+r /etc/apt/keyrings/docker.asc",
+            """\
 tee /etc/apt/sources.list.d/docker.sources <<DOCKEREOF
 Types: deb
 URIs: https://download.docker.com/linux/debian
@@ -672,27 +669,22 @@ Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
 Components: stable
 Signed-By: /etc/apt/keyrings/docker.asc
 DOCKEREOF""",
-        "apt-get update",
-        "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
-        f"usermod -aG docker {NONROOT}",
-        eof="RUNEOF",
-    )
+            "apt-get update",
+            "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
+            f"usermod -aG docker {NONROOT}",
+            eof="RUNEOF",
+        )
 
 
 def _install_fd() -> None:
-    if not which("fd"):
-        _LOGGER.info("Installing 'fd'...")
+    if not have_command("fd"):
         _apt_install("fd-find")
     symlink("/bin/fdfind", "/bin/fd")
 
 
-def _install_jq() -> None:
-    _apt_install("jq")
-
-
 def _install_neovim(*, user: bool = False) -> None:
     desc_ = desc(user=user)
-    if not which("nvim", user=user):
+    if not have_command("nvim", user=user):
         _LOGGER.info("Installing 'nvim' for %r...", desc_)
         appimage = "nvim-linux-x86_64.appimage"
         with (
@@ -717,12 +709,12 @@ def _install_neovim(*, user: bool = False) -> None:
 
 
 def _install_ripgrep() -> None:
-    if not which("rg"):
+    if not have_command("rg"):
         _apt_install("ripgrep")
 
 
 def _install_starship(*, user: bool = False, version: str | None = None) -> None:
-    if not which("starship", user=user):
+    if not have_command("starship", user=user):
         _LOGGER.info("Installing 'starship' for %r...", desc(user=user))
         mkdir(_PATH_LOCAL_BIN, user=user)
         _ = curl(
