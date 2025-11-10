@@ -56,6 +56,7 @@ __all__ = [
     "rm",
     "run",
     "substitute",
+    "sudo_cmd",
     "symlink",
     "temp_dir",
     "touch",
@@ -63,7 +64,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.9"
+__version__ = "0.7.10"
 
 
 # types
@@ -165,20 +166,20 @@ def cp(
     to: PathLike,
     /,
     *,
-    sudo: bool = False,
     user: bool = False,
     recursive: bool = False,
+    sudo: bool = False,
     ownership: bool = False,
 ) -> None:
     mkdir(to, parent=True, user=user)
     parts: list[str] = []
-    if sudo:
-        parts.append("sudo")
     parts.append("cp")
     if recursive:
         parts.append("-R")
     parts.extend([str(from_), str(to)])
     cmd = " ".join(parts)
+    if sudo:
+        cmd = sudo_cmd(cmd, user=user)
     _ = run(cmd, user=user)
     if ownership:
         chown(to, user=user)
@@ -344,13 +345,19 @@ def substitute(text: str, /, **kwargs: Any) -> str:
     return Template(text).substitute(**kwargs)
 
 
-def symlink(from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
+def sudo_cmd(cmd: str, /, *, user: bool = False) -> str:
+    return f"sudo {cmd}" if user else cmd
+
+
+def symlink(
+    from_: PathLike, to: PathLike, /, *, user: bool = False, sudo: bool = False
+) -> None:
     if is_symlink(to, user=user) and (read_link(to, user=user)) == Path(from_):
         return
-    _LOGGER.info(
-        "Symlinking %r -> %r for %r...", str(from_), str(to), username(user=user)
-    )
-    _ = run(f"ln -s {from_} {to}", user=user)
+    cmd = f"ln -s {to} {from_}"
+    if sudo:
+        cmd = sudo_cmd(cmd, user=user)
+    _ = run(cmd, user=user)
 
 
 @contextmanager
