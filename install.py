@@ -12,7 +12,16 @@ from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from string import Template
 from subprocess import CalledProcessError, check_output
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, assert_never, get_args
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Literal,
+    Self,
+    assert_never,
+    get_args,
+    override,
+)
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
@@ -37,7 +46,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.78"
+__version__ = "0.6.79"
 
 
 # types
@@ -353,6 +362,7 @@ DOCKEREOF""",
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
 class PublicOperator(BaseOperator):
     # constants
+    flag_version: ClassVar[str] = "--version"
     flag_machine: ClassVar[str] = "--machine"
     flag_root_password: ClassVar[str] = "--root-password"  # noqa: S105
     flag_password: ClassVar[str] = "--password"  # noqa: S105
@@ -360,26 +370,27 @@ class PublicOperator(BaseOperator):
     flag_docker: ClassVar[str] = "--docker"
     flag_github_repo: ClassVar[str] = "--github-repo"
     url_public: ClassVar[str] = (
-        "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
+        "https://raw.githubusercontent.com/queensberry-research/public/refs/$version"
     )
-    url_configs: ClassVar[str] = f"{url_public}/configs"
-    url_authorized_keys: ClassVar[str] = f"{url_public}/ssh/keys.txt"
-    url_bashrc: ClassVar[str] = f"{url_configs}/.bashrc"
-    url_direnv_toml: ClassVar[str] = f"{url_configs}/direnv.toml"
-    url_git_config: ClassVar[str] = f"{url_configs}/git-config"
-    url_install: ClassVar[str] = f"{url_public}/install.py"
-    url_resolv_conf: ClassVar[str] = f"{url_configs}/resolv.conf"
-    url_ssh_config: ClassVar[str] = f"{url_configs}/ssh-config"
+    url_configs: ClassVar[str] = "${url_public}/configs"
+    url_authorized_keys: ClassVar[str] = "${url_public}/ssh/keys.txt"
+    url_bashrc: ClassVar[str] = "${url_configs}/.bashrc"
+    url_direnv_toml: ClassVar[str] = "${url_configs}/direnv.toml"
+    url_git_config: ClassVar[str] = "${url_configs}/git-config"
+    url_install: ClassVar[str] = "${url_public}/install.py"
+    url_resolv_conf: ClassVar[str] = "${url_configs}/resolv.conf"
+    url_ssh_config: ClassVar[str] = "${url_configs}/ssh-config"
     url_ssh_github_infra_mirror: ClassVar[str] = (
-        f"{url_configs}/ssh-github-infra-mirror"
+        "${url_configs}/ssh-github-infra-mirror"
     )
-    url_ssh_gitlab_infra: ClassVar[str] = f"{url_configs}/ssh-gitlab-infra"
-    url_sshd_config: ClassVar[str] = f"{url_configs}/sshd_config"
-    url_starship_toml: ClassVar[str] = f"{url_configs}/starship.toml"
-    url_storage_cfg: ClassVar[str] = f"{url_configs}/storage.cfg"
-    url_subnet_sh: ClassVar[str] = f"{url_configs}/subnet.sh"
+    url_ssh_gitlab_infra: ClassVar[str] = "${url_configs}/ssh-gitlab-infra"
+    url_sshd_config: ClassVar[str] = "${url_configs}/sshd_config"
+    url_starship_toml: ClassVar[str] = "${url_configs}/starship.toml"
+    url_storage_cfg: ClassVar[str] = "${url_configs}/storage.cfg"
+    url_subnet_sh: ClassVar[str] = "${url_configs}/subnet.sh"
 
     # fields
+    version: str | None = None
     machine: _Machine | None = None
     root_password: str | None = None
     password: str | None = None
@@ -393,6 +404,7 @@ class PublicOperator(BaseOperator):
     def curl_cmd(
         cls,
         *,
+        version: str | None = None,
         machine: _Machine | None = None,
         root_password: str | None = None,
         password: str | None = None,
@@ -400,6 +412,8 @@ class PublicOperator(BaseOperator):
         docker: bool = False,
         github_repo: bool = False,
     ) -> str:
+        url_public = cls.substitute_version(cls.url_public, version=version)
+        url_install = substitute(cls.url_install, url_public=url_public)
         parts: list[str] = []
         if machine is not None:
             parts.extend([cls.flag_machine, machine])
@@ -414,7 +428,7 @@ class PublicOperator(BaseOperator):
         if github_repo:
             parts.append(cls.flag_github_repo)
         cmd = " ".join(parts)
-        return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS {cls.url_install} | python3 - {cmd}"""
+        return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS {url_install} | python3 - {cmd}"""
 
     @classmethod
     def parse(cls) -> Self:
@@ -439,6 +453,12 @@ class PublicOperator(BaseOperator):
             cls.flag_docker, action="store_true", help="Install Docker"
         )
         return cls(**vars(parser.parse_args()))
+
+    @classmethod
+    def substitute_version(cls, text: str, /, *, version: str | None = None) -> str:
+        return substitute(
+            text, version="heads/master" if version is None else f"tags/{version}"
+        )
 
     # instance methods
 
@@ -497,6 +517,28 @@ class PublicOperator(BaseOperator):
             self.copy_file_or_url(
                 self.url_storage_cfg, storage_cfg, subs={"subnet": subnet}
             )
+
+    @override
+    def copy_file_or_url(
+        self,
+        from_: PathLike,
+        to: PathLike,
+        /,
+        *,
+        user: bool = False,
+        subs: Mapping[str, Any] | None = None,
+        perms: str | None = None,
+    ) -> None:
+        match from_:
+            case Path() as from_use:
+                ...
+            case str():
+                url_public = self.substitute_version(from_, version=self.version)
+                url_configs = substitute(self.url_configs, url_public=url_public)
+                from_use = substitute(from_, url_configs=url_configs)
+            case never:
+                assert_never(never)
+        super().copy_file_or_url(from_use, to, user=user, subs=subs, perms=perms)
 
     def _delete_proxmox_sources(self) -> None:
         if any(
