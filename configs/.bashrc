@@ -58,7 +58,7 @@ if command -v fzf >/dev/null 2>&1; then
 fi
 
 # git
-alias gb='git branch-defaut'
+alias gb='git branch-default'
 alias gc='git checkout'
 alias gcm='git checkout master'
 alias gd='git diff'
