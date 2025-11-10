@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.73"
+__version__ = "0.6.74"
 
 
 # types
@@ -574,11 +574,15 @@ class PublicOperator(BaseOperator):
         self.copy_file_or_url(self.url_git_config, "~/.config/git/config", user=user)
 
     def _setup_known_hosts(self, *, user: bool = False) -> None:
-        if self.grep(known_hosts := "~/.ssh/known_hosts", "github.com", user=user):
+        for host in ["github.com", "gitlab.qrt"]:
+            self._setup_known_host(host, user=user)
+
+    def _setup_known_host(self, host: str, /, *, user: bool = False) -> None:
+        if self.grep(known_hosts := "~/.ssh/known_hosts", host, user=user):
             return
-        _LOGGER.info("Adding GitHub to known hosts for %r...", self.desc(user=user))
+        _LOGGER.info("Adding %r to known hosts for %r...", host, self.desc(user=user))
         self.mkdir(known_hosts, parent=True, user=user)
-        _ = self.run(f"ssh-keyscan github.com >> {known_hosts}", user=user)
+        _ = self.run(f"ssh-keyscan {host} >> {known_hosts}", user=user)
 
     def _setup_ssh_config(self, *, user: bool = False) -> None:
         self.copy_file_or_url(self.url_ssh_config, "~/.ssh/config", user=user)
