@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.74"
+__version__ = "0.6.75"
 
 
 # types
@@ -372,6 +372,7 @@ class PublicOperator(BaseOperator):
     url_ssh_github_infra_mirror: ClassVar[str] = (
         f"{url_configs}/ssh-github-infra-mirror"
     )
+    url_ssh_gitlab_infra: ClassVar[str] = f"{url_configs}/ssh-gitlab-infra"
     url_sshd_config: ClassVar[str] = f"{url_configs}/sshd_config"
     url_starship_toml: ClassVar[str] = f"{url_configs}/starship.toml"
     url_storage_cfg: ClassVar[str] = f"{url_configs}/storage.cfg"
@@ -453,6 +454,7 @@ class PublicOperator(BaseOperator):
             self._setup_known_hosts(user=user)
             self._setup_ssh_config(user=user)
             self._setup_ssh_github_infra_mirror(user=user)
+            self._setup_ssh_gitlab_infra(user=user)
             self._setup_subnet_sh(user=user)
             self._install_direnv(user=user)
             self._install_neovim(user=user)
@@ -563,12 +565,10 @@ class PublicOperator(BaseOperator):
         self.copy_file_or_url(self.url_bashrc, "~/.bashrc", user=user)
 
     def _setup_deploy_key(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(
-            self.path_deploy_key,
-            "~/.ssh/github-infra-mirror",
-            user=user,
-            perms="u=rw,g=,o=",
-        )
+        for name in ["github-infra-mirror", "gitlab-infra"]:
+            self.copy_file_or_url(
+                self.path_deploy_key, f"~/.ssh/{name}", user=user, perms="u=rw,g=,o="
+            )
 
     def _setup_git_config(self, *, user: bool = False) -> None:
         self.copy_file_or_url(self.url_git_config, "~/.config/git/config", user=user)
@@ -592,6 +592,11 @@ class PublicOperator(BaseOperator):
             self.url_ssh_github_infra_mirror,
             "~/.ssh/config.d/github-infra-mirror",
             user=user,
+        )
+
+    def _setup_ssh_gitlab_infra(self, *, user: bool = False) -> None:
+        self.copy_file_or_url(
+            self.url_ssh_github_infra_mirror, "~/.ssh/config.d/gitlab-infra", user=user
         )
 
     def _setup_subnet_sh(self, *, user: bool = False) -> None:
@@ -665,7 +670,7 @@ class PublicOperator(BaseOperator):
         path = "~/infra"
         if not self.is_dir(path, user=user):
             _LOGGER.info("Cloning 'infra' for %r...", self.desc(user=user))
-            url = "ssh://git@github-infra-mirror/queensberry-research/infra-mirror"
+            url = "ssh://git@gitlab-qrt/qrt-public/infra"
             self.git(f"clone --recurse-submodules {url} {path}", user=user)
 
     def _install_tools(self) -> None:
