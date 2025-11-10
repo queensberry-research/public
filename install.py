@@ -46,7 +46,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.81"
+__version__ = "0.6.82"
 
 
 # types
@@ -457,6 +457,11 @@ class PublicOperator(BaseOperator):
         )
         _ = parser.add_argument(
             cls.flag_docker, action="store_true", help="Install Docker"
+        )
+        _ = parser.add_argument(
+            cls.flag_github_repo,
+            action="store_true",
+            help="Use GitHub repo instead of GitLab",
         )
         return cls(**vars(parser.parse_args()))
 
