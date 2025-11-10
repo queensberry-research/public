@@ -20,7 +20,6 @@ from typing import (
     Self,
     assert_never,
     get_args,
-    override,
     runtime_checkable,
 )
 from urllib.error import HTTPError
@@ -41,7 +40,6 @@ __all__ = [
     "CLI",
     "EVAL_DIRENV_EXPORT",
     "SUBNETS",
-    "BaseOperator",
     "PathLike",
     "Subnet",
     "append_text",
@@ -100,30 +98,20 @@ class _Dataclass(Protocol):
 EVAL_DIRENV_EXPORT = (
     'if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
 )
+_FLAG_ROOT_PASSWORD = "--root-password"  # noqa: S105
+_FLAG_PASSWORD = "--password"  # noqa: S105
+_FLAG_TOOLS = "--tools"
+_FLAG_DOCKER = "--docker"
+_FLAG_GITHUB_REPO = "--github-repo"
 _NONROOT = "nonroot"
-_ROOT = "root"
+_PATH_LOCAL_BIN = Path("~/.local/bin")
+_QRT_DATASET = Path("/mnt/qrt-dataset")
+_QRT_SECRETS = _QRT_DATASET / "qrt/secrets"
 _SUBNET_MAPPING: dict[Subnet, int] = {"qrt": 20, "main": 50, "test": 60}
-
-
-# classes
-
-
-@dataclass(order=True, unsafe_hash=True, kw_only=True)
-class BaseOperator:
-    # constants
-    mount_source: ClassVar[str] = "truenas.qrt:/mnt/qrt-pool/qrt-dataset"
-    mount_target: ClassVar[Path] = Path("/mnt/qrt-dataset")
-    mount_type: ClassVar[str] = "nfs"
-    mount_options: ClassVar[str] = "vers=4"
-    mount_backup: ClassVar[bool] = False
-    mount_check: ClassVar[bool] = False
-    path_qrt: ClassVar[Path] = mount_target / "qrt"
-    path_secrets: ClassVar[Path] = path_qrt / "secrets"
-    path_age_key: ClassVar[Path] = path_secrets / "age/secret-key.txt"
-    path_deploy_key: ClassVar[Path] = path_secrets / "deploy-keys/infra"
-    path_local_bin: ClassVar[Path] = Path("~/.local/bin")
-    subnet_mapping: ClassVar[dict[Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
-    username: ClassVar[str] = "nonroot"
+_URL_PUBLIC = (
+    "https://raw.githubusercontent.com/queensberry-research/public/refs/$version"
+)
+_URL_CONFIGS = f"{_URL_PUBLIC}/configs"
 
 
 # public
@@ -208,7 +196,7 @@ def curl(
 
 
 def desc(*, user: bool = False) -> str:
-    return _NONROOT if user else _ROOT
+    return _NONROOT if user else "root"
 
 
 def dirname(path: PathLike, /, *, user: bool = False) -> Path:
@@ -232,7 +220,7 @@ def get_subnet() -> Subnet:
         _, _, third, _ = str(ip).split(".")
         third = int(third)
         for subnet in SUBNETS:
-            if third == BaseOperator.subnet_mapping[subnet]:
+            if third == _SUBNET_MAPPING[subnet]:
                 return subnet
         msg = f"Invalid IP; got {ip}"
         raise ValueError(msg) from None
@@ -424,17 +412,6 @@ def _install_uv(*, user: bool = False) -> None:
 # public
 
 
-_FLAG_ROOT_PASSWORD = "--root-password"  # noqa: S105
-_FLAG_PASSWORD = "--password"  # noqa: S105
-_FLAG_TOOLS = "--tools"
-_FLAG_DOCKER = "--docker"
-_FLAG_GITHUB_REPO = "--github-repo"
-_URL_PUBLIC = (
-    "https://raw.githubusercontent.com/queensberry-research/public/refs/$version"
-)
-_URL_CONFIGS = f"{_URL_PUBLIC}/configs"
-
-
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
 class CLI:
     # fields
@@ -542,20 +519,20 @@ class CLI:
         _install_sudo()
         for user in [False, True]:
             self._setup_authorized_keys(user=user)
-            self._setup_age_key(user=user)
+            _setup_age_key(user=user)
             self._setup_bashrc(user=user)
-            self._setup_deploy_key(user=user)
+            _setup_deploy_key(user=user)
             self._setup_git_config(user=user)
-            self._setup_known_hosts(user=user)
+            _setup_known_hosts(user=user)
             self._setup_ssh_config(user=user)
             self._setup_ssh_infra_repo(user=user)
             self._setup_subnet_sh(user=user)
             self._install_direnv(user=user)
-            self._install_neovim(user=user)
-            self._install_sops(user=user)
+            _install_neovim(user=user)
+            _install_sops(user=user)
             self._install_starship(user=user)
             _install_uv(user=user)
-            self._install_yq(user=user)
+            _install_yq(user=user)
             self._install_bump_my_version(user=user)  # after uv
             self._clone_infra_repo(user=user)
         self._install_tools()
@@ -622,14 +599,6 @@ class CLI:
         )
         _ = run("systemctl restart ssh")
 
-    def _setup_age_key(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(
-            self.path_age_key,
-            "~/.config/sops/age/keys.txt",
-            user=user,
-            perms="u=rw,g=,o=",
-        )
-
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
         self._copy_file_or_url(
             f"{_URL_CONFIGS}/authorized_keys", "~/.ssh/authorized_keys", user=user
@@ -638,29 +607,10 @@ class CLI:
     def _setup_bashrc(self, *, user: bool = False) -> None:
         self._copy_file_or_url(f"{_URL_CONFIGS}/.bashrc", "~/.bashrc", user=user)
 
-    def _setup_deploy_key(self, *, user: bool = False) -> None:
-        for name in ["github-infra-mirror", "gitlab-infra"]:
-            self._copy_file_or_url(
-                self.path_deploy_key, f"~/.ssh/{name}", user=user, perms="u=rw,g=,o="
-            )
-
     def _setup_git_config(self, *, user: bool = False) -> None:
         self._copy_file_or_url(
             f"{_URL_CONFIGS}/git-config", "~/.config/git/config", user=user
         )
-
-    def _setup_known_hosts(self, *, user: bool = False) -> None:
-        self.mkdir(known_hosts := "~/.ssh/known_hosts", parent=True, user=user)
-        if not self.grep(known_hosts, github := "github.com", user=user):
-            _LOGGER.info(
-                "Adding %r to known hosts for %r...", github, self.desc(user=user)
-            )
-            _ = self.run(f"ssh-keyscan {github} >> {known_hosts}", user=user)
-        if not self.grep(known_hosts, gitlab := "gitlab.qrt", user=user):
-            _LOGGER.info(
-                "Adding %r to known hosts for %r...", gitlab, self.desc(user=user)
-            )
-            _ = self.run(f"ssh-keyscan -p 2424 {gitlab} >> {known_hosts}", user=user)
 
     def _setup_ssh_config(self, *, user: bool = False) -> None:
         self._copy_file_or_url(f"{_URL_CONFIGS}/ssh-config", "~/.ssh/config", user=user)
@@ -684,43 +634,9 @@ class CLI:
         )
 
     def _install_direnv(self, *, user: bool = False) -> None:
-        self._github_install(
-            "direnv", "direnv", "direnv", "direnv.linux-amd64", user=user
-        )
+        _github_install("direnv", "direnv", "direnv", "direnv.linux-amd64", user=user)
         self._copy_file_or_url(
             f"{_URL_CONFIGS}/direnv.toml", "~/.config/direnv/direnv.toml", user=user
-        )
-
-    def _install_neovim(self, *, user: bool = False) -> None:
-        desc = self.desc(user=user)
-        if not self.which("nvim", user=user):
-            _LOGGER.info("Installing 'nvim' for %r...", desc)
-            appimage = "nvim-linux-x86_64.appimage"
-            with (
-                self._github_binary("neovim", "neovim", appimage) as binary,
-                self.temp_dir(user=user) as temp_dir,
-            ):
-                self.mv(binary, temp_dir / appimage)
-                _ = self.run(
-                    f"./{appimage} --appimage-extract", user=user, cwd=temp_dir
-                )
-                self.mkdir(self.path_local_bin, user=user)
-                squashfs_root = "squashfs-root"
-                self.mv(temp_dir / squashfs_root, self.path_local_bin, user=user)
-            self.symlink(
-                self.path_local_bin / squashfs_root / "usr/bin/nvim",
-                self.path_local_bin / "nvim",
-                user=user,
-            )
-        if not self.is_dir(config_nvim := "~/.config/nvim", user=user):
-            _LOGGER.info("Installing 'lazyvim' for %r...", desc)
-            url = "https://github.com/LazyVim/starter"
-            _ = self.git(f"clone {url} {config_nvim}", user=user)
-            _ = self.run("nvim --headless '+Lazy! sync' +qa", user=user)
-
-    def _install_sops(self, *, user: bool = False) -> None:
-        self._github_install(
-            "sops", "getsops", "sops", "sops-${tag}.linux.amd64", user=user
         )
 
     def _install_starship(self, *, user: bool = False) -> None:
@@ -734,9 +650,6 @@ class CLI:
         self._copy_file_or_url(
             f"{_URL_CONFIGS}/starship.toml", "~/.config/starship.toml", user=user
         )
-
-    def _install_yq(self, *, user: bool = False) -> None:
-        self._github_install("yq", "mikefarah", "yq", "yq_linux_amd64", user=user)
 
     def _clone_infra_repo(self, *, user: bool = False) -> None:
         path = "~/infra"
@@ -779,48 +692,6 @@ class CLI:
             _LOGGER.info("Installing 'bump-my-version' for %r...", self.desc(user=user))
             _ = self.uv("tool install bump-my-version", user=user)
 
-    @contextmanager
-    def _github_binary(
-        self, owner: str, repo: str, filename: str, /, *, user: bool = False
-    ) -> Iterator[Path]:
-        releases = f"{owner}/{repo}/releases"
-        tag = self.curl(
-            f"-s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
-            jq=True,
-            user=user,
-        )
-        filename_use = substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
-        url = f"https://github.com/{releases}/download/{tag}/{filename_use}"
-        with self.temp_dir(user=user) as temp:
-            path = temp / filename
-            _ = self.curl(f"-L {url} -o {path}", user=user)
-            _ = self.run(f"chmod +x {path}", user=user)
-            yield path
-
-    def _github_install(
-        self,
-        cmd: str,
-        owner: str,
-        repo: str,
-        filename: str,
-        /,
-        *,
-        user: bool = False,
-        dpkg: bool = False,
-    ) -> None:
-        if self.which(cmd, user=user):
-            return
-        _LOGGER.info("Installing %r for %r...", cmd, self.desc(user=user))
-        with self._github_binary(owner, repo, filename, user=user) as binary:
-            if not dpkg:
-                self.mkdir(self.path_local_bin, user=user)
-                self.mv(binary, self.path_local_bin / cmd, user=user)
-            else:
-                self._dpkg_install(binary)
-
-    def _dpkg_install(self, path: PathLike, /) -> None:
-        _ = self.run(f"dpkg -i {path}")
-
 
 def _apt_install(cmd: str, /) -> None:
     if which(cmd) is not None:
@@ -843,6 +714,50 @@ def _create_user() -> None:
             f"useradd --create-home --shell /bin/bash {_NONROOT}",
             f"usermod -aG sudo {_NONROOT}",
         )
+
+
+def _dpkg_install(path: PathLike, /) -> None:
+    _ = run(f"dpkg -i {path}")
+
+
+@contextmanager
+def _github_binary(
+    owner: str, repo: str, filename: str, /, *, user: bool = False
+) -> Iterator[Path]:
+    releases = f"{owner}/{repo}/releases"
+    tag = curl(
+        f"-s https://api.github.com/repos/{releases}/latest | jq -r '.tag_name'",
+        jq=True,
+        user=user,
+    )
+    filename_use = substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
+    url = f"https://github.com/{releases}/download/{tag}/{filename_use}"
+    with temp_dir(user=user) as temp:
+        path = temp / filename
+        _ = curl(f"-L {url} -o {path}", user=user)
+        _ = run(f"chmod +x {path}", user=user)
+        yield path
+
+
+def _github_install(
+    cmd: str,
+    owner: str,
+    repo: str,
+    filename: str,
+    /,
+    *,
+    user: bool = False,
+    dpkg: bool = False,
+) -> None:
+    if which(cmd, user=user):
+        return
+    _LOGGER.info("Installing %r for %r...", cmd, desc(user=user))
+    with _github_binary(owner, repo, filename, user=user) as binary:
+        if not dpkg:
+            mkdir(_PATH_LOCAL_BIN, user=user)
+            mv(binary, _PATH_LOCAL_BIN / cmd, user=user)
+        else:
+            _dpkg_install(binary)
 
 
 def _install_docker() -> None:
@@ -871,10 +786,44 @@ DOCKEREOF""",
     )
 
 
+def _install_neovim(*, user: bool = False) -> None:
+    desc_ = desc(user=user)
+    if not which("nvim", user=user):
+        _LOGGER.info("Installing 'nvim' for %r...", desc_)
+        appimage = "nvim-linux-x86_64.appimage"
+        with (
+            _github_binary("neovim", "neovim", appimage) as binary,
+            temp_dir(user=user) as tmp,
+        ):
+            mv(binary, tmp / appimage)
+            _ = run(f"./{appimage} --appimage-extract", user=user, cwd=tmp)
+            mkdir(_PATH_LOCAL_BIN, user=user)
+            squashfs_root = "squashfs-root"
+            mv(tmp / squashfs_root, _PATH_LOCAL_BIN, user=user)
+        symlink(
+            _PATH_LOCAL_BIN / squashfs_root / "usr/bin/nvim",
+            _PATH_LOCAL_BIN / "nvim",
+            user=user,
+        )
+    if not is_dir(config_nvim := "~/.config/nvim", user=user):
+        _LOGGER.info("Installing 'lazyvim' for %r...", desc_)
+        url = "https://github.com/LazyVim/starter"
+        _ = git(f"clone {url} {config_nvim}", user=user)
+        _ = run("nvim --headless '+Lazy! sync' +qa", user=user)
+
+
+def _install_sops(*, user: bool = False) -> None:
+    _github_install("sops", "getsops", "sops", "sops-${tag}.linux.amd64", user=user)
+
+
 def _install_sudo() -> None:
     _apt_install("sudo")
     if not predicate(f"id -nG {_NONROOT} | grep -qw sudo"):
         _ = run(f"usermod -aG sudo {_NONROOT}")
+
+
+def _install_yq(*, user: bool = False) -> None:
+    _github_install("yq", "mikefarah", "yq", "yq_linux_amd64", user=user)
 
 
 def _remove_sources() -> None:
@@ -883,6 +832,35 @@ def _remove_sources() -> None:
         for name in ["ceph", "pve-enterprise"]
     ):
         _apt_update()
+
+
+def _setup_age_key(*, user: bool = False) -> None:
+    copy_file_or_url(
+        _QRT_SECRETS / "age/secret-key.txt",
+        "~/.config/sops/age/keys.txt",
+        user=user,
+        perms="u=rw,g=,o=",
+    )
+
+
+def _setup_deploy_key(*, user: bool = False) -> None:
+    for name in ["github-infra-mirror", "gitlab-infra"]:
+        copy_file_or_url(
+            _QRT_SECRETS / "deploy-keys/infra",
+            f"~/.ssh/{name}",
+            user=user,
+            perms="u=rw,g=,o=",
+        )
+
+
+def _setup_known_hosts(*, user: bool = False) -> None:
+    mkdir(known_hosts := "~/.ssh/known_hosts", parent=True, user=user)
+    if not grep(known_hosts, github := "github.com", user=user):
+        _LOGGER.info("Adding %r to known hosts for %r...", github, desc(user=user))
+        _ = run(f"ssh-keyscan {github} >> {known_hosts}", user=user)
+    if not grep(known_hosts, gitlab := "gitlab.qrt", user=user):
+        _LOGGER.info("Adding %r to known hosts for %r...", gitlab, desc(user=user))
+        _ = run(f"ssh-keyscan -p 2424 {gitlab} >> {known_hosts}", user=user)
 
 
 def _setup_vm() -> None:
