@@ -74,7 +74,7 @@ __all__ = [
     "which",
     "write_text",
 ]
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 
 # types
@@ -93,7 +93,7 @@ class _Dataclass(Protocol):
     __dataclass_fields__: ClassVar[dict[str, Any]]
 
 
-# defaults
+# constants
 
 
 EVAL_DIRENV_EXPORT = (
@@ -553,6 +553,9 @@ class CLI:
             _install_tools()
         if self.docker:
             _install_docker()
+
+
+# private
 
 
 def _apt_install(cmd: str, /) -> None:
