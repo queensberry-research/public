@@ -63,7 +63,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.8"
+__version__ = "0.7.9"
 
 
 # types
@@ -165,12 +165,16 @@ def cp(
     to: PathLike,
     /,
     *,
+    sudo: bool = False,
     user: bool = False,
     recursive: bool = False,
     ownership: bool = False,
 ) -> None:
     mkdir(to, parent=True, user=user)
-    parts: list[str] = ["cp"]
+    parts: list[str] = []
+    if sudo:
+        parts.append("sudo")
+    parts.append("cp")
     if recursive:
         parts.append("-R")
     parts.extend([str(from_), str(to)])
