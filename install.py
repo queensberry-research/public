@@ -142,7 +142,8 @@ def copy_file_or_url(
     /,
     *,
     user: bool = False,
-    subs: Mapping[str, Any] | None = None,
+    url_subs: Mapping[str, Any] | None = None,
+    text_subs: Mapping[str, Any] | None = None,
     perms: str | None = None,
 ) -> None:
     match from_:
@@ -152,6 +153,8 @@ def copy_file_or_url(
             if is_file(from_, user=user):
                 text_from = read_text(from_, user=user)
             else:
+                if url_subs is not None:
+                    from_ = substitute(from_, **url_subs)
                 try:
                     with urlopen(from_) as resp:
                         text_from: str = resp.read().decode("utf-8").rstrip("\n")
@@ -160,8 +163,8 @@ def copy_file_or_url(
                     raise
         case never:
             assert_never(never)
-    if subs is not None:
-        text_from = substitute(text_from, **subs)
+    if text_subs is not None:
+        text_from = substitute(text_from, **text_subs)
     if (
         is_file(to, user=user)
         and (read_text(to, user=user) == text_from)
@@ -510,187 +513,44 @@ class CLI:
                 )
             )
             return
-        self._setup_proxmox_or_vm()
-        self._set_root_password()
-        _create_user()
-        self._set_user_password()
-        self._setup_sshd_config()
-        _apt_install("age")
-        _install_sudo()
-        for user in [False, True]:
-            self._setup_authorized_keys(user=user)
-            _setup_age_key(user=user)
-            self._setup_bashrc(user=user)
-            _setup_deploy_key(user=user)
-            self._setup_git_config(user=user)
-            _setup_known_hosts(user=user)
-            self._setup_ssh_config(user=user)
-            self._setup_ssh_infra_repo(user=user)
-            self._setup_subnet_sh(user=user)
-            self._install_direnv(user=user)
-            _install_neovim(user=user)
-            _install_sops(user=user)
-            self._install_starship(user=user)
-            _install_uv(user=user)
-            _install_yq(user=user)
-            self._install_bump_my_version(user=user)  # after uv
-            self._clone_infra_repo(user=user)
-        self._install_tools()
-        _install_docker()
-
-    def _setup_proxmox_or_vm(self) -> None:
         match self.machine:
             case "proxmox":
-                self._setup_proxmox()
+                _setup_proxmox(version=self.version)
             case "vm":
                 _setup_vm()
             case None:
                 ...
             case never:
                 assert_never(never)
-
-    def _setup_proxmox(self) -> None:
-        _remove_sources()
-        subnet = get_subnet()
-        self._copy_file_or_url(
-            f"{_URL_CONFIGS}/resolv.conf",
-            "/etc/resolv.conf",
-            subs={"n": _SUBNET_MAPPING[subnet], "subnet": subnet},
-        )
-        if not grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
-            self._copy_file_or_url(
-                f"{_URL_CONFIGS}/storage.cfg", storage_cfg, subs={"subnet": subnet}
-            )
-
-    def _copy_file_or_url(
-        self,
-        from_: PathLike,
-        to: PathLike,
-        /,
-        *,
-        user: bool = False,
-        subs: Mapping[str, Any] | None = None,
-        perms: str | None = None,
-    ) -> None:
-        match from_:
-            case Path() as from_use:
-                ...
-            case str():
-                from_use = self._substitute_version(from_, version=self.version)
-            case never:
-                assert_never(never)
-        copy_file_or_url(from_use, to, user=user, subs=subs, perms=perms)
-
-    def _set_root_password(self) -> None:
-        if (password := self.root_password) is None:
-            return
-        _LOGGER.info("Setting 'root' password...")
-        _ = run(f"echo 'root:{password}' | chpasswd")
-
-    def _set_user_password(self) -> None:
-        if (password := self.password) is None:
-            return
-        _LOGGER.info("Setting %r password...", _NONROOT)
-        _ = run(f"echo '{_NONROOT}:{password}' | chpasswd")
-
-    def _setup_sshd_config(self) -> None:
-        self._copy_file_or_url(
-            f"{_URL_CONFIGS}/sshd_config", "/etc/ssh/sshd_config.d/config"
-        )
-        _ = run("systemctl restart ssh")
-
-    def _setup_authorized_keys(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(
-            f"{_URL_CONFIGS}/authorized_keys", "~/.ssh/authorized_keys", user=user
-        )
-
-    def _setup_bashrc(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(f"{_URL_CONFIGS}/.bashrc", "~/.bashrc", user=user)
-
-    def _setup_git_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(
-            f"{_URL_CONFIGS}/git-config", "~/.config/git/config", user=user
-        )
-
-    def _setup_ssh_config(self, *, user: bool = False) -> None:
-        self._copy_file_or_url(f"{_URL_CONFIGS}/ssh-config", "~/.ssh/config", user=user)
-
-    def _setup_ssh_infra_repo(self, *, user: bool = False) -> None:
-        for name in ["github-infra-mirror", "gitlab-infra"]:
-            self._copy_file_or_url(
-                f"{_URL_CONFIGS}/ssh-{name}", f"~/.ssh/config.d/{name}", user=user
-            )
-
-    def _setup_subnet_sh(self, *, user: bool = False) -> None:
-        try:
-            subnet = get_subnet()
-        except ValueError:
-            return
-        self._copy_file_or_url(
-            f"{_URL_CONFIGS}/subnet.sh",
-            "~/.bashrc.d/subnet.sh",
-            user=user,
-            subs={"subnet": subnet},
-        )
-
-    def _install_direnv(self, *, user: bool = False) -> None:
-        _github_install("direnv", "direnv", "direnv", "direnv.linux-amd64", user=user)
-        self._copy_file_or_url(
-            f"{_URL_CONFIGS}/direnv.toml", "~/.config/direnv/direnv.toml", user=user
-        )
-
-    def _install_starship(self, *, user: bool = False) -> None:
-        if not self.which("starship", user=user):
-            _LOGGER.info("Installing 'starship' for %r...", self.desc(user=user))
-            self.mkdir(self.path_local_bin, user=user)
-            _ = self.curl(
-                f"-sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
-                user=user,
-            )
-        self._copy_file_or_url(
-            f"{_URL_CONFIGS}/starship.toml", "~/.config/starship.toml", user=user
-        )
-
-    def _clone_infra_repo(self, *, user: bool = False) -> None:
-        path = "~/infra"
-        if not self.is_dir(path, user=user):
-            _LOGGER.info("Cloning 'infra' for %r...", self.desc(user=user))
-            if self.github_repo:
-                key = "github-infra-mirror"
-                owner = "queensberry-research"
-                repo = "infra-mirror"
-            else:
-                key = "gitlab-infra"
-                owner = "qrt-public"
-                repo = "infra"
-            url = f"ssh://git@{key}/{owner}/{repo}"
-            self.git(f"clone --recurse-submodules {url} {path}", user=user)
-
-    def _install_tools(self) -> None:
-        if not self.tools:
-            return
-        _LOGGER.info("Installing tools...")
-        for cmd in ["fzf", "just", "rsync", "vim"]:
-            _apt_install(cmd)
-        if not self.which("rg"):
-            _apt_install("ripgrep")
-        self._install_fd()
-        for cmd, owner, repo, filename in [
-            ("btm", "clementtsang", "bottom", "bottom_${tag}-1_amd64.deb"),
-            ("delta", "dandavison", "delta", "git-delta_${tag}_amd64.deb"),
-        ]:
-            self._github_install(cmd, owner, repo, filename, dpkg=True)
-
-    def _install_fd(self) -> None:
-        if not self.which("fd"):
-            _LOGGER.info("Installing 'fd'...")
-            _apt_install("fd-find")
-        self.symlink("/bin/fdfind", "/bin/fd")
-
-    def _install_bump_my_version(self, *, user: bool = False) -> None:
-        if not self.which("bump-my-version", user=user):
-            _LOGGER.info("Installing 'bump-my-version' for %r...", self.desc(user=user))
-            _ = self.uv("tool install bump-my-version", user=user)
+        if self.root_password is not None:
+            _set_root_password(self.root_password)
+        _create_user()
+        if self.password is not None:
+            _set_user_password(self.password)
+        _setup_sshd_config(version=self.version)
+        _install_age()
+        _install_sudo()
+        for user in [False, True]:
+            _setup_authorized_keys(user=user, version=self.version)
+            _setup_age_key(user=user)
+            _setup_bashrc(user=user, version=self.version)
+            _setup_deploy_key(user=user)
+            _setup_git_config(user=user, version=self.version)
+            _setup_known_hosts(user=user)
+            _setup_ssh_config(user=user, version=self.version)
+            _setup_ssh_infra_repo(user=user, version=self.version)
+            _setup_subnet_sh(user=user, version=self.version)
+            _install_direnv(user=user, version=self.version)
+            _install_neovim(user=user)
+            _install_sops(user=user)
+            _install_starship(user=user, version=self.version)
+            _install_uv(user=user)
+            _install_yq(user=user)
+            _install_bump_my_version(user=user)  # after uv
+            _clone_infra_repo(user=user, github_repo=self.github_repo)
+        if self.tools:
+            _install_tools()
+        _install_docker()
 
 
 def _apt_install(cmd: str, /) -> None:
@@ -703,6 +563,22 @@ def _apt_install(cmd: str, /) -> None:
 def _apt_update() -> None:
     _LOGGER.info("Updating 'apt'...")
     _ = run("apt update -y")
+
+
+def _clone_infra_repo(*, user: bool = False, github_repo: bool = False) -> None:
+    path = "~/infra"
+    if not is_dir(path, user=user):
+        _LOGGER.info("Cloning 'infra' for %r...", desc(user=user))
+        if github_repo:
+            key = "github-infra-mirror"
+            owner = "queensberry-research"
+            repo = "infra-mirror"
+        else:
+            key = "gitlab-infra"
+            owner = "qrt-public"
+            repo = "infra"
+        url = f"ssh://git@{key}/{owner}/{repo}"
+        git(f"clone --recurse-submodules {url} {path}", user=user)
 
 
 def _create_user() -> None:
@@ -760,6 +636,26 @@ def _github_install(
             _dpkg_install(binary)
 
 
+def _install_age() -> None:
+    _apt_install("age")
+
+
+def _install_bump_my_version(*, user: bool = False) -> None:
+    if not which("bump-my-version", user=user):
+        _LOGGER.info("Installing 'bump-my-version' for %r...", desc(user=user))
+        _ = uv("tool install bump-my-version", user=user)
+
+
+def _install_direnv(*, user: bool = False, version: str | None = None) -> None:
+    _github_install("direnv", "direnv", "direnv", "direnv.linux-amd64", user=user)
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/direnv.toml",
+        "~/.config/direnv/direnv.toml",
+        user=user,
+        url_subs={"version": _master_or_tag(version=version)},
+    )
+
+
 def _install_docker() -> None:
     if which("docker"):
         return
@@ -784,6 +680,13 @@ DOCKEREOF""",
         f"usermod -aG docker {_NONROOT}",
         eof="RUNEOF",
     )
+
+
+def _install_fd() -> None:
+    if not which("fd"):
+        _LOGGER.info("Installing 'fd'...")
+        _apt_install("fd-find")
+    symlink("/bin/fdfind", "/bin/fd")
 
 
 def _install_neovim(*, user: bool = False) -> None:
@@ -812,6 +715,27 @@ def _install_neovim(*, user: bool = False) -> None:
         _ = run("nvim --headless '+Lazy! sync' +qa", user=user)
 
 
+def _install_ripgrep() -> None:
+    if not which("rg"):
+        _apt_install("ripgrep")
+
+
+def _install_starship(*, user: bool = False, version: str | None = None) -> None:
+    if not which("starship", user=user):
+        _LOGGER.info("Installing 'starship' for %r...", desc(user=user))
+        mkdir(_PATH_LOCAL_BIN, user=user)
+        _ = curl(
+            f"-sS https://starship.rs/install.sh | sh -s -- -b {_PATH_LOCAL_BIN} -y",
+            user=user,
+        )
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/starship.toml",
+        "~/.config/starship.toml",
+        user=user,
+        url_subs={"version": _master_or_tag(version=version)},
+    )
+
+
 def _install_sops(*, user: bool = False) -> None:
     _github_install("sops", "getsops", "sops", "sops-${tag}.linux.amd64", user=user)
 
@@ -822,8 +746,25 @@ def _install_sudo() -> None:
         _ = run(f"usermod -aG sudo {_NONROOT}")
 
 
+def _install_tools() -> None:
+    _LOGGER.info("Installing tools...")
+    for cmd in ["fzf", "just", "rsync", "vim"]:
+        _apt_install(cmd)
+    _install_fd()
+    _install_ripgrep()
+    for cmd, owner, repo, filename in [
+        ("btm", "clementtsang", "bottom", "bottom_${tag}-1_amd64.deb"),
+        ("delta", "dandavison", "delta", "git-delta_${tag}_amd64.deb"),
+    ]:
+        _github_install(cmd, owner, repo, filename, dpkg=True)
+
+
 def _install_yq(*, user: bool = False) -> None:
     _github_install("yq", "mikefarah", "yq", "yq_linux_amd64", user=user)
+
+
+def _master_or_tag(*, version: str | None = None) -> str:
+    return "heads/master" if version is None else f"tags/{version}"
 
 
 def _remove_sources() -> None:
@@ -834,12 +775,40 @@ def _remove_sources() -> None:
         _apt_update()
 
 
+def _set_root_password(password: str, /) -> None:
+    _LOGGER.info("Setting 'root' password...")
+    _ = run(f"echo 'root:{password}' | chpasswd")
+
+
+def _set_user_password(password: str, /) -> None:
+    _LOGGER.info("Setting %r password...", _NONROOT)
+    _ = run(f"echo '{_NONROOT}:{password}' | chpasswd")
+
+
 def _setup_age_key(*, user: bool = False) -> None:
     copy_file_or_url(
         _QRT_SECRETS / "age/secret-key.txt",
         "~/.config/sops/age/keys.txt",
         user=user,
         perms="u=rw,g=,o=",
+    )
+
+
+def _setup_authorized_keys(*, user: bool = False, version: str | None = None) -> None:
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/authorized_keys",
+        "~/.ssh/authorized_keys",
+        user=user,
+        url_subs={"version": _master_or_tag(version=version)},
+    )
+
+
+def _setup_bashrc(*, user: bool = False, version: str | None = None) -> None:
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/.bashrc",
+        "~/.bashrc",
+        user=user,
+        url_subs={"version": _master_or_tag(version=version)},
     )
 
 
@@ -853,6 +822,15 @@ def _setup_deploy_key(*, user: bool = False) -> None:
         )
 
 
+def _setup_git_config(*, user: bool = False, version: str | None = None) -> None:
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/git-config",
+        "~/.config/git/config",
+        user=user,
+        url_subs={"version": _master_or_tag(version=version)},
+    )
+
+
 def _setup_known_hosts(*, user: bool = False) -> None:
     mkdir(known_hosts := "~/.ssh/known_hosts", parent=True, user=user)
     if not grep(known_hosts, github := "github.com", user=user):
@@ -861,6 +839,66 @@ def _setup_known_hosts(*, user: bool = False) -> None:
     if not grep(known_hosts, gitlab := "gitlab.qrt", user=user):
         _LOGGER.info("Adding %r to known hosts for %r...", gitlab, desc(user=user))
         _ = run(f"ssh-keyscan -p 2424 {gitlab} >> {known_hosts}", user=user)
+
+
+def _setup_proxmox(*, version: str | None = None) -> None:
+    _remove_sources()
+    subnet = get_subnet()
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/resolv.conf",
+        "/etc/resolv.conf",
+        url_subs={"version": _master_or_tag(version=version)},
+        text_subs={"n": _SUBNET_MAPPING[subnet], "subnet": subnet},
+    )
+    if not grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
+        copy_file_or_url(
+            f"{_URL_CONFIGS}/storage.cfg",
+            storage_cfg,
+            url_subs={"version": _master_or_tag(version=version)},
+            text_subs={"subnet": subnet},
+        )
+
+
+def _setup_ssh_config(*, user: bool = False, version: str | None = None) -> None:
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/ssh-config",
+        "~/.ssh/config",
+        user=user,
+        url_subs={"version": _master_or_tag(version=version)},
+    )
+
+
+def _setup_ssh_infra_repo(*, user: bool = False, version: str | None = None) -> None:
+    for name in ["github-infra-mirror", "gitlab-infra"]:
+        copy_file_or_url(
+            f"{_URL_CONFIGS}/ssh-{name}",
+            f"~/.ssh/config.d/{name}",
+            user=user,
+            url_subs={"version": _master_or_tag(version=version)},
+        )
+
+
+def _setup_sshd_config(*, version: str | None = None) -> None:
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/sshd_config",
+        "/etc/ssh/sshd_config.d/config",
+        url_subs={"version": _master_or_tag(version=version)},
+    )
+    _ = run("systemctl restart ssh")
+
+
+def _setup_subnet_sh(*, user: bool = False, version: str | None = None) -> None:
+    try:
+        subnet = get_subnet()
+    except ValueError:
+        return
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/subnet.sh",
+        "~/.bashrc.d/subnet.sh",
+        user=user,
+        url_subs={"version": _master_or_tag(version=version)},
+        text_subs={"subnet": subnet},
+    )
 
 
 def _setup_vm() -> None:
