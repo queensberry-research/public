@@ -27,7 +27,7 @@ repos:
             reorder_keys=true,
           ]
   - repo: https://github.com/dycw/pre-commit-hooks
-    rev: 0.13.24
+    rev: 0.13.25
     hooks:
       - id: check-submodules-updated
         args: [--run-every=PT5M]
@@ -36,16 +36,21 @@ repos:
       - id: mirror-files
         args:
           [
-            submodules/public/repo/docker/Dockerfile,
-            docker/Dockerfile,
-            submodules/public/repo/docker/docker-compose.yml,
-            docker/docker-compose.yml,
             submodules/public/repo/gitlab/.gitlab-ci.yml,
             .gitlab-ci.yml,
             submodules/public/repo/git/.gitignore,
             .gitignore,
             submodules/public/repo/git/.gitmodules,
             .gitmodules,
+            --run-every=PT5M,
+          ]
+      - id: mirror-files-if-exist
+        args:
+          [
+            submodules/public/repo/docker/Dockerfile,
+            docker/Dockerfile,
+            submodules/public/repo/docker/docker-compose.yml,
+            docker/docker-compose.yml,
             --run-every=PT5M,
           ]
       - id: replace-sequence-str
