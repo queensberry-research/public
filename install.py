@@ -46,7 +46,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.79"
+__version__ = "0.6.80"
 
 
 # types
@@ -441,7 +441,7 @@ class PublicOperator(BaseOperator):
             help="Setup a specific type of machine",
         )
         _ = parser.add_argument(
-            cls.flag_root_password, default=None, type=str, help="'root' password"
+            cls.flag_root_password, default=None, type=str, help="Root password"
         )
         _ = parser.add_argument(
             cls.flag_password, default=None, type=str, help="Non-root password"
