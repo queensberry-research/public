@@ -39,7 +39,6 @@ __all__ = [
     "copy_file_or_url",
     "cp",
     "curl",
-    "desc",
     "dirname",
     "get_perms",
     "get_subnet",
@@ -60,10 +59,11 @@ __all__ = [
     "symlink",
     "temp_dir",
     "touch",
+    "username",
     "uv",
     "write_text",
 ]
-__version__ = "0.7.6"
+__version__ = "0.7.7"
 
 
 # types
@@ -156,7 +156,7 @@ def copy_file_or_url(
         and ((perms is None) or (get_perms(to, user=user) == perms))
     ):
         return
-    _LOGGER.info("Writing %r for %r...", str(to), desc(user=user))
+    _LOGGER.info("Writing %r for %r...", str(to), username(user=user))
     write_text(to, text_from, user=user, perms=perms)
 
 
@@ -195,10 +195,6 @@ def curl(
     if jq:
         _apt_install("jq")
     return run(f"curl {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
-
-
-def desc(*, user: bool = False) -> str:
-    return NONROOT if user else ROOT
 
 
 def dirname(path: PathLike, /, *, user: bool = False) -> Path:
@@ -347,7 +343,9 @@ def substitute(text: str, /, **kwargs: Any) -> str:
 def symlink(from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
     if is_symlink(to, user=user) and (read_link(to, user=user)) == Path(from_):
         return
-    _LOGGER.info("Symlinking %r -> %r for %r...", str(from_), str(to), desc(user=user))
+    _LOGGER.info(
+        "Symlinking %r -> %r for %r...", str(from_), str(to), username(user=user)
+    )
     _ = run(f"ln -s {from_} {to}", user=user)
 
 
@@ -363,6 +361,10 @@ def temp_dir(*, user: bool = False) -> Iterator[Path]:
 def touch(path: PathLike, /, *, user: bool = False) -> None:
     mkdir(path, parent=True, user=user)
     _ = run(f"touch {path}", user=user)
+
+
+def username(*, user: bool = False) -> str:
+    return NONROOT if user else ROOT
 
 
 def uv(
@@ -397,7 +399,7 @@ WRITETEXTEOF""",
 
 def _install_uv(*, user: bool = False) -> None:
     if not have_command("uv", user=user):
-        _LOGGER.info("Installing 'uv' for %r...", desc(user=user))
+        _LOGGER.info("Installing 'uv' for %r...", username(user=user))
         _ = curl(
             "-LsSf https://astral.sh/uv/install.sh | sh -s",
             user=user,
@@ -564,7 +566,7 @@ def _apt_update() -> None:
 def _clone_infra_repo(*, user: bool = False, github_repo: bool = False) -> None:
     path = "~/infra"
     if not is_dir(path, user=user):
-        _LOGGER.info("Cloning 'infra' for %r...", desc(user=user))
+        _LOGGER.info("Cloning 'infra' for %r...", username(user=user))
         if github_repo:
             key = "github-infra-mirror"
             owner = "queensberry-research"
@@ -622,7 +624,7 @@ def _github_install(
     dpkg: bool = False,
 ) -> None:
     if not have_command(cmd, user=user):
-        _LOGGER.info("Installing %r for %r...", cmd, desc(user=user))
+        _LOGGER.info("Installing %r for %r...", cmd, username(user=user))
         with _github_binary(owner, repo, filename, user=user) as binary:
             if not dpkg:
                 mkdir(_PATH_LOCAL_BIN, user=user)
@@ -637,7 +639,7 @@ def _install_age() -> None:
 
 def _install_bump_my_version(*, user: bool = False) -> None:
     if not have_command("bump-my-version", user=user):
-        _LOGGER.info("Installing 'bump-my-version' for %r...", desc(user=user))
+        _LOGGER.info("Installing 'bump-my-version' for %r...", username(user=user))
         _ = uv("tool install bump-my-version", user=user)
 
 
@@ -683,7 +685,7 @@ def _install_fd() -> None:
 
 
 def _install_neovim(*, user: bool = False) -> None:
-    desc_ = desc(user=user)
+    desc_ = username(user=user)
     if not have_command("nvim", user=user):
         _LOGGER.info("Installing 'nvim' for %r...", desc_)
         appimage = "nvim-linux-x86_64.appimage"
@@ -715,7 +717,7 @@ def _install_ripgrep() -> None:
 
 def _install_starship(*, user: bool = False, version: str | None = None) -> None:
     if not have_command("starship", user=user):
-        _LOGGER.info("Installing 'starship' for %r...", desc(user=user))
+        _LOGGER.info("Installing 'starship' for %r...", username(user=user))
         mkdir(_PATH_LOCAL_BIN, user=user)
         _ = curl(
             f"-sS https://starship.rs/install.sh | sh -s -- -b {_PATH_LOCAL_BIN} -y",
@@ -822,10 +824,10 @@ def _setup_git_config(*, user: bool = False, version: str | None = None) -> None
 def _setup_known_hosts(*, user: bool = False) -> None:
     mkdir(known_hosts := "~/.ssh/known_hosts", parent=True, user=user)
     if not grep(known_hosts, github := "github.com", user=user):
-        _LOGGER.info("Adding %r to known hosts for %r...", github, desc(user=user))
+        _LOGGER.info("Adding %r to known hosts for %r...", github, username(user=user))
         _ = run(f"ssh-keyscan {github} >> {known_hosts}", user=user)
     if not grep(known_hosts, gitlab := "gitlab.qrt", user=user):
-        _LOGGER.info("Adding %r to known hosts for %r...", gitlab, desc(user=user))
+        _LOGGER.info("Adding %r to known hosts for %r...", gitlab, username(user=user))
         _ = run(f"ssh-keyscan -p 2424 {gitlab} >> {known_hosts}", user=user)
 
 
