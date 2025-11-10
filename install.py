@@ -8,7 +8,6 @@ from ipaddress import IPv4Address
 from logging import basicConfig, getLogger
 from os import environ
 from pathlib import Path
-from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from string import Template
 from subprocess import CalledProcessError, check_output
@@ -37,15 +36,41 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = [
+    "CLI",
     "EVAL_DIRENV_EXPORT",
     "SUBNETS",
     "BaseOperator",
     "PathLike",
-    "PublicOperator",
     "Subnet",
+    "append_text",
+    "chmod",
+    "chown",
+    "copy_file_or_url",
+    "cp",
+    "curl",
+    "desc",
+    "dirname",
+    "get_perms",
     "get_subnet",
+    "git",
+    "grep",
+    "is_dir",
+    "is_file",
+    "is_symlink",
+    "mkdir",
+    "predicate",
+    "read_link",
+    "read_text",
+    "replace_text",
+    "rm",
     "run",
     "substitute",
+    "symlink",
+    "temp_dir",
+    "touch",
+    "uv",
+    "which",
+    "write_text",
 ]
 __version__ = "0.6.89"
 
@@ -55,9 +80,19 @@ __version__ = "0.6.89"
 
 type PathLike = Path | str
 type Subnet = Literal["qrt", "main", "test"]
-type _Machine = Literal["proxmox", "lxc", "vm"]
+type _Machine = Literal["proxmox", "vm"]
 SUBNETS: list[Subnet] = list(get_args(Subnet.__value__))
 _MACHINES: list[_Machine] = list(get_args(_Machine.__value__))
+
+
+# defaults
+
+
+EVAL_DIRENV_EXPORT = (
+    'if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
+)
+_NONROOT = "nonroot"
+_ROOT = "root"
 
 
 # classes
@@ -80,263 +115,248 @@ class BaseOperator:
     subnet_mapping: ClassVar[dict[Subnet, int]] = {"qrt": 20, "main": 50, "test": 60}
     username: ClassVar[str] = "nonroot"
 
-    # instance methods
 
-    def append_text(self, path: PathLike, text: str, /, *, user: bool = False) -> None:
-        _ = self.run(
-            f"""\
+# instance methods
+
+
+def append_text(path: PathLike, text: str, /, *, user: bool = False) -> None:
+    _ = run(
+        f"""\
 cat >> {path} <<'APPENDTEXTEOF'
 {text}
 APPENDTEXTEOF""",
-            user=user,
-            eof="RUNEOF",
-        )
+        user=user,
+        eof="RUNEOF",
+    )
 
-    def chmod(self, perms: str, path: PathLike, /, *, user: bool = False) -> None:
-        _ = self.run(f"chmod {perms} {path}", user=user)
 
-    def chown(
-        self, owner: str, group: str, path: PathLike, /, *, user: bool = False
-    ) -> None:
-        _ = self.run(f"chown {owner}:{group} {path}", user=user)
+def chmod(perms: str, path: PathLike, /, *, user: bool = False) -> None:
+    _ = run(f"chmod {perms} {path}", user=user)
 
-    def copy_file_or_url(
-        self,
-        from_: PathLike,
-        to: PathLike,
-        /,
-        *,
-        user: bool = False,
-        subs: Mapping[str, Any] | None = None,
-        perms: str | None = None,
-    ) -> None:
-        match from_:
-            case Path():
-                text_from = self.read_text(from_, user=user)
-            case str():
-                if self.is_file(from_, user=user):
-                    text_from = self.read_text(from_, user=user)
-                else:
-                    try:
-                        with urlopen(from_) as resp:
-                            text_from: str = resp.read().decode("utf-8").rstrip("\n")
-                    except HTTPError:
-                        _LOGGER.exception("Unable to find %r", from_)
-                        raise
-            case never:
-                assert_never(never)
-        if subs is not None:
-            text_from = substitute(text_from, **subs)
-        if (
-            self.is_file(to, user=user)
-            and (self.read_text(to, user=user) == text_from)
-            and ((perms is None) or (self.perms(to, user=user) == perms))
-        ):
-            return
-        _LOGGER.info("Writing %r for %r...", str(to), self.desc(user=user))
-        self.write_text(to, text_from, user=user, perms=perms)
 
-    def cp(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
-        self.mkdir(to, parent=True, user=user)
-        _ = self.run(f"cp {from_} {to}", user=user)
+def chown(owner: str, group: str, path: PathLike, /, *, user: bool = False) -> None:
+    _ = run(f"chown {owner}:{group} {path}", user=user)
 
-    def curl(
-        self,
-        cmd: str,
-        /,
-        *,
-        jq: bool = False,
-        user: bool = False,
-        env: Mapping[str, str] | None = None,
-        eof: str | None = None,
-        cwd: PathLike | None = None,
-        direnv: bool = False,
-    ) -> str:
-        if not self.which("curl", user=user):
-            _apt_install("curl")
-        if jq and not self.which("jq", user=user):
-            _apt_install("jq")
-        return self.run(
-            f"curl {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv
-        )
 
-    def desc(self, *, user: bool = False) -> str:
-        return self.username if user else "root"
+def copy_file_or_url(
+    from_: PathLike,
+    to: PathLike,
+    /,
+    *,
+    user: bool = False,
+    subs: Mapping[str, Any] | None = None,
+    perms: str | None = None,
+) -> None:
+    match from_:
+        case Path():
+            text_from = read_text(from_, user=user)
+        case str():
+            if is_file(from_, user=user):
+                text_from = read_text(from_, user=user)
+            else:
+                try:
+                    with urlopen(from_) as resp:
+                        text_from: str = resp.read().decode("utf-8").rstrip("\n")
+                except HTTPError:
+                    _LOGGER.exception("Unable to find %r", from_)
+                    raise
+        case never:
+            assert_never(never)
+    if subs is not None:
+        text_from = substitute(text_from, **subs)
+    if (
+        is_file(to, user=user)
+        and (read_text(to, user=user) == text_from)
+        and ((perms is None) or (get_perms(to, user=user) == perms))
+    ):
+        return
+    _LOGGER.info("Writing %r for %r...", str(to), desc(user=user))
+    write_text(to, text_from, user=user, perms=perms)
 
-    def dirname(self, path: PathLike, /, *, user: bool = False) -> Path:
-        return Path(self.run(f"dirname {path}", user=user))
 
-    def git(
-        self,
-        cmd: str,
-        /,
-        *,
-        user: bool = False,
-        env: Mapping[str, str] | None = None,
-        eof: str | None = None,
-        cwd: PathLike | None = None,
-        direnv: bool = False,
-    ) -> None:
-        if not self.which("git", user=user):
-            _apt_install("git")
-        _ = self.run(f"git {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
+def cp(from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
+    mkdir(to, parent=True, user=user)
+    _ = run(f"cp {from_} {to}", user=user)
 
-    def grep(self, path: PathLike, text: str, /, *, user: bool = False) -> bool:
-        return self.is_file(path, user=user) and self.predicate(
-            f"grep -q {text} {path}", user=user
-        )
 
-    def is_dir(self, path: PathLike, /, *, user: bool = False) -> bool:
-        return self.predicate(f"[ -d {path} ]", user=user)
+def curl(
+    cmd: str,
+    /,
+    *,
+    jq: bool = False,
+    user: bool = False,
+    env: Mapping[str, str] | None = None,
+    eof: str | None = None,
+    cwd: PathLike | None = None,
+    direnv: bool = False,
+) -> str:
+    if not which("curl", user=user):
+        _apt_install("curl")
+    if jq and not which("jq", user=user):
+        _apt_install("jq")
+    return run(f"curl {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
 
-    def is_file(self, path: PathLike, /, *, user: bool = False) -> bool:
-        return self.predicate(f"[ -f {path} ]", user=user)
 
-    def is_symlink(self, path: PathLike, /, *, user: bool = False) -> bool:
-        return self.predicate(f"[ -L {path} ]", user=user)
+def desc(*, user: bool = False) -> str:
+    return _NONROOT if user else _ROOT
 
-    def mkdir(
-        self, path: PathLike, /, *, parent: bool = False, user: bool = False
-    ) -> None:
-        if (not parent) and (not self.is_dir(path, user=user)):
-            _ = self.run(f"mkdir -p {path}", user=user)
-        elif parent:
-            self.mkdir(self.dirname(path, user=user), user=user)
 
-    def mv(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
-        _ = self.run(f"mv {from_} {to}", user=user)
+def dirname(path: PathLike, /, *, user: bool = False) -> Path:
+    return Path(run(f"dirname {path}", user=user))
 
-    def perms(self, path: PathLike, /, *, user: bool = False) -> str:
-        result = self.run(f"ls -ld {path}", user=user)
-        first = result.split()[0][1:10]
-        u, g, o = [first[i : i + 3].replace("-", "") for i in [0, 3, 6]]
-        return f"u={u},g={g},o={o}"
 
-    def predicate(self, predicate: str, /, *, user: bool = False) -> bool:
-        result = self.run(f"if {predicate}; then echo 1; fi", user=user)
-        return result == "1"
+def get_perms(path: PathLike, /, *, user: bool = False) -> str:
+    result = run(f"ls -ld {path}", user=user)
+    first = result.split()[0][1:10]
+    u, g, o = [first[i : i + 3].replace("-", "") for i in [0, 3, 6]]
+    return f"u={u},g={g},o={o}"
 
-    def read_link(self, path: PathLike, /, *, user: bool = False) -> Path:
-        return Path(self.run(f"readlink {path}", user=user))
 
-    def read_text(self, path: PathLike, /, *, user: bool = False) -> str:
-        return self.run(f"cat {path}", user=user)
+def git(
+    cmd: str,
+    /,
+    *,
+    user: bool = False,
+    env: Mapping[str, str] | None = None,
+    eof: str | None = None,
+    cwd: PathLike | None = None,
+    direnv: bool = False,
+) -> None:
+    if not which("git", user=user):
+        _apt_install("git")
+    _ = run(f"git {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
 
-    def replace_text(self, path: PathLike, /, *lines: str, user: bool = False) -> None:
-        text = self.read_text(path, user=user)
-        if (n := len(lines)) % 2 != 0:
-            msg = f"Expected an even number of lines; got {n}"
-            raise ValueError(msg)
-        for i in range(0, n, 2):
-            text = text.replace(lines[i], lines[i + 1])
-        self.write_text(path, text, user=user)
 
-    def rm(self, path: PathLike, /, *, user: bool = False) -> bool:
-        if self.is_file(path, user=user):
-            _LOGGER.info("Removing %r...", str(path))
-            _ = self.run(f"rm {path}", user=user)
-            return True
+def grep(path: PathLike, text: str, /, *, user: bool = False) -> bool:
+    return is_file(path, user=user) and predicate(f"grep -q {text} {path}", user=user)
+
+
+def is_dir(path: PathLike, /, *, user: bool = False) -> bool:
+    return predicate(f"[ -d {path} ]", user=user)
+
+
+def is_file(path: PathLike, /, *, user: bool = False) -> bool:
+    return predicate(f"[ -f {path} ]", user=user)
+
+
+def is_symlink(path: PathLike, /, *, user: bool = False) -> bool:
+    return predicate(f"[ -L {path} ]", user=user)
+
+
+def mkdir(path: PathLike, /, *, parent: bool = False, user: bool = False) -> None:
+    if (not parent) and (not is_dir(path, user=user)):
+        _ = run(f"mkdir -p {path}", user=user)
+    elif parent:
+        mkdir(dirname(path, user=user), user=user)
+
+
+def mv(from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
+    _ = run(f"mv {from_} {to}", user=user)
+
+
+def predicate(predicate: str, /, *, user: bool = False) -> bool:
+    result = run(f"if {predicate}; then echo 1; fi", user=user)
+    return result == "1"
+
+
+def read_link(path: PathLike, /, *, user: bool = False) -> Path:
+    return Path(run(f"readlink {path}", user=user))
+
+
+def read_text(path: PathLike, /, *, user: bool = False) -> str:
+    return run(f"cat {path}", user=user)
+
+
+def replace_text(path: PathLike, /, *lines: str, user: bool = False) -> None:
+    text = read_text(path, user=user)
+    if (n := len(lines)) % 2 != 0:
+        msg = f"Expected an even number of lines; got {n}"
+        raise ValueError(msg)
+    for i in range(0, n, 2):
+        text = text.replace(lines[i], lines[i + 1])
+    write_text(path, text, user=user)
+
+
+def rm(path: PathLike, /, *, user: bool = False) -> bool:
+    if is_file(path, user=user):
+        _LOGGER.info("Removing %r...", str(path))
+        _ = run(f"rm {path}", user=user)
+        return True
+    return False
+
+
+def symlink(from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
+    if is_symlink(to, user=user) and (read_link(to, user=user)) == Path(from_):
+        return
+    _LOGGER.info("Symlinking %r -> %r for %r...", str(from_), str(to), desc(user=user))
+    _ = run(f"ln -s {from_} {to}", user=user)
+
+
+@contextmanager
+def temp_dir(*, user: bool = False) -> Iterator[Path]:
+    path = Path(run("mktemp -d", user=user))
+    try:
+        yield path
+    finally:
+        _ = run(f"rm -rf {path}", user=user)
+
+
+def touch(path: PathLike, /, *, user: bool = False) -> None:
+    mkdir(path, parent=True, user=user)
+    _ = run(f"touch {path}", user=user)
+
+
+def uv(
+    cmd: str,
+    /,
+    *,
+    user: bool = False,
+    env: Mapping[str, str] | None = None,
+    eof: str | None = None,
+    cwd: PathLike | None = None,
+    direnv: bool = False,
+) -> str:
+    if not which("uv", user=user):
+        _install_uv(user=user)
+    return run(f"uv {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
+
+
+def which(cmd: str, /, *, user: bool = False) -> bool:
+    try:
+        result = run(f"which {cmd}", user=user)
+    except CalledProcessError:
         return False
+    return result != ""
 
-    def run(
-        self,
-        *cmds: str,
-        user: bool = False,
-        env: Mapping[str, str] | None = None,
-        eof: str | None = None,
-        cwd: PathLike | None = None,
-        direnv: bool = False,
-    ) -> str:
-        return run(
-            *cmds,
-            user=self.username if user else None,
-            env=env,
-            eof=eof,
-            cwd=cwd,
-            direnv=direnv,
-        )
 
-    def symlink(self, from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
-        if self.is_symlink(to, user=user) and (self.read_link(to, user=user)) == Path(
-            from_
-        ):
-            return
-        _LOGGER.info(
-            "Symlinking %r -> %r for %r...", str(from_), str(to), self.desc(user=user)
-        )
-        _ = self.run(f"ln -s {from_} {to}", user=user)
-
-    @contextmanager
-    def temp_dir(self, *, user: bool = False) -> Iterator[Path]:
-        path = Path(self.run("mktemp -d", user=user))
-        try:
-            yield path
-        finally:
-            _ = self.run(f"rm -rf {path}", user=user)
-
-    def touch(self, path: PathLike, /, *, user: bool = False) -> None:
-        self.mkdir(path, parent=True, user=user)
-        _ = self.run(f"touch {path}", user=user)
-
-    def uv(
-        self,
-        cmd: str,
-        /,
-        *,
-        user: bool = False,
-        env: Mapping[str, str] | None = None,
-        eof: str | None = None,
-        cwd: PathLike | None = None,
-        direnv: bool = False,
-    ) -> str:
-        if not self.which("uv", user=user):
-            self._install_uv(user=user)
-        return self.run(
-            f"uv {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv
-        )
-
-    def which(self, cmd: str, /, *, user: bool = False) -> bool:
-        try:
-            result = self.run(f"which {cmd}", user=user)
-        except CalledProcessError:
-            return False
-        return result != ""
-
-    def write_text(
-        self,
-        path: PathLike,
-        text: str,
-        /,
-        *,
-        user: bool = False,
-        perms: str | None = None,
-    ) -> None:
-        self.mkdir(path, parent=True, user=user)
-        _ = self.run(
-            f"""\
+def write_text(
+    path: PathLike, text: str, /, *, user: bool = False, perms: str | None = None
+) -> None:
+    mkdir(path, parent=True, user=user)
+    _ = run(
+        f"""\
 cat > {path} <<'WRITETEXTEOF'
 {text}
 WRITETEXTEOF""",
-            user=user,
-            eof="RUNEOF",
-        )
-        if perms is not None:
-            self.chmod(perms, path, user=user)
+        user=user,
+        eof="RUNEOF",
+    )
+    if perms is not None:
+        chmod(perms, path, user=user)
 
-    # installers
 
-    def _install_docker(self) -> None:
-        if self.which("docker"):
-            return
-        _LOGGER.info("Installing 'docker'...")
-        _ = self.run(
-            "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do apt-get remove $pkg; done",
-            "apt-get update",
-            "apt-get install -y ca-certificates curl",
-            "install -m 0755 -d /etc/apt/keyrings",
-            "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
-            "chmod a+r /etc/apt/keyrings/docker.asc",
-            """\
+def _install_docker() -> None:
+    if which("docker"):
+        return
+    _LOGGER.info("Installing 'docker'...")
+    _ = run(
+        "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do apt-get remove $pkg; done",
+        "apt-get update",
+        "apt-get install -y ca-certificates curl",
+        "install -m 0755 -d /etc/apt/keyrings",
+        "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
+        "chmod a+r /etc/apt/keyrings/docker.asc",
+        """\
 tee /etc/apt/sources.list.d/docker.sources <<DOCKEREOF
 Types: deb
 URIs: https://download.docker.com/linux/debian
@@ -344,24 +364,28 @@ Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
 Components: stable
 Signed-By: /etc/apt/keyrings/docker.asc
 DOCKEREOF""",
-            "apt-get update",
-            "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
-            f"usermod -aG docker {self.username}",
-            eof="RUNEOF",
+        "apt-get update",
+        "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
+        f"usermod -aG docker {_NONROOT}",
+        eof="RUNEOF",
+    )
+
+
+def _install_uv(*, user: bool = False) -> None:
+    if not which("uv", user=user):
+        _LOGGER.info("Installing 'uv' for %r...", desc(user=user))
+        _ = curl(
+            "-LsSf https://astral.sh/uv/install.sh | sh -s",
+            user=user,
+            env={"UV_NO_MODIFY_PATH": "1"},
         )
 
-    def _install_uv(self, *, user: bool = False) -> None:
-        if not self.which("uv", user=user):
-            _LOGGER.info("Installing 'uv' for %r...", self.desc(user=user))
-            _ = self.curl(
-                "-LsSf https://astral.sh/uv/install.sh | sh -s",
-                user=user,
-                env={"UV_NO_MODIFY_PATH": "1"},
-            )
+
+# public
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
-class PublicOperator(BaseOperator):
+class CLI:
     # constants
     flag_version: ClassVar[str] = "--version"
     flag_machine: ClassVar[str] = "--machine"
@@ -451,17 +475,64 @@ class PublicOperator(BaseOperator):
         return cls(**vars(parser.parse_args()))
 
     @classmethod
+    def parse(cls) -> _BasePublicCLI:
+        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        subparsers = parser.add_subparsers(dest="machine")
+        _ProxmoxOperator.add_subparser(subparsers)
+        _IBGatewayDockerOperator.add_subparser(subparsers)
+        _GitLabOperator.add_subparser(subparsers)
+        _GitLabRunnerOperator.add_subparser(subparsers)
+        _PostgresOperator.add_subparser(subparsers)
+        _PyPIOperator.add_subparser(subparsers)
+        _RedisOperator.add_subparser(subparsers)
+        _DockerRegistryOperator.add_subparser(subparsers)
+        args = cls(**vars(parser.parse_args()))
+        match args.machine:
+            case "proxmox":
+                return _ProxmoxOperator.from_args(args)
+            case "ib-gateway-docker":
+                return _IBGatewayDockerOperator.from_args(args)
+            case "gitlab":
+                return _GitLabOperator.from_args(args)
+            case "gitlab-runner":
+                return _GitLabRunnerOperator.from_args(args)
+            case "postgres":
+                return _PostgresOperator.from_args(args)
+            case "pypi":
+                return _PyPIOperator.from_args(args)
+            case "redis":
+                return _RedisOperator.from_args(args)
+            case "docker-registry":
+                return _DockerRegistryOperator.from_args(args)
+            case "vm":
+                raise NotImplementedError
+            case never:
+                assert_never(never)
+
+    @classmethod
     def _substitute_version(cls, text: str, /, *, version: str | None = None) -> str:
         return substitute(
             text, version="heads/master" if version is None else f"tags/{version}"
         )
 
+
+@dataclass(order=True, unsafe_hash=True, kw_only=True)
+class _BasePublicCLI:
+    a
+
+
+@dataclass(order=True, unsafe_hash=True, kw_only=True)
+class _ProxmoxCLI:
+    a
+
+
+class asdfasdff:
     # instance methods
 
-    def install(self) -> None:
+    def run(self) -> None:
         _LOGGER.info("Running version %s...", __version__)
         if self.version is not None:
-            _ = self.run(
+            _ = run(
                 self.curl_cmd(
                     version=self.version,
                     machine=self.machine,
@@ -805,42 +876,6 @@ class PublicOperator(BaseOperator):
         _ = self.run(f"dpkg -i {path}")
 
 
-# main
-
-
-EVAL_DIRENV_EXPORT = (
-    'if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
-)
-
-
-def run(
-    *cmds: str,
-    user: str | None = None,
-    env: Mapping[str, str] | None = None,
-    eof: str | None = None,
-    cwd: PathLike | None = None,
-    direnv: bool = False,
-) -> str:
-    template = """\
-${user_cmd} ${quote} ${env_vars} bash -s ${quote} <<'${eof}'
-if [ -f ~/.bashrc ]; then source ~/.bashrc; fi
-${cd_cmd}
-${direnv_cmd}
-${cmds}
-${eof}"""
-    cmd = substitute(
-        template,
-        user_cmd="" if user is None else f"su - {user} -c",
-        quote="" if user is None else "'",
-        env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
-        eof="EOF" if eof is None else eof,
-        cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
-        direnv_cmd=EVAL_DIRENV_EXPORT if direnv else "",
-        cmds="\n".join(cmds),
-    )
-    return check_output(cmd, shell=True, text=True).rstrip("\n")
-
-
 def get_subnet() -> Subnet:
     try:
         subnet = environ["SUBNET"]
@@ -861,6 +896,34 @@ def get_subnet() -> Subnet:
     raise ValueError(msg)
 
 
+def run(
+    *cmds: str,
+    user: bool = False,
+    env: Mapping[str, str] | None = None,
+    eof: str | None = None,
+    cwd: PathLike | None = None,
+    direnv: bool = False,
+) -> str:
+    template = """\
+${user_cmd} ${quote} ${env_vars} bash -s ${quote} <<'${eof}'
+if [ -f ~/.bashrc ]; then source ~/.bashrc; fi
+${cd_cmd}
+${direnv_cmd}
+${cmds}
+${eof}"""
+    cmd = substitute(
+        template,
+        user_cmd=f"su - {_NONROOT} -c" if user else "",
+        quote="'" if user else "",
+        env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
+        eof="EOF" if eof is None else eof,
+        cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
+        direnv_cmd=EVAL_DIRENV_EXPORT if direnv else "",
+        cmds="\n".join(cmds),
+    )
+    return check_output(cmd, shell=True, text=True).rstrip("\n")
+
+
 def substitute(text: str, /, **kwargs: Any) -> str:
     return Template(text).substitute(**kwargs)
 
@@ -878,5 +941,5 @@ def _apt_update() -> None:
 
 
 if __name__ == "__main__":
-    operator = PublicOperator.parse()
-    operator.install()
+    cli = CLI.parse()
+    cli.run()
