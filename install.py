@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from ipaddress import IPv4Address
 from logging import basicConfig, getLogger
 from os import environ
@@ -16,10 +16,12 @@ from typing import (
     Any,
     ClassVar,
     Literal,
+    Protocol,
     Self,
     assert_never,
     get_args,
     override,
+    runtime_checkable,
 )
 from urllib.error import HTTPError
 from urllib.request import urlopen
@@ -58,6 +60,7 @@ __all__ = [
     "is_file",
     "is_symlink",
     "mkdir",
+    "parsed_args_to_dataclass",
     "predicate",
     "read_link",
     "read_text",
@@ -82,7 +85,13 @@ type PathLike = Path | str
 type Subnet = Literal["qrt", "main", "test"]
 type _Machine = Literal["proxmox", "vm"]
 SUBNETS: list[Subnet] = list(get_args(Subnet.__value__))
-_MACHINES: list[_Machine] = list(get_args(_Machine.__value__))
+
+
+@runtime_checkable
+class _Dataclass(Protocol):
+    """Protocol for `dataclass` classes."""
+
+    __dataclass_fields__: ClassVar[dict[str, Any]]
 
 
 # defaults
@@ -93,6 +102,7 @@ EVAL_DIRENV_EXPORT = (
 )
 _NONROOT = "nonroot"
 _ROOT = "root"
+_SUBNET_MAPPING: dict[Subnet, int] = {"qrt": 20, "main": 50, "test": 60}
 
 
 # classes
@@ -116,7 +126,7 @@ class BaseOperator:
     username: ClassVar[str] = "nonroot"
 
 
-# instance methods
+# public
 
 
 def append_text(path: PathLike, text: str, /, *, user: bool = False) -> None:
@@ -212,6 +222,26 @@ def get_perms(path: PathLike, /, *, user: bool = False) -> str:
     return f"u={u},g={g},o={o}"
 
 
+def get_subnet() -> Subnet:
+    try:
+        subnet = environ["SUBNET"]
+    except KeyError:
+        with socket(AF_INET, SOCK_DGRAM) as s:
+            s.connect(("1.1.1.1", 80))
+            ip = IPv4Address(s.getsockname()[0])
+        _, _, third, _ = str(ip).split(".")
+        third = int(third)
+        for subnet in SUBNETS:
+            if third == BaseOperator.subnet_mapping[subnet]:
+                return subnet
+        msg = f"Invalid IP; got {ip}"
+        raise ValueError(msg) from None
+    if subnet in SUBNETS:
+        return subnet
+    msg = f"Invalid subnet; got {subnet!r}"
+    raise ValueError(msg)
+
+
 def git(
     cmd: str,
     /,
@@ -254,6 +284,10 @@ def mv(from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
     _ = run(f"mv {from_} {to}", user=user)
 
 
+def parsed_args_to_dataclass[T: _Dataclass](args: _Dataclass, cls: type[T], /) -> T:
+    return cls(**{f.name: getattr(args, f.name) for f in fields(cls)})
+
+
 def predicate(predicate: str, /, *, user: bool = False) -> bool:
     result = run(f"if {predicate}; then echo 1; fi", user=user)
     return result == "1"
@@ -283,6 +317,38 @@ def rm(path: PathLike, /, *, user: bool = False) -> bool:
         _ = run(f"rm {path}", user=user)
         return True
     return False
+
+
+def run(
+    *cmds: str,
+    user: bool = False,
+    env: Mapping[str, str] | None = None,
+    eof: str | None = None,
+    cwd: PathLike | None = None,
+    direnv: bool = False,
+) -> str:
+    template = """\
+${user_cmd} ${quote} ${env_vars} bash -s ${quote} <<'${eof}'
+if [ -f ~/.bashrc ]; then source ~/.bashrc; fi
+${cd_cmd}
+${direnv_cmd}
+${cmds}
+${eof}"""
+    cmd = substitute(
+        template,
+        user_cmd=f"su - {_NONROOT} -c" if user else "",
+        quote="'" if user else "",
+        env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
+        eof="EOF" if eof is None else eof,
+        cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
+        direnv_cmd=EVAL_DIRENV_EXPORT if direnv else "",
+        cmds="\n".join(cmds),
+    )
+    return check_output(cmd, shell=True, text=True).rstrip("\n")
+
+
+def substitute(text: str, /, **kwargs: Any) -> str:
+    return Template(text).substitute(**kwargs)
 
 
 def symlink(from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
@@ -345,32 +411,6 @@ WRITETEXTEOF""",
         chmod(perms, path, user=user)
 
 
-def _install_docker() -> None:
-    if which("docker"):
-        return
-    _LOGGER.info("Installing 'docker'...")
-    _ = run(
-        "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do apt-get remove $pkg; done",
-        "apt-get update",
-        "apt-get install -y ca-certificates curl",
-        "install -m 0755 -d /etc/apt/keyrings",
-        "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
-        "chmod a+r /etc/apt/keyrings/docker.asc",
-        """\
-tee /etc/apt/sources.list.d/docker.sources <<DOCKEREOF
-Types: deb
-URIs: https://download.docker.com/linux/debian
-Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
-Components: stable
-Signed-By: /etc/apt/keyrings/docker.asc
-DOCKEREOF""",
-        "apt-get update",
-        "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
-        f"usermod -aG docker {_NONROOT}",
-        eof="RUNEOF",
-    )
-
-
 def _install_uv(*, user: bool = False) -> None:
     if not which("uv", user=user):
         _LOGGER.info("Installing 'uv' for %r...", desc(user=user))
@@ -384,24 +424,23 @@ def _install_uv(*, user: bool = False) -> None:
 # public
 
 
+_FLAG_ROOT_PASSWORD = "--root-password"  # noqa: S105
+_FLAG_PASSWORD = "--password"  # noqa: S105
+_FLAG_TOOLS = "--tools"
+_FLAG_DOCKER = "--docker"
+_FLAG_GITHUB_REPO = "--github-repo"
+_URL_PUBLIC = (
+    "https://raw.githubusercontent.com/queensberry-research/public/refs/$version"
+)
+_URL_CONFIGS = f"{_URL_PUBLIC}/configs"
+
+
 @dataclass(order=True, unsafe_hash=True, kw_only=True)
 class CLI:
-    # constants
-    flag_version: ClassVar[str] = "--version"
-    flag_machine: ClassVar[str] = "--machine"
-    flag_root_password: ClassVar[str] = "--root-password"  # noqa: S105
-    flag_password: ClassVar[str] = "--password"  # noqa: S105
-    flag_tools: ClassVar[str] = "--tools"
-    flag_docker: ClassVar[str] = "--docker"
-    flag_github_repo: ClassVar[str] = "--github-repo"
-    url_public: ClassVar[str] = (
-        "https://raw.githubusercontent.com/queensberry-research/public/refs/$version"
-    )
-    url_configs: ClassVar[str] = f"{url_public}/configs"
-
     # fields
-    version: str | None = None
+
     machine: _Machine | None = None
+    version: str | None = None
     root_password: str | None = None
     password: str | None = None
     tools: bool = False
@@ -422,92 +461,54 @@ class CLI:
         docker: bool = False,
         github_repo: bool = False,
     ) -> str:
-        url = cls._substitute_version(f"{cls.url_public}/install.py", version=version)
+        url = cls._substitute_version(f"{_URL_PUBLIC}/install.py", version=version)
         parts: list[str] = []
         if machine is not None:
-            parts.extend([cls.flag_machine, machine])
+            parts.extend(["--machine", machine])
         if root_password is not None:
-            parts.extend([cls.flag_root_password, root_password])
+            parts.extend([_FLAG_ROOT_PASSWORD, root_password])
         if password is not None:
-            parts.extend([cls.flag_password, password])
+            parts.extend([_FLAG_PASSWORD, password])
         if tools:
-            parts.append(cls.flag_tools)
+            parts.append(_FLAG_TOOLS)
         if docker:
-            parts.append(cls.flag_docker)
+            parts.append(_FLAG_DOCKER)
         if github_repo:
-            parts.append(cls.flag_github_repo)
+            parts.append(_FLAG_GITHUB_REPO)
         cmd = " ".join(parts)
         return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS {url} | python3 - {cmd}"""
 
     @classmethod
     def parse(cls) -> Self:
         parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-        _ = parser.add_argument(
-            cls.flag_version,
-            default=None,
-            type=str,
-            help=f"Version (latest {__version__})",
-        )
-        _ = parser.add_argument(
-            cls.flag_machine,
-            default=None,
-            type=str,
-            choices=_MACHINES,
-            help="Setup a specific type of machine",
-        )
-        _ = parser.add_argument(
-            cls.flag_root_password, default=None, type=str, help="Root password"
-        )
-        _ = parser.add_argument(
-            cls.flag_password, default=None, type=str, help="Non-root password"
-        )
-        _ = parser.add_argument(
-            cls.flag_tools, action="store_true", help="Install tools"
-        )
-        _ = parser.add_argument(
-            cls.flag_docker, action="store_true", help="Install Docker"
-        )
-        _ = parser.add_argument(
-            cls.flag_github_repo,
-            action="store_true",
-            help="Use GitHub repo instead of GitLab",
-        )
+        cls._add_arguments(parser)
+        subparser = parser.add_subparsers(dest="machine")
+        proxmox = subparser.add_parser("proxmox", help="Setup a Proxmox host")
+        cls._add_arguments(proxmox)
+        vm = subparser.add_parser("vm", help="Setup a VM")
+        cls._add_arguments(vm)
         return cls(**vars(parser.parse_args()))
 
     @classmethod
-    def parse(cls) -> _BasePublicCLI:
-        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-        subparsers = parser.add_subparsers(dest="machine")
-        _ProxmoxOperator.add_subparser(subparsers)
-        _IBGatewayDockerOperator.add_subparser(subparsers)
-        _GitLabOperator.add_subparser(subparsers)
-        _GitLabRunnerOperator.add_subparser(subparsers)
-        _PostgresOperator.add_subparser(subparsers)
-        _PyPIOperator.add_subparser(subparsers)
-        _RedisOperator.add_subparser(subparsers)
-        _DockerRegistryOperator.add_subparser(subparsers)
-        args = cls(**vars(parser.parse_args()))
-        match args.machine:
-            case "proxmox":
-                return _ProxmoxOperator.from_args(args)
-            case "ib-gateway-docker":
-                return _IBGatewayDockerOperator.from_args(args)
-            case "gitlab":
-                return _GitLabOperator.from_args(args)
-            case "gitlab-runner":
-                return _GitLabRunnerOperator.from_args(args)
-            case "postgres":
-                return _PostgresOperator.from_args(args)
-            case "pypi":
-                return _PyPIOperator.from_args(args)
-            case "redis":
-                return _RedisOperator.from_args(args)
-            case "docker-registry":
-                return _DockerRegistryOperator.from_args(args)
-            case "vm":
-                raise NotImplementedError
-            case never:
-                assert_never(never)
+    def _add_arguments(cls, parser: ArgumentParser, /) -> None:
+        _ = parser.add_argument(
+            "--version", default=None, type=str, help=f"Version (latest {__version__})"
+        )
+        _ = parser.add_argument(
+            _FLAG_ROOT_PASSWORD, default=None, type=str, help="Root password"
+        )
+        _ = parser.add_argument(
+            _FLAG_PASSWORD, default=None, type=str, help="Non-root password"
+        )
+        _ = parser.add_argument(_FLAG_TOOLS, action="store_true", help="Install tools")
+        _ = parser.add_argument(
+            _FLAG_DOCKER, action="store_true", help="Install Docker"
+        )
+        _ = parser.add_argument(
+            _FLAG_GITHUB_REPO,
+            action="store_true",
+            help="Use GitHub repo instead of GitLab",
+        )
 
     @classmethod
     def _substitute_version(cls, text: str, /, *, version: str | None = None) -> str:
@@ -515,18 +516,6 @@ class CLI:
             text, version="heads/master" if version is None else f"tags/{version}"
         )
 
-
-@dataclass(order=True, unsafe_hash=True, kw_only=True)
-class _BasePublicCLI:
-    a
-
-
-@dataclass(order=True, unsafe_hash=True, kw_only=True)
-class _ProxmoxCLI:
-    a
-
-
-class asdfasdff:
     # instance methods
 
     def run(self) -> None:
@@ -544,12 +533,13 @@ class asdfasdff:
                 )
             )
             return
-        self._setup_machine()
+        self._setup_proxmox_or_vm()
         self._set_root_password()
-        self._create_user()
+        _create_user()
+        self._set_user_password()
         self._setup_sshd_config()
         _apt_install("age")
-        self._install_sudo()
+        _install_sudo()
         for user in [False, True]:
             self._setup_authorized_keys(user=user)
             self._setup_age_key(user=user)
@@ -564,41 +554,38 @@ class asdfasdff:
             self._install_neovim(user=user)
             self._install_sops(user=user)
             self._install_starship(user=user)
-            self._install_uv(user=user)
+            _install_uv(user=user)
             self._install_yq(user=user)
             self._install_bump_my_version(user=user)  # after uv
             self._clone_infra_repo(user=user)
         self._install_tools()
-        self._install_docker()
+        _install_docker()
 
-    def _setup_machine(self) -> None:
+    def _setup_proxmox_or_vm(self) -> None:
         match self.machine:
             case "proxmox":
                 self._setup_proxmox()
-            case "lxc":
-                self._setup_lxc()
             case "vm":
-                self._setup_vm()
+                _setup_vm()
             case None:
                 ...
             case never:
                 assert_never(never)
 
     def _setup_proxmox(self) -> None:
-        self._delete_proxmox_sources()
+        _remove_sources()
         subnet = get_subnet()
-        self.copy_file_or_url(
-            f"{self.url_configs}/resolv.conf",
+        self._copy_file_or_url(
+            f"{_URL_CONFIGS}/resolv.conf",
             "/etc/resolv.conf",
-            subs={"n": self.subnet_mapping[subnet], "subnet": subnet},
+            subs={"n": _SUBNET_MAPPING[subnet], "subnet": subnet},
         )
-        if not self.grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
-            self.copy_file_or_url(
-                f"{self.url_configs}/storage.cfg", storage_cfg, subs={"subnet": subnet}
+        if not grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
+            self._copy_file_or_url(
+                f"{_URL_CONFIGS}/storage.cfg", storage_cfg, subs={"subnet": subnet}
             )
 
-    @override
-    def copy_file_or_url(
+    def _copy_file_or_url(
         self,
         from_: PathLike,
         to: PathLike,
@@ -615,67 +602,28 @@ class asdfasdff:
                 from_use = self._substitute_version(from_, version=self.version)
             case never:
                 assert_never(never)
-        super().copy_file_or_url(from_use, to, user=user, subs=subs, perms=perms)
-
-    def _delete_proxmox_sources(self) -> None:
-        if any(
-            self.rm(f"/etc/apt/sources.list.d/{name}.sources")
-            for name in ["ceph", "pve-enterprise"]
-        ):
-            _apt_update()
-
-    def _setup_lxc(self) -> None:
-        _LOGGER.info("Setting up LXC...")
-
-    def _setup_vm(self) -> None:
-        _apt_install("nfs-common")
-        if not self.grep(fstab := "/etc/fstab", str(self.mount_target)):
-            self.mkdir(self.mount_target)
-            parts = [
-                self.mount_source,
-                self.mount_target,
-                self.mount_type,
-                self.mount_options,
-                int(self.mount_backup),
-                int(self.mount_check),
-            ]
-            line = " ".join(map(str, parts))
-            _ = self.run(f"echo {line} >> {fstab}", "mount -a")
+        copy_file_or_url(from_use, to, user=user, subs=subs, perms=perms)
 
     def _set_root_password(self) -> None:
         if (password := self.root_password) is None:
             return
         _LOGGER.info("Setting 'root' password...")
-        _ = self.run(f"echo 'root:{password}' | chpasswd")
+        _ = run(f"echo 'root:{password}' | chpasswd")
 
-    def _create_user(self) -> None:
-        username = self.username
-        try:
-            _ = self.run(f"id -u {username}")
-        except CalledProcessError:
-            _LOGGER.info("Creating %r...", username)
-            _ = self.run(
-                f"useradd --create-home --shell /bin/bash {username}",
-                f"usermod -aG sudo {username}",
-            )
+    def _set_user_password(self) -> None:
         if (password := self.password) is None:
             return
-        _LOGGER.info("Setting %r password...", username)
-        _ = self.run(f"echo '{username}:{password}' | chpasswd")
+        _LOGGER.info("Setting %r password...", _NONROOT)
+        _ = run(f"echo '{_NONROOT}:{password}' | chpasswd")
 
     def _setup_sshd_config(self) -> None:
-        self.copy_file_or_url(
-            f"{self.url_configs}/sshd_config", "/etc/ssh/sshd_config.d/config"
+        self._copy_file_or_url(
+            f"{_URL_CONFIGS}/sshd_config", "/etc/ssh/sshd_config.d/config"
         )
-        _ = self.run("systemctl restart ssh")
-
-    def _install_sudo(self) -> None:
-        _apt_install("sudo")
-        if not self.predicate(f"id -nG {self.username} | grep -qw sudo"):
-            _ = self.run(f"usermod -aG sudo {self.username}")
+        _ = run("systemctl restart ssh")
 
     def _setup_age_key(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(
+        self._copy_file_or_url(
             self.path_age_key,
             "~/.config/sops/age/keys.txt",
             user=user,
@@ -683,22 +631,22 @@ class asdfasdff:
         )
 
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(
-            f"{self.url_configs}/authorized_keys", "~/.ssh/authorized_keys", user=user
+        self._copy_file_or_url(
+            f"{_URL_CONFIGS}/authorized_keys", "~/.ssh/authorized_keys", user=user
         )
 
     def _setup_bashrc(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(f"{self.url_configs}/.bashrc", "~/.bashrc", user=user)
+        self._copy_file_or_url(f"{_URL_CONFIGS}/.bashrc", "~/.bashrc", user=user)
 
     def _setup_deploy_key(self, *, user: bool = False) -> None:
         for name in ["github-infra-mirror", "gitlab-infra"]:
-            self.copy_file_or_url(
+            self._copy_file_or_url(
                 self.path_deploy_key, f"~/.ssh/{name}", user=user, perms="u=rw,g=,o="
             )
 
     def _setup_git_config(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(
-            f"{self.url_configs}/git-config", "~/.config/git/config", user=user
+        self._copy_file_or_url(
+            f"{_URL_CONFIGS}/git-config", "~/.config/git/config", user=user
         )
 
     def _setup_known_hosts(self, *, user: bool = False) -> None:
@@ -715,14 +663,12 @@ class asdfasdff:
             _ = self.run(f"ssh-keyscan -p 2424 {gitlab} >> {known_hosts}", user=user)
 
     def _setup_ssh_config(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(
-            f"{self.url_configs}/ssh-config", "~/.ssh/config", user=user
-        )
+        self._copy_file_or_url(f"{_URL_CONFIGS}/ssh-config", "~/.ssh/config", user=user)
 
     def _setup_ssh_infra_repo(self, *, user: bool = False) -> None:
         for name in ["github-infra-mirror", "gitlab-infra"]:
-            self.copy_file_or_url(
-                f"{self.url_configs}/ssh-{name}", f"~/.ssh/config.d/{name}", user=user
+            self._copy_file_or_url(
+                f"{_URL_CONFIGS}/ssh-{name}", f"~/.ssh/config.d/{name}", user=user
             )
 
     def _setup_subnet_sh(self, *, user: bool = False) -> None:
@@ -730,8 +676,8 @@ class asdfasdff:
             subnet = get_subnet()
         except ValueError:
             return
-        self.copy_file_or_url(
-            f"{self.url_configs}/subnet.sh",
+        self._copy_file_or_url(
+            f"{_URL_CONFIGS}/subnet.sh",
             "~/.bashrc.d/subnet.sh",
             user=user,
             subs={"subnet": subnet},
@@ -741,8 +687,8 @@ class asdfasdff:
         self._github_install(
             "direnv", "direnv", "direnv", "direnv.linux-amd64", user=user
         )
-        self.copy_file_or_url(
-            f"{self.url_configs}/direnv.toml", "~/.config/direnv/direnv.toml", user=user
+        self._copy_file_or_url(
+            f"{_URL_CONFIGS}/direnv.toml", "~/.config/direnv/direnv.toml", user=user
         )
 
     def _install_neovim(self, *, user: bool = False) -> None:
@@ -785,8 +731,8 @@ class asdfasdff:
                 f"-sS https://starship.rs/install.sh | sh -s -- -b {self.path_local_bin} -y",
                 user=user,
             )
-        self.copy_file_or_url(
-            f"{self.url_configs}/starship.toml", "~/.config/starship.toml", user=user
+        self._copy_file_or_url(
+            f"{_URL_CONFIGS}/starship.toml", "~/.config/starship.toml", user=user
         )
 
     def _install_yq(self, *, user: bool = False) -> None:
@@ -876,58 +822,6 @@ class asdfasdff:
         _ = self.run(f"dpkg -i {path}")
 
 
-def get_subnet() -> Subnet:
-    try:
-        subnet = environ["SUBNET"]
-    except KeyError:
-        with socket(AF_INET, SOCK_DGRAM) as s:
-            s.connect(("1.1.1.1", 80))
-            ip = IPv4Address(s.getsockname()[0])
-        _, _, third, _ = str(ip).split(".")
-        third = int(third)
-        for subnet in SUBNETS:
-            if third == BaseOperator.subnet_mapping[subnet]:
-                return subnet
-        msg = f"Invalid IP; got {ip}"
-        raise ValueError(msg) from None
-    if subnet in SUBNETS:
-        return subnet
-    msg = f"Invalid subnet; got {subnet!r}"
-    raise ValueError(msg)
-
-
-def run(
-    *cmds: str,
-    user: bool = False,
-    env: Mapping[str, str] | None = None,
-    eof: str | None = None,
-    cwd: PathLike | None = None,
-    direnv: bool = False,
-) -> str:
-    template = """\
-${user_cmd} ${quote} ${env_vars} bash -s ${quote} <<'${eof}'
-if [ -f ~/.bashrc ]; then source ~/.bashrc; fi
-${cd_cmd}
-${direnv_cmd}
-${cmds}
-${eof}"""
-    cmd = substitute(
-        template,
-        user_cmd=f"su - {_NONROOT} -c" if user else "",
-        quote="'" if user else "",
-        env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
-        eof="EOF" if eof is None else eof,
-        cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
-        direnv_cmd=EVAL_DIRENV_EXPORT if direnv else "",
-        cmds="\n".join(cmds),
-    )
-    return check_output(cmd, shell=True, text=True).rstrip("\n")
-
-
-def substitute(text: str, /, **kwargs: Any) -> str:
-    return Template(text).substitute(**kwargs)
-
-
 def _apt_install(cmd: str, /) -> None:
     if which(cmd) is not None:
         return
@@ -938,6 +832,68 @@ def _apt_install(cmd: str, /) -> None:
 def _apt_update() -> None:
     _LOGGER.info("Updating 'apt'...")
     _ = run("apt update -y")
+
+
+def _create_user() -> None:
+    try:
+        _ = run(f"id -u {_NONROOT}")
+    except CalledProcessError:
+        _LOGGER.info("Creating %r...", _NONROOT)
+        _ = run(
+            f"useradd --create-home --shell /bin/bash {_NONROOT}",
+            f"usermod -aG sudo {_NONROOT}",
+        )
+
+
+def _install_docker() -> None:
+    if which("docker"):
+        return
+    _LOGGER.info("Installing 'docker'...")
+    _ = run(
+        "for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do apt-get remove $pkg; done",
+        "apt-get update",
+        "apt-get install -y ca-certificates curl",
+        "install -m 0755 -d /etc/apt/keyrings",
+        "curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc",
+        "chmod a+r /etc/apt/keyrings/docker.asc",
+        """\
+tee /etc/apt/sources.list.d/docker.sources <<DOCKEREOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+DOCKEREOF""",
+        "apt-get update",
+        "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
+        f"usermod -aG docker {_NONROOT}",
+        eof="RUNEOF",
+    )
+
+
+def _install_sudo() -> None:
+    _apt_install("sudo")
+    if not predicate(f"id -nG {_NONROOT} | grep -qw sudo"):
+        _ = run(f"usermod -aG sudo {_NONROOT}")
+
+
+def _remove_sources() -> None:
+    if any(
+        rm(f"/etc/apt/sources.list.d/{name}.sources")
+        for name in ["ceph", "pve-enterprise"]
+    ):
+        _apt_update()
+
+
+def _setup_vm() -> None:
+    _apt_install("nfs-common")
+    target = Path("/mnt/qrt-dataset")
+    if not grep(fstab := "/etc/fstab", str(target)):
+        mkdir(target)
+        append_text(
+            fstab, f"truenas.qrt:/mnt/qrt-pool/qrt-dataset {target} nfs vers=4 0 0"
+        )
+        _ = run("mount -a")
 
 
 if __name__ == "__main__":
