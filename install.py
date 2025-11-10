@@ -29,6 +29,7 @@ __all__ = [
     "EVAL_DIRENV_EXPORT",
     "LOGGING_FORMAT",
     "NONROOT",
+    "ROOT",
     "SUBNETS",
     "PathLike",
     "Subnet",
@@ -62,7 +63,7 @@ __all__ = [
     "which",
     "write_text",
 ]
-__version__ = "0.7.2"
+__version__ = "0.7.3"
 
 
 # types
@@ -81,6 +82,7 @@ EVAL_DIRENV_EXPORT = (
     'if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
 )
 NONROOT = "nonroot"
+ROOT = "root"
 _FLAG_ROOT_PASSWORD = "--root-password"  # noqa: S105
 _FLAG_PASSWORD = "--password"  # noqa: S105
 _FLAG_TOOLS = "--tools"
@@ -114,8 +116,9 @@ def chmod(perms: str, path: PathLike, /, *, user: bool = False) -> None:
     _ = run(f"chmod {perms} {path}", user=user)
 
 
-def chown(owner: str, group: str, path: PathLike, /, *, user: bool = False) -> None:
-    _ = run(f"chown {owner}:{group} {path}", user=user)
+def chown(path: PathLike, /, *, user: bool = False) -> None:
+    owner = NONROOT if user else ROOT
+    _ = run(f"chown {owner}:{owner} {path}", user=user)
 
 
 def copy_file_or_url(
@@ -157,9 +160,13 @@ def copy_file_or_url(
     write_text(to, text_from, user=user, perms=perms)
 
 
-def cp(from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
+def cp(
+    from_: PathLike, to: PathLike, /, *, user: bool = False, ownership: bool = False
+) -> None:
     mkdir(to, parent=True, user=user)
     _ = run(f"cp {from_} {to}", user=user)
+    if ownership:
+        chown(to, user=user)
 
 
 def curl(
@@ -181,7 +188,7 @@ def curl(
 
 
 def desc(*, user: bool = False) -> str:
-    return NONROOT if user else "root"
+    return NONROOT if user else ROOT
 
 
 def dirname(path: PathLike, /, *, user: bool = False) -> Path:
@@ -501,10 +508,10 @@ class CLI:
             case never:
                 assert_never(never)
         if self.root_password is not None:
-            _set_root_password(self.root_password)
+            _set_password(ROOT, self.root_password)
         _create_user()
         if self.password is not None:
-            _set_user_password(self.password)
+            _set_password(NONROOT, self.password)
         _setup_sshd_config(version=self.version)
         _install_age()
         _install_sudo()
@@ -757,14 +764,9 @@ def _remove_sources() -> None:
         _apt_update()
 
 
-def _set_root_password(password: str, /) -> None:
-    _LOGGER.info("Setting 'root' password...")
-    _ = run(f"echo 'root:{password}' | chpasswd")
-
-
-def _set_user_password(password: str, /) -> None:
-    _LOGGER.info("Setting %r password...", NONROOT)
-    _ = run(f"echo '{NONROOT}:{password}' | chpasswd")
+def _set_password(username: str, password: str, /) -> None:
+    _LOGGER.info("Setting %r password...", username)
+    _ = run(f"echo '{username}:{password}' | chpasswd")
 
 
 def _setup_age_key(*, user: bool = False) -> None:
