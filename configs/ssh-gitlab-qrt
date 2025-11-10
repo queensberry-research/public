@@ -1,5 +1,0 @@
-Host gitlab-qrt
-  HostName gitlab.qrt
-  IdentityFile ~/.ssh/github-infra-mirror
-  Port 2424
-  User git
