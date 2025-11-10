@@ -132,6 +132,9 @@ publish-pypi:
 publish-docker:
   extends:
     - .stage--publish
+  rules:
+    - exists:
+        - docker/Dockerfile
   script:
     - |
       if [ -n "$DEBUG_PUBLISH_DOCKER" ]; then
