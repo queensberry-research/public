@@ -39,6 +39,7 @@ _LOGGER = getLogger(__name__)
 __all__ = [
     "CLI",
     "EVAL_DIRENV_EXPORT",
+    "NONROOT",
     "SUBNETS",
     "PathLike",
     "Subnet",
@@ -98,12 +99,12 @@ class _Dataclass(Protocol):
 EVAL_DIRENV_EXPORT = (
     'if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
 )
+NONROOT = "nonroot"
 _FLAG_ROOT_PASSWORD = "--root-password"  # noqa: S105
 _FLAG_PASSWORD = "--password"  # noqa: S105
 _FLAG_TOOLS = "--tools"
 _FLAG_DOCKER = "--docker"
 _FLAG_GITHUB_REPO = "--github-repo"
-_NONROOT = "nonroot"
 _PATH_LOCAL_BIN = Path("~/.local/bin")
 _QRT_DATASET = Path("/mnt/qrt-dataset")
 _QRT_SECRETS = _QRT_DATASET / "qrt/secrets"
@@ -199,7 +200,7 @@ def curl(
 
 
 def desc(*, user: bool = False) -> str:
-    return _NONROOT if user else "root"
+    return NONROOT if user else "root"
 
 
 def dirname(path: PathLike, /, *, user: bool = False) -> Path:
@@ -327,7 +328,7 @@ ${cmds}
 ${eof}"""
     cmd = substitute(
         template,
-        user_cmd=f"su - {_NONROOT} -c" if user else "",
+        user_cmd=f"su - {NONROOT} -c" if user else "",
         quote="'" if user else "",
         env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
         eof="EOF" if eof is None else eof,
@@ -584,12 +585,12 @@ def _clone_infra_repo(*, user: bool = False, github_repo: bool = False) -> None:
 
 def _create_user() -> None:
     try:
-        _ = run(f"id -u {_NONROOT}")
+        _ = run(f"id -u {NONROOT}")
     except CalledProcessError:
-        _LOGGER.info("Creating %r...", _NONROOT)
+        _LOGGER.info("Creating %r...", NONROOT)
         _ = run(
-            f"useradd --create-home --shell /bin/bash {_NONROOT}",
-            f"usermod -aG sudo {_NONROOT}",
+            f"useradd --create-home --shell /bin/bash {NONROOT}",
+            f"usermod -aG sudo {NONROOT}",
         )
 
 
@@ -678,7 +679,7 @@ Signed-By: /etc/apt/keyrings/docker.asc
 DOCKEREOF""",
         "apt-get update",
         "apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin",
-        f"usermod -aG docker {_NONROOT}",
+        f"usermod -aG docker {NONROOT}",
         eof="RUNEOF",
     )
 
@@ -743,8 +744,8 @@ def _install_sops(*, user: bool = False) -> None:
 
 def _install_sudo() -> None:
     _apt_install("sudo")
-    if not predicate(f"id -nG {_NONROOT} | grep -qw sudo"):
-        _ = run(f"usermod -aG sudo {_NONROOT}")
+    if not predicate(f"id -nG {NONROOT} | grep -qw sudo"):
+        _ = run(f"usermod -aG sudo {NONROOT}")
 
 
 def _install_tools() -> None:
@@ -782,8 +783,8 @@ def _set_root_password(password: str, /) -> None:
 
 
 def _set_user_password(password: str, /) -> None:
-    _LOGGER.info("Setting %r password...", _NONROOT)
-    _ = run(f"echo '{_NONROOT}:{password}' | chpasswd")
+    _LOGGER.info("Setting %r password...", NONROOT)
+    _ = run(f"echo '{NONROOT}:{password}' | chpasswd")
 
 
 def _setup_age_key(*, user: bool = False) -> None:
