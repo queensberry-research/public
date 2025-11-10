@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from contextlib import contextmanager
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from ipaddress import IPv4Address
 from logging import basicConfig, getLogger
 from os import environ
@@ -11,17 +11,7 @@ from pathlib import Path
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from string import Template
 from subprocess import CalledProcessError, check_output
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    ClassVar,
-    Literal,
-    Protocol,
-    Self,
-    assert_never,
-    get_args,
-    runtime_checkable,
-)
+from typing import TYPE_CHECKING, Any, Literal, Self, assert_never, get_args
 from urllib.error import HTTPError
 from urllib.request import urlopen
 
@@ -29,16 +19,15 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
 
-basicConfig(
-    format=f"[{{asctime}} ❯ {gethostname()} ❯ {{module}}:{{funcName}}:{{lineno}}] {{message}}",  # noqa: RUF001
-    datefmt="%Y-%m-%d %H:%M:%S",
-    style="{",
-    level="INFO",
+LOGGING_FORMAT = (
+    f"[{{asctime}} ❯ {gethostname()} ❯ {{module}}:{{funcName}}:{{lineno}}] {{message}}"  # noqa: RUF001
 )
+basicConfig(format=LOGGING_FORMAT, datefmt="%Y-%m-%d %H:%M:%S", style="{", level="INFO")
 _LOGGER = getLogger(__name__)
 __all__ = [
     "CLI",
     "EVAL_DIRENV_EXPORT",
+    "LOGGING_FORMAT",
     "NONROOT",
     "SUBNETS",
     "PathLike",
@@ -59,7 +48,6 @@ __all__ = [
     "is_file",
     "is_symlink",
     "mkdir",
-    "parsed_args_to_dataclass",
     "predicate",
     "read_link",
     "read_text",
@@ -74,7 +62,7 @@ __all__ = [
     "which",
     "write_text",
 ]
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 
 
 # types
@@ -84,13 +72,6 @@ type PathLike = Path | str
 type Subnet = Literal["qrt", "main", "test"]
 type _Machine = Literal["proxmox", "vm"]
 SUBNETS: list[Subnet] = list(get_args(Subnet.__value__))
-
-
-@runtime_checkable
-class _Dataclass(Protocol):
-    """Protocol for `dataclass` classes."""
-
-    __dataclass_fields__: ClassVar[dict[str, Any]]
 
 
 # constants
@@ -274,10 +255,6 @@ def mkdir(path: PathLike, /, *, parent: bool = False, user: bool = False) -> Non
 
 def mv(from_: PathLike, to: PathLike, /, *, user: bool = False) -> None:
     _ = run(f"mv {from_} {to}", user=user)
-
-
-def parsed_args_to_dataclass[T: _Dataclass](args: _Dataclass, cls: type[T], /) -> T:
-    return cls(**{f.name: getattr(args, f.name) for f in fields(cls)})
 
 
 def predicate(predicate: str, /, *, user: bool = False) -> bool:
