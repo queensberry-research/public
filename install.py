@@ -46,7 +46,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.83"
+__version__ = "0.6.84"
 
 
 # types
@@ -612,7 +612,7 @@ class PublicOperator(BaseOperator):
 
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
         self.copy_file_or_url(
-            f"{self.url_configs}/ssh/keys.txt", "~/.ssh/authorized_keys", user=user
+            f"{self.url_configs}/authorized_keys", "~/.ssh/authorized_keys", user=user
         )
 
     def _setup_bashrc(self, *, user: bool = False) -> None:
