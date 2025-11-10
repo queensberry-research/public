@@ -37,7 +37,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.75"
+__version__ = "0.6.76"
 
 
 # types
@@ -358,6 +358,7 @@ class PublicOperator(BaseOperator):
     flag_password: ClassVar[str] = "--password"  # noqa: S105
     flag_tools: ClassVar[str] = "--tools"
     flag_docker: ClassVar[str] = "--docker"
+    flag_github_repo: ClassVar[str] = "--github-repo"
     url_public: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master"
     )
@@ -384,6 +385,7 @@ class PublicOperator(BaseOperator):
     password: str | None = None
     tools: bool = False
     docker: bool = False
+    github_repo: bool = False
 
     # class methods
 
@@ -396,6 +398,7 @@ class PublicOperator(BaseOperator):
         password: str | None = None,
         tools: bool = False,
         docker: bool = False,
+        github_repo: bool = False,
     ) -> str:
         parts: list[str] = []
         if machine is not None:
@@ -408,6 +411,8 @@ class PublicOperator(BaseOperator):
             parts.append(cls.flag_tools)
         if docker:
             parts.append(cls.flag_docker)
+        if github_repo:
+            parts.append(cls.flag_github_repo)
         cmd = " ".join(parts)
         return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS {cls.url_install} | python3 - {cmd}"""
 
@@ -463,7 +468,7 @@ class PublicOperator(BaseOperator):
             self._install_uv(user=user)
             self._install_yq(user=user)
             self._install_bump_my_version(user=user)  # after uv
-            self._clone_infra(user=user)
+            self._clone_infra_repo(user=user)
         self._install_tools()
         self._install_docker()
 
@@ -666,11 +671,14 @@ class PublicOperator(BaseOperator):
     def _install_yq(self, *, user: bool = False) -> None:
         self._github_install("yq", "mikefarah", "yq", "yq_linux_amd64", user=user)
 
-    def _clone_infra(self, *, user: bool = False) -> None:
+    def _clone_infra_repo(self, *, user: bool = False) -> None:
         path = "~/infra"
         if not self.is_dir(path, user=user):
             _LOGGER.info("Cloning 'infra' for %r...", self.desc(user=user))
-            url = "ssh://git@gitlab-qrt/qrt-public/infra"
+            if self.github_repo:
+                url = "ssh://git@github-infra-mirror/queensberry-research/infra-mirror"
+            else:
+                url = "ssh://git@gitlab-qrt/qrt-public/infra"
             self.git(f"clone --recurse-submodules {url} {path}", user=user)
 
     def _install_tools(self) -> None:
