@@ -46,7 +46,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.85"
+__version__ = "0.6.86"
 
 
 # types
@@ -727,7 +727,7 @@ class PublicOperator(BaseOperator):
                 owner = "queensberry-research"
                 repo = "infra-mirror"
             else:
-                key = "gitlab-qrt"
+                key = "gitlab-infra"
                 owner = "qrt-public"
                 repo = "infra"
             url = f"ssh://git@{key}/{owner}/{repo}"
