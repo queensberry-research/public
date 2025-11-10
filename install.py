@@ -73,7 +73,7 @@ __all__ = [
     "which",
     "write_text",
 ]
-__version__ = "0.6.89"
+__version__ = "0.7.0"
 
 
 # types
@@ -550,7 +550,8 @@ class CLI:
             _clone_infra_repo(user=user, github_repo=self.github_repo)
         if self.tools:
             _install_tools()
-        _install_docker()
+        if self.docker:
+            _install_docker()
 
 
 def _apt_install(cmd: str, /) -> None:
