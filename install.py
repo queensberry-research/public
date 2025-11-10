@@ -64,7 +64,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.10"
+__version__ = "0.7.11"
 
 
 # types
@@ -354,7 +354,7 @@ def symlink(
 ) -> None:
     if is_symlink(to, user=user) and (read_link(to, user=user)) == Path(from_):
         return
-    cmd = f"ln -s {to} {from_}"
+    cmd = f"ln -s {from_} {to}"
     if sudo:
         cmd = sudo_cmd(cmd, user=user)
     _ = run(cmd, user=user)
