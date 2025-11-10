@@ -46,7 +46,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.82"
+__version__ = "0.6.83"
 
 
 # types
@@ -372,22 +372,7 @@ class PublicOperator(BaseOperator):
     url_public: ClassVar[str] = (
         "https://raw.githubusercontent.com/queensberry-research/public/refs/$version"
     )
-    url_configs: ClassVar[str] = "${url_public}/configs"
-    url_authorized_keys: ClassVar[str] = "${url_public}/ssh/keys.txt"
-    url_bashrc: ClassVar[str] = "${url_configs}/.bashrc"
-    url_direnv_toml: ClassVar[str] = "${url_configs}/direnv.toml"
-    url_git_config: ClassVar[str] = "${url_configs}/git-config"
-    url_install: ClassVar[str] = "${url_public}/install.py"
-    url_resolv_conf: ClassVar[str] = "${url_configs}/resolv.conf"
-    url_ssh_config: ClassVar[str] = "${url_configs}/ssh-config"
-    url_ssh_github_infra_mirror: ClassVar[str] = (
-        "${url_configs}/ssh-github-infra-mirror"
-    )
-    url_ssh_gitlab_infra: ClassVar[str] = "${url_configs}/ssh-gitlab-infra"
-    url_sshd_config: ClassVar[str] = "${url_configs}/sshd_config"
-    url_starship_toml: ClassVar[str] = "${url_configs}/starship.toml"
-    url_storage_cfg: ClassVar[str] = "${url_configs}/storage.cfg"
-    url_subnet_sh: ClassVar[str] = "${url_configs}/subnet.sh"
+    url_configs: ClassVar[str] = f"{url_public}/configs"
 
     # fields
     version: str | None = None
@@ -412,8 +397,7 @@ class PublicOperator(BaseOperator):
         docker: bool = False,
         github_repo: bool = False,
     ) -> str:
-        url_public = cls.substitute_version(cls.url_public, version=version)
-        url_install = substitute(cls.url_install, url_public=url_public)
+        url = cls._substitute_version(f"{cls.url_public}/install.py", version=version)
         parts: list[str] = []
         if machine is not None:
             parts.extend([cls.flag_machine, machine])
@@ -428,7 +412,7 @@ class PublicOperator(BaseOperator):
         if github_repo:
             parts.append(cls.flag_github_repo)
         cmd = " ".join(parts)
-        return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS {url_install} | python3 - {cmd}"""
+        return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS {url} | python3 - {cmd}"""
 
     @classmethod
     def parse(cls) -> Self:
@@ -466,7 +450,7 @@ class PublicOperator(BaseOperator):
         return cls(**vars(parser.parse_args()))
 
     @classmethod
-    def substitute_version(cls, text: str, /, *, version: str | None = None) -> str:
+    def _substitute_version(cls, text: str, /, *, version: str | None = None) -> str:
         return substitute(
             text, version="heads/master" if version is None else f"tags/{version}"
         )
@@ -502,8 +486,7 @@ class PublicOperator(BaseOperator):
             self._setup_git_config(user=user)
             self._setup_known_hosts(user=user)
             self._setup_ssh_config(user=user)
-            self._setup_ssh_github_infra_mirror(user=user)
-            self._setup_ssh_gitlab_infra(user=user)
+            self._setup_ssh_infra_repo(user=user)
             self._setup_subnet_sh(user=user)
             self._install_direnv(user=user)
             self._install_neovim(user=user)
@@ -533,13 +516,13 @@ class PublicOperator(BaseOperator):
         self._delete_proxmox_sources()
         subnet = get_subnet()
         self.copy_file_or_url(
-            self.url_resolv_conf,
+            f"{self.url_configs}/resolv.conf",
             "/etc/resolv.conf",
             subs={"n": self.subnet_mapping[subnet], "subnet": subnet},
         )
         if not self.grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
             self.copy_file_or_url(
-                self.url_storage_cfg, storage_cfg, subs={"subnet": subnet}
+                f"{self.url_configs}/storage.cfg", storage_cfg, subs={"subnet": subnet}
             )
 
     @override
@@ -557,9 +540,7 @@ class PublicOperator(BaseOperator):
             case Path() as from_use:
                 ...
             case str():
-                url_public = self.substitute_version(from_, version=self.version)
-                url_configs = substitute(self.url_configs, url_public=url_public)
-                from_use = substitute(from_, url_configs=url_configs)
+                from_use = self._substitute_version(from_, version=self.version)
             case never:
                 assert_never(never)
         super().copy_file_or_url(from_use, to, user=user, subs=subs, perms=perms)
@@ -611,7 +592,9 @@ class PublicOperator(BaseOperator):
         _ = self.run(f"echo '{username}:{password}' | chpasswd")
 
     def _setup_sshd_config(self) -> None:
-        self.copy_file_or_url(self.url_sshd_config, "/etc/ssh/sshd_config.d/config")
+        self.copy_file_or_url(
+            f"{self.url_configs}/sshd_config", "/etc/ssh/sshd_config.d/config"
+        )
         _ = self.run("systemctl restart ssh")
 
     def _install_sudo(self) -> None:
@@ -629,11 +612,11 @@ class PublicOperator(BaseOperator):
 
     def _setup_authorized_keys(self, *, user: bool = False) -> None:
         self.copy_file_or_url(
-            self.url_authorized_keys, "~/.ssh/authorized_keys", user=user
+            f"{self.url_configs}/ssh/keys.txt", "~/.ssh/authorized_keys", user=user
         )
 
     def _setup_bashrc(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(self.url_bashrc, "~/.bashrc", user=user)
+        self.copy_file_or_url(f"{self.url_configs}/.bashrc", "~/.bashrc", user=user)
 
     def _setup_deploy_key(self, *, user: bool = False) -> None:
         for name in ["github-infra-mirror", "gitlab-infra"]:
@@ -642,7 +625,9 @@ class PublicOperator(BaseOperator):
             )
 
     def _setup_git_config(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(self.url_git_config, "~/.config/git/config", user=user)
+        self.copy_file_or_url(
+            f"{self.url_configs}/git-config", "~/.config/git/config", user=user
+        )
 
     def _setup_known_hosts(self, *, user: bool = False) -> None:
         for host in ["github.com", "gitlab.qrt"]:
@@ -656,19 +641,15 @@ class PublicOperator(BaseOperator):
         _ = self.run(f"ssh-keyscan {host} >> {known_hosts}", user=user)
 
     def _setup_ssh_config(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(self.url_ssh_config, "~/.ssh/config", user=user)
-
-    def _setup_ssh_github_infra_mirror(self, *, user: bool = False) -> None:
         self.copy_file_or_url(
-            self.url_ssh_github_infra_mirror,
-            "~/.ssh/config.d/github-infra-mirror",
-            user=user,
+            f"{self.url_configs}/ssh-config", "~/.ssh/config", user=user
         )
 
-    def _setup_ssh_gitlab_infra(self, *, user: bool = False) -> None:
-        self.copy_file_or_url(
-            self.url_ssh_gitlab_infra, "~/.ssh/config.d/gitlab-infra", user=user
-        )
+    def _setup_ssh_infra_repo(self, *, user: bool = False) -> None:
+        for name in ["github-infra-mirror", "gitlab-infra"]:
+            self.copy_file_or_url(
+                f"{self.url_configs}/ssh-{name}", f"~/.ssh/config.d/{name}", user=user
+            )
 
     def _setup_subnet_sh(self, *, user: bool = False) -> None:
         try:
@@ -676,7 +657,7 @@ class PublicOperator(BaseOperator):
         except ValueError:
             return
         self.copy_file_or_url(
-            self.url_subnet_sh,
+            f"{self.url_configs}/subnet.sh",
             "~/.bashrc.d/subnet.sh",
             user=user,
             subs={"subnet": subnet},
@@ -687,7 +668,7 @@ class PublicOperator(BaseOperator):
             "direnv", "direnv", "direnv", "direnv.linux-amd64", user=user
         )
         self.copy_file_or_url(
-            self.url_direnv_toml, "~/.config/direnv/direnv.toml", user=user
+            f"{self.url_configs}/direnv.toml", "~/.config/direnv/direnv.toml", user=user
         )
 
     def _install_neovim(self, *, user: bool = False) -> None:
@@ -731,7 +712,7 @@ class PublicOperator(BaseOperator):
                 user=user,
             )
         self.copy_file_or_url(
-            self.url_starship_toml, "~/.config/starship.toml", user=user
+            f"{self.url_configs}/starship.toml", "~/.config/starship.toml", user=user
         )
 
     def _install_yq(self, *, user: bool = False) -> None:
