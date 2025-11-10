@@ -37,6 +37,7 @@ basicConfig(
 )
 _LOGGER = getLogger(__name__)
 __all__ = [
+    "EVAL_DIRENV_EXPORT",
     "SUBNETS",
     "BaseOperator",
     "PathLike",
@@ -46,7 +47,7 @@ __all__ = [
     "run",
     "substitute",
 ]
-__version__ = "0.6.88"
+__version__ = "0.6.89"
 
 
 # types
@@ -807,6 +808,11 @@ class PublicOperator(BaseOperator):
 # main
 
 
+EVAL_DIRENV_EXPORT = (
+    'if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
+)
+
+
 def run(
     *cmds: str,
     user: str | None = None,
@@ -829,9 +835,7 @@ ${eof}"""
         env_vars="" if env is None else " ".join(f"{k}={v}" for k, v in env.items()),
         eof="EOF" if eof is None else eof,
         cd_cmd="" if cwd is None else f"cd {cwd} || exit 1",
-        direnv_cmd='if command -v direnv >/dev/null 2>&1; then eval "$(direnv export bash)"; fi'
-        if direnv
-        else "",
+        direnv_cmd=EVAL_DIRENV_EXPORT if direnv else "",
         cmds="\n".join(cmds),
     )
     return check_output(cmd, shell=True, text=True).rstrip("\n")
