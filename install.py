@@ -64,7 +64,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.15"
+__version__ = "0.7.16"
 
 
 # types
@@ -716,8 +716,8 @@ def _install_neovim(*, user: bool = False) -> None:
         )
     if not is_dir(config_nvim := "~/.config/nvim", user=user):
         _LOGGER.info("Installing 'lazyvim' for %r...", desc_)
-        url = "https://github.com/LazyVim/starter"
-        _ = git(f"clone {url} {config_nvim}", user=user)
+        url = "https://github.com/queensberry-research/neovim.git"
+        _ = git(f"clone --recurse-submodules {url} {config_nvim}", user=user)
         _ = run("nvim --headless '+Lazy! sync' +qa", user=user)
 
 
