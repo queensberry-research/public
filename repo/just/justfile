@@ -21,7 +21,7 @@ _buildx *args:
   docker buildx build \
     --build-arg DEBIAN_VERSION=$DEBIAN_VERSION \
     --build-arg PYTHON_VERSION=$PYTHON_VERSION \
-    --build-arg PACKAGE_NAME=$PACKAGE_NAME \
+    --build-arg PACKAGE_NAME_UNDERSCORE=$PACKAGE_NAME_UNDERSCORE \
     --build-arg PACKAGE_HAS_SCRIPTS=$PACKAGE_HAS_SCRIPTS \
     --file docker/Dockerfile \
     --no-cache \

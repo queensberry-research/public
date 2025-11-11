@@ -6,7 +6,7 @@ services:
       args:
         DEBIAN_VERSION: ${DEBIAN_VERSION:?}
         PYTHON_VERSION: ${PYTHON_VERSION:?}
-        PACKAGE_NAME: ${PACKAGE_NAME:?}
+        PACKAGE_NAME_UNDERSCORE: ${PACKAGE_NAME_UNDERSCORE:?}
         PACKAGE_HAS_SCRIPTS: ${PACKAGE_HAS_SCRIPTS:?}
     container_name: ${PACKAGE_NAME:?}
     environment:
