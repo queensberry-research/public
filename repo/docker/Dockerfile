@@ -7,7 +7,7 @@ FROM ghcr.io/astral-sh/uv:python${PYTHON_VERSION}-${DEBIAN_VERSION}-slim AS buil
 
 ARG DEBIAN_VERSION=''
 ARG PYTHON_VERSION=''
-ARG PACKAGE_NAME=''
+ARG PACKAGE_NAME_UNDERSCORE=''
 ARG PACKAGE_HAS_SCRIPTS=0
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE='copy'
@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     uv sync --locked --no-install-project --no-dev
 
-COPY src/${PACKAGE_NAME} /app/src/${PACKAGE_NAME}
+COPY src/${PACKAGE_NAME_UNDERSCORE} /app/src/${PACKAGE_NAME_UNDERSCORE}
 COPY pyproject.toml /app/pyproject.toml
 COPY uv.lock /app/uv.lock
 
