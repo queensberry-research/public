@@ -19,5 +19,5 @@
   minversion = "9.0"
   strict = true
   testpaths = ["src/tests"]
-  timeout = 300
+  timeout = "300"
   xfail_strict = true
