@@ -11,6 +11,7 @@ from pathlib import Path
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from string import Template
 from subprocess import CalledProcessError, check_output
+from time import sleep
 from typing import TYPE_CHECKING, Any, Literal, Self, assert_never, get_args
 from urllib.error import HTTPError
 from urllib.request import urlopen
@@ -42,7 +43,7 @@ __all__ = [
     "dirname",
     "get_perms",
     "get_subnet",
-    "git",
+    "git_clone",
     "grep",
     "have_command",
     "is_dir",
@@ -64,7 +65,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.16"
+__version__ = "0.7.17"
 
 
 # types
@@ -233,8 +234,9 @@ def get_subnet() -> Subnet:
     raise ValueError(msg)
 
 
-def git(
-    cmd: str,
+def git_clone(
+    url: str,
+    path: str,
     /,
     *,
     user: bool = False,
@@ -244,7 +246,15 @@ def git(
     direnv: bool = False,
 ) -> None:
     _apt_install("git")
-    _ = run(f"git {cmd}", user=user, env=env, eof=eof, cwd=cwd, direnv=direnv)
+    sleep(1)
+    _ = run(
+        f"git clone --recurse-submodules {url} {path}",
+        user=user,
+        env=env,
+        eof=eof,
+        cwd=cwd,
+        direnv=direnv,
+    )
 
 
 def grep(path: PathLike, text: str, /, *, user: bool = False) -> bool:
@@ -587,7 +597,7 @@ def _clone_infra_repo(*, user: bool = False, github_repo: bool = False) -> None:
             owner = "qrt-public"
             repo = "infra"
         url = f"ssh://git@{key}/{owner}/{repo}"
-        git(f"clone --recurse-submodules {url} {path}", user=user)
+        git_clone(url, path, user=user)
 
 
 def _create_user() -> None:
@@ -717,7 +727,7 @@ def _install_neovim(*, user: bool = False) -> None:
     if not is_dir(config_nvim := "~/.config/nvim", user=user):
         _LOGGER.info("Installing 'lazyvim' for %r...", desc_)
         url = "https://github.com/queensberry-research/neovim.git"
-        _ = git(f"clone --recurse-submodules {url} {config_nvim}", user=user)
+        _ = git_clone(url, config_nvim, user=user)
         _ = run("nvim --headless '+Lazy! sync' +qa", user=user)
 
 
