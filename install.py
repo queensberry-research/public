@@ -65,7 +65,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.17"
+__version__ = "0.7.18"
 
 
 # types
@@ -544,7 +544,8 @@ class CLI:
         if self.password is not None:
             _set_password(NONROOT, self.password)
         _setup_sshd_config(version=self.version)
-        _install_age()
+        for cmd in ["age", "just"]:
+            _apt_install(cmd)
         _install_sudo()
         for user in [False, True]:
             _setup_authorized_keys(user=user, version=self.version)
@@ -654,10 +655,6 @@ def _github_install(
                 _dpkg_install(binary)
 
 
-def _install_age() -> None:
-    _apt_install("age")
-
-
 def _install_bump_my_version(*, user: bool = False) -> None:
     if not have_command("bump-my-version", user=user):
         _LOGGER.info("Installing 'bump-my-version' for %r...", username(user=user))
@@ -764,7 +761,7 @@ def _install_sudo() -> None:
 
 def _install_tools() -> None:
     _LOGGER.info("Installing tools...")
-    for cmd in ["fzf", "just", "rsync", "vim"]:
+    for cmd in ["fzf", "rsync", "vim"]:
         _apt_install(cmd)
     _install_fd()
     _install_ripgrep()
