@@ -66,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.25"
+__version__ = "0.7.26"
 
 
 # types
@@ -364,6 +364,7 @@ def ssh_keygen_and_scan(
     parts.append(f"{hostname} >> {known_hosts}")
     cmd = " ".join(parts)
     _ = run(cmd, user=user)
+    sleep(1)
 
 
 def substitute(text: str, /, **kwargs: Any) -> str:
