@@ -66,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.23"
+__version__ = "0.7.24"
 
 
 # types
@@ -375,14 +375,20 @@ def sudo_cmd(cmd: str, /, *, user: bool = False) -> str:
 
 
 def symlink(
-    from_: PathLike, to: PathLike, /, *, user: bool = False, sudo: bool = False
+    from_: PathLike,
+    to: PathLike,
+    /,
+    *,
+    user: bool = False,
+    sudo: bool = False,
+    cwd: PathLike | None = None,
 ) -> None:
     if is_symlink(to, user=user) and (read_link(to, user=user)) == Path(from_):
         return
     cmd = f"ln -s {from_} {to}"
     if sudo:
         cmd = sudo_cmd(cmd, user=user)
-    _ = run(cmd, user=user)
+    _ = run(cmd, user=user, cwd=cwd)
 
 
 @contextmanager
