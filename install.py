@@ -66,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.22"
+__version__ = "0.7.23"
 
 
 # types
@@ -477,7 +477,7 @@ class CLI:
         url = cls._substitute_version(f"{_URL_PUBLIC}/install.py", version=version)
         parts: list[str] = []
         if machine is not None:
-            parts.extend(["--machine", machine])
+            parts.append(machine)
         if root_password is not None:
             parts.extend([_FLAG_ROOT_PASSWORD, root_password])
         if password is not None:
