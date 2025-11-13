@@ -66,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.27"
+__version__ = "0.7.28"
 
 
 # types
@@ -897,6 +897,19 @@ def _setup_proxmox(*, version: str | None = None) -> None:
             url_subs={"version": _master_or_tag(version=version)},
             text_subs={"subnet": subnet},
         )
+    _setup_pve_fake_subscription()
+
+
+def _setup_pve_fake_subscription() -> None:
+    path = Path("/etc/pve/.pve_fake_subscription_ran")
+    if not path.exists():
+        with _github_binary(
+            "jamesits",
+            "pve-fake-subscription",
+            "pve-fake-subscription_${tag_without}+git-1_all.deb",
+        ) as binary:
+            _dpkg_install(binary)
+        path.touch()
 
 
 def _setup_ssh_config(*, user: bool = False, version: str | None = None) -> None:
