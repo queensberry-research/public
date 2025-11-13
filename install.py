@@ -66,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.26"
+__version__ = "0.7.27"
 
 
 # types
@@ -353,7 +353,13 @@ ${eof}"""
 
 
 def ssh_keygen_and_scan(
-    hostname: str, /, *, user: bool = False, port: int | None = None
+    hostname: str,
+    /,
+    *,
+    user: bool = False,
+    port: int | None = None,
+    max_tries: int = 20,
+    sleep_dur: int = 1,
 ) -> None:
     mkdir(known_hosts := "~/.ssh/known_hosts", parent=True, user=user)
     with suppress(CalledProcessError):
@@ -363,8 +369,15 @@ def ssh_keygen_and_scan(
         parts.append(f"-p {port}")
     parts.append(f"{hostname} >> {known_hosts}")
     cmd = " ".join(parts)
-    _ = run(cmd, user=user)
-    sleep(1)
+    for _ in range(1, max_tries + 1):
+        try:
+            _ = run(cmd, user=user)
+        except CalledProcessError:
+            sleep(sleep_dur)
+        else:
+            return
+    msg = f"{cmd!r} failed after {max_tries} tries"
+    raise RuntimeError(msg)
 
 
 def substitute(text: str, /, **kwargs: Any) -> str:
