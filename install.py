@@ -65,7 +65,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.19"
+__version__ = "0.7.20"
 
 
 # types
@@ -449,6 +449,7 @@ class CLI:
     def curl_cmd(
         cls,
         *,
+        sudo: bool = False,
         version: str | None = None,
         machine: _Machine | None = None,
         root_password: str | None = None,
@@ -457,6 +458,7 @@ class CLI:
         docker: bool = False,
         github_repo: bool = False,
     ) -> str:
+        sudo_str = "sudo" if sudo else ""
         url = cls._substitute_version(f"{_URL_PUBLIC}/install.py", version=version)
         parts: list[str] = []
         if machine is not None:
@@ -472,7 +474,7 @@ class CLI:
         if github_repo:
             parts.append(_FLAG_GITHUB_REPO)
         cmd = " ".join(parts)
-        return f"""{{ command -v curl >/dev/null 2>&1 || {{ apt -y update && apt -y install curl; }}; }}; curl -fsLS {url} | python3 - {cmd}"""
+        return f"""{{ command -v curl >/dev/null 2>&1 || {{ {sudo_str} apt -y update && {sudo_str} apt -y install curl; }}; }}; curl -fsLS {url} | {sudo_str} python3 - {cmd}"""
 
     @classmethod
     def parse(cls) -> Self:
