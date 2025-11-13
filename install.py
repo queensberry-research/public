@@ -66,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.31"
+__version__ = "0.7.32"
 
 
 # types
@@ -590,7 +590,7 @@ class CLI:
             )
             _setup_age_key(user=user)
             _setup_bashrc(user=user, version=self.version)
-            _setup_deploy_key(user=user)
+            _setup_deploy_keys(user=user)
             _setup_git_config(user=user, version=self.version)
             _setup_known_hosts(user=user)
             _setup_ssh_configs(user=user, version=self.version)
@@ -861,10 +861,10 @@ def _setup_bashrc(*, user: bool = False, version: str | None = None) -> None:
     )
 
 
-def _setup_deploy_key(*, user: bool = False) -> None:
-    for name in ["github-infra-mirror", "gitlab-infra"]:
+def _setup_deploy_keys(*, user: bool = False) -> None:
+    for name in ["gitlab-infra", "github-infra-mirror"]:
         copy_file_or_url(
-            _QRT_SECRETS / "deploy-keys/infra",
+            _QRT_SECRETS / "ssh/gitlab-infra",
             f"~/.ssh/{name}",
             user=user,
             perms="u=rw,g=,o=",
