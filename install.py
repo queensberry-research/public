@@ -56,6 +56,7 @@ __all__ = [
     "replace_text",
     "rm",
     "run",
+    "ssh_keygen_and_scan",
     "substitute",
     "sudo_cmd",
     "symlink",
@@ -65,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.20"
+__version__ = "0.7.21"
 
 
 # types
@@ -349,6 +350,19 @@ ${eof}"""
         cmds="\n".join(cmds),
     )
     return check_output(cmd, shell=True, text=True).rstrip("\n")
+
+
+def ssh_keygen_and_scan(
+    hostname: str, /, *, user: bool = False, port: int | None = None
+) -> None:
+    mkdir(known_hosts := "~/.ssh/known_hosts", parent=True, user=user)
+    _ = run(f"ssh-keygen -f {known_hosts} -R {hostname}", user=user)
+    parts: list[str] = [f"ssh-keyscan {hostname}"]
+    if port is not None:
+        parts.append(f"-p {port}")
+    parts.append(f">> {known_hosts}")
+    cmd = " ".join(parts)
+    _ = run(cmd, user=user)
 
 
 def substitute(text: str, /, **kwargs: Any) -> str:
@@ -842,13 +856,8 @@ def _setup_git_config(*, user: bool = False, version: str | None = None) -> None
 
 
 def _setup_known_hosts(*, user: bool = False) -> None:
-    mkdir(known_hosts := "~/.ssh/known_hosts", parent=True, user=user)
-    if not grep(known_hosts, github := "github.com", user=user):
-        _LOGGER.info("Adding %r to known hosts for %r...", github, username(user=user))
-        _ = run(f"ssh-keyscan {github} >> {known_hosts}", user=user)
-    if not grep(known_hosts, gitlab := "gitlab.qrt", user=user):
-        _LOGGER.info("Adding %r to known hosts for %r...", gitlab, username(user=user))
-        _ = run(f"ssh-keyscan -p 2424 {gitlab} >> {known_hosts}", user=user)
+    ssh_keygen_and_scan("github.com", user=user)
+    ssh_keygen_and_scan("gitlab.qrt", user=user, port=2424)
 
 
 def _setup_proxmox(*, version: str | None = None) -> None:
