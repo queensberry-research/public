@@ -906,7 +906,7 @@ def _setup_pve_fake_subscription() -> None:
         with _github_binary(
             "jamesits",
             "pve-fake-subscription",
-            "pve-fake-subscription_${tag}+git-1_all.deb",
+            "pve-fake-subscription_${tag_without}+git-1_all.deb",
         ) as binary:
             _dpkg_install(binary)
         path.touch()
