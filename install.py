@@ -586,7 +586,7 @@ class CLI:
         _install_sudo()
         for user in [False, True]:
             _setup_authorized_keys(
-                extra=self.machine == "vm", user=user, version=self.version
+                is_vm=self.machine == "vm", user=user, version=self.version
             )
             _setup_age_key(user=user)
             _setup_bashrc(user=user, version=self.version)
@@ -841,11 +841,11 @@ def _setup_age_key(*, user: bool = False) -> None:
 
 
 def _setup_authorized_keys(
-    *, extra: bool = False, user: bool = False, version: str | None = None
+    *, is_vm: bool = False, user: bool = False, version: str | None = None
 ) -> None:
-    suffix = "extra" if extra else "core"
+    suffix = "_vm" if is_vm else ""
     copy_file_or_url(
-        f"{_URL_CONFIGS}/authorized_keys_{suffix}",
+        f"{_URL_CONFIGS}/authorized_keys{suffix}",
         "~/.ssh/authorized_keys",
         user=user,
         url_subs={"version": _master_or_tag(version=version)},
