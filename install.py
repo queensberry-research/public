@@ -65,7 +65,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.18"
+__version__ = "0.7.19"
 
 
 # types
