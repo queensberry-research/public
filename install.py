@@ -66,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.30"
+__version__ = "0.7.31"
 
 
 # types
@@ -585,7 +585,9 @@ class CLI:
             _apt_install(cmd)
         _install_sudo()
         for user in [False, True]:
-            _setup_authorized_keys(user=user, version=self.version)
+            _setup_authorized_keys(
+                is_vm=self.machine == "vm", user=user, version=self.version
+            )
             _setup_age_key(user=user)
             _setup_bashrc(user=user, version=self.version)
             _setup_deploy_key(user=user)
@@ -838,9 +840,12 @@ def _setup_age_key(*, user: bool = False) -> None:
     )
 
 
-def _setup_authorized_keys(*, user: bool = False, version: str | None = None) -> None:
+def _setup_authorized_keys(
+    *, is_vm: bool = False, user: bool = False, version: str | None = None
+) -> None:
+    suffix = "_vm" if is_vm else ""
     copy_file_or_url(
-        f"{_URL_CONFIGS}/authorized_keys",
+        f"{_URL_CONFIGS}/authorized_keys{suffix}",
         "~/.ssh/authorized_keys",
         user=user,
         url_subs={"version": _master_or_tag(version=version)},
