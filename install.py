@@ -66,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.28"
+__version__ = "0.7.29"
 
 
 # types
@@ -591,8 +591,7 @@ class CLI:
             _setup_deploy_key(user=user)
             _setup_git_config(user=user, version=self.version)
             _setup_known_hosts(user=user)
-            _setup_ssh_config(user=user, version=self.version)
-            _setup_ssh_infra_repo(user=user, version=self.version)
+            _setup_ssh_configs(user=user, version=self.version)
             _setup_subnet_sh(user=user, version=self.version)
             _install_bump_my_version(user=user)
             _install_direnv(user=user, version=self.version)
@@ -912,20 +911,17 @@ def _setup_pve_fake_subscription() -> None:
         path.touch()
 
 
-def _setup_ssh_config(*, user: bool = False, version: str | None = None) -> None:
-    copy_file_or_url(
-        f"{_URL_CONFIGS}/ssh-config",
-        "~/.ssh/config",
-        user=user,
-        url_subs={"version": _master_or_tag(version=version)},
-    )
-
-
-def _setup_ssh_infra_repo(*, user: bool = False, version: str | None = None) -> None:
-    for name in ["github-infra-mirror", "gitlab-infra"]:
+def _setup_ssh_configs(*, user: bool = False, version: str | None = None) -> None:
+    ssh = Path("~/.ssh")
+    for name, path in [
+        ("ssh-config", "config"),
+        ("ssh-default", "config.d/default"),
+        ("ssh-gitlab-infra", "config.d/gitlab-infra"),
+        ("ssh-github-infra-mirror", "config.d/github-infra-mirror"),
+    ]:
         copy_file_or_url(
-            f"{_URL_CONFIGS}/ssh-{name}",
-            f"~/.ssh/config.d/{name}",
+            f"{_URL_CONFIGS}/{name}",
+            ssh / path,
             user=user,
             url_subs={"version": _master_or_tag(version=version)},
         )
