@@ -66,7 +66,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.21"
+__version__ = "0.7.22"
 
 
 # types
@@ -356,7 +356,8 @@ def ssh_keygen_and_scan(
     hostname: str, /, *, user: bool = False, port: int | None = None
 ) -> None:
     mkdir(known_hosts := "~/.ssh/known_hosts", parent=True, user=user)
-    _ = run(f"ssh-keygen -f {known_hosts} -R {hostname}", user=user)
+    if grep(known_hosts, hostname, user=user):
+        _ = run(f"ssh-keygen -f {known_hosts} -R {hostname}", user=user)
     parts: list[str] = [f"ssh-keyscan {hostname}"]
     if port is not None:
         parts.append(f"-p {port}")
