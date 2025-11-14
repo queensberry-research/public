@@ -70,7 +70,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.35"
+__version__ = "0.7.36"
 
 
 # types
@@ -964,7 +964,6 @@ def _setup_pve_fake_subscription() -> None:
 
 def _setup_resolv_conf(*, version: str | None = None, immutable: bool = False) -> None:
     if is_symlink(resolv := "/etc/resolv.conf"):
-        _ = chattr(resolv, "-", "i")
         _ = rm(resolv)
     subnet = get_subnet()
     copy_file_or_url(
