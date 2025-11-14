@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
@@ -37,6 +36,7 @@ __all__ = [
     "PathLike",
     "Subnet",
     "append_text",
+    "check_output_shell",
     "chmod",
     "chown",
     "copy_file_or_url",
@@ -115,6 +115,24 @@ APPENDTEXTEOF""",
         user=user,
         eof="RUNEOF",
     )
+
+
+def check_output_shell(
+    cmd: str, /, *, suppress: bool = False, stderr: int = PIPE
+) -> str:
+    executable = which("bash")
+    if suppress:
+        try:
+            result = check_output(
+                cmd, executable=executable, stderr=stderr, shell=True, text=True
+            )
+        except CalledProcessError:
+            return ""
+    else:
+        result = check_output(
+            cmd, executable=executable, stderr=stderr, shell=True, text=True
+        )
+    return result.rstrip("\n")
 
 
 def chmod(perms: str, path: PathLike, /, *, user: bool = False) -> None:
@@ -353,19 +371,7 @@ ${eof}"""
         direnv_cmd=EVAL_DIRENV_EXPORT if direnv else "",
         cmds="\n".join(cmds),
     )
-    executable = which("bash")
-    if suppress:
-        try:
-            result = check_output(
-                cmd, executable=executable, stderr=stderr, shell=True, text=True
-            )
-        except CalledProcessError:
-            return ""
-    else:
-        result = check_output(
-            cmd, executable=executable, stderr=stderr, shell=True, text=True
-        )
-    return result.rstrip("\n")
+    return check_output_shell(cmd, suppress=suppress, stderr=stderr)
 
 
 def ssh_keygen_and_scan(
