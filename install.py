@@ -68,7 +68,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.33"
+__version__ = "0.7.34"
 
 
 # types
@@ -589,7 +589,7 @@ class CLI:
             case "proxmox":
                 _setup_proxmox(version=self.version)
             case "vm":
-                _setup_vm()
+                _setup_vm(version=self.version)
             case None:
                 ...
             case never:
@@ -906,14 +906,8 @@ def _setup_known_hosts(*, user: bool = False) -> None:
 
 def _setup_proxmox(*, version: str | None = None) -> None:
     _remove_sources()
-    subnet = get_subnet()
-    copy_file_or_url(
-        f"{_URL_CONFIGS}/resolv.conf",
-        "/etc/resolv.conf",
-        url_subs={"version": _master_or_tag(version=version)},
-        text_subs={"n": _SUBNET_MAPPING[subnet], "subnet": subnet},
-    )
     if not grep(storage_cfg := "/etc/pve/storage.cfg", "qrt-dataset"):
+        subnet = get_subnet()
         copy_file_or_url(
             f"{_URL_CONFIGS}/storage.cfg",
             storage_cfg,
@@ -921,6 +915,7 @@ def _setup_proxmox(*, version: str | None = None) -> None:
             text_subs={"subnet": subnet},
         )
     _setup_pve_fake_subscription()
+    _setup_resolv_conf(version=version)
 
 
 def _setup_pve_fake_subscription() -> None:
@@ -933,6 +928,16 @@ def _setup_pve_fake_subscription() -> None:
         ) as binary:
             _dpkg_install(binary)
         path.touch()
+
+
+def _setup_resolv_conf(*, version: str | None = None) -> None:
+    subnet = get_subnet()
+    copy_file_or_url(
+        f"{_URL_CONFIGS}/resolv.conf",
+        "/etc/resolv.conf",
+        url_subs={"version": _master_or_tag(version=version)},
+        text_subs={"n": _SUBNET_MAPPING[subnet], "subnet": subnet},
+    )
 
 
 def _setup_ssh_configs(*, user: bool = False, version: str | None = None) -> None:
@@ -974,7 +979,7 @@ def _setup_subnet_sh(*, user: bool = False, version: str | None = None) -> None:
     )
 
 
-def _setup_vm() -> None:
+def _setup_vm(*, version: str | None = None) -> None:
     _apt_install("nfs-common")
     if not grep(fstab := "/etc/fstab", str(_QRT_DATASET)):
         mkdir(_QRT_DATASET)
@@ -983,6 +988,7 @@ def _setup_vm() -> None:
             f"truenas.qrt:/mnt/qrt-pool/qrt-dataset {_QRT_DATASET} nfs vers=4 0 0",
         )
         _ = run("mount -a")
+    _setup_resolv_conf(version=version)
 
 
 if __name__ == "__main__":
