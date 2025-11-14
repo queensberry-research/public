@@ -36,6 +36,7 @@ __all__ = [
     "PathLike",
     "Subnet",
     "append_text",
+    "chattr",
     "chmod",
     "chown",
     "copy_file_or_url",
@@ -46,6 +47,7 @@ __all__ = [
     "get_subnet",
     "git_clone",
     "grep",
+    "has_attr",
     "have_command",
     "is_dir",
     "is_file",
@@ -68,7 +70,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.34"
+__version__ = "0.7.35"
 
 
 # types
@@ -117,6 +119,20 @@ APPENDTEXTEOF""",
     )
 
 
+def chattr(
+    path: PathLike, pm: Literal["+", "-"], attr: str, /, *, user: bool = False
+) -> None:
+    match pm:
+        case "+":
+            if not has_attr(path, attr, user=user):
+                _ = run(f"chattr +{attr} {path}", user=user)
+        case "-":
+            if has_attr(path, attr, user=user):
+                _ = run(f"chattr -{attr} {path}", user=user)
+        case never:
+            assert_never(never)
+
+
 def chmod(perms: str, path: PathLike, /, *, user: bool = False) -> None:
     _ = run(f"chmod {perms} {path}", user=user)
 
@@ -135,6 +151,7 @@ def copy_file_or_url(
     url_subs: Mapping[str, Any] | None = None,
     text_subs: Mapping[str, Any] | None = None,
     perms: str | None = None,
+    immutable: bool = False,
 ) -> None:
     match from_:
         case Path():
@@ -159,10 +176,11 @@ def copy_file_or_url(
         is_file(to, user=user)
         and (read_text(to, user=user) == text_from)
         and ((perms is None) or (get_perms(to, user=user) == perms))
+        and ((not immutable) or (has_attr(to, "i")))
     ):
         return
     _LOGGER.info("Writing %r for %r...", str(to), username(user=user))
-    write_text(to, text_from, user=user, perms=perms)
+    write_text(to, text_from, user=user, perms=perms, immutable=immutable)
 
 
 def cp(
@@ -262,6 +280,12 @@ def git_clone(
 
 def grep(path: PathLike, text: str, /, *, user: bool = False) -> bool:
     return is_file(path, user=user) and predicate(f"grep -q {text} {path}", user=user)
+
+
+def has_attr(path: PathLike, attr: str, /, *, user: bool = False) -> bool:
+    result = run(f"lsattr {path}", user=user)
+    attrs, _ = result.split(" ", maxsplit=2)
+    return attr in attrs
 
 
 def have_command(cmd: str, /, *, user: bool = False) -> bool:
@@ -451,7 +475,13 @@ def uv(
 
 
 def write_text(
-    path: PathLike, text: str, /, *, user: bool = False, perms: str | None = None
+    path: PathLike,
+    text: str,
+    /,
+    *,
+    user: bool = False,
+    perms: str | None = None,
+    immutable: bool = False,
 ) -> None:
     mkdir(path, parent=True, user=user)
     _ = run(
@@ -464,6 +494,8 @@ WRITETEXTEOF""",
     )
     if perms is not None:
         chmod(perms, path, user=user)
+    if immutable:
+        chattr(path, "+", "i", user=user)
 
 
 def _install_uv(*, user: bool = False) -> None:
@@ -930,13 +962,17 @@ def _setup_pve_fake_subscription() -> None:
         path.touch()
 
 
-def _setup_resolv_conf(*, version: str | None = None) -> None:
+def _setup_resolv_conf(*, version: str | None = None, immutable: bool = False) -> None:
+    if is_symlink(resolv := "/etc/resolv.conf"):
+        _ = chattr(resolv, "-", "i")
+        _ = rm(resolv)
     subnet = get_subnet()
     copy_file_or_url(
         f"{_URL_CONFIGS}/resolv.conf",
         "/etc/resolv.conf",
         url_subs={"version": _master_or_tag(version=version)},
         text_subs={"n": _SUBNET_MAPPING[subnet], "subnet": subnet},
+        immutable=immutable,
     )
 
 
