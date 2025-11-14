@@ -36,7 +36,6 @@ __all__ = [
     "PathLike",
     "Subnet",
     "append_text",
-    "check_output_shell",
     "chmod",
     "chown",
     "copy_file_or_url",
@@ -58,6 +57,7 @@ __all__ = [
     "replace_text",
     "rm",
     "run",
+    "run_check_output",
     "ssh_keygen_and_scan",
     "substitute",
     "sudo_cmd",
@@ -115,24 +115,6 @@ APPENDTEXTEOF""",
         user=user,
         eof="RUNEOF",
     )
-
-
-def check_output_shell(
-    cmd: str, /, *, suppress: bool = False, stderr: int = PIPE
-) -> str:
-    executable = which("bash")
-    if suppress:
-        try:
-            result = check_output(
-                cmd, executable=executable, stderr=stderr, shell=True, text=True
-            )
-        except CalledProcessError:
-            return ""
-    else:
-        result = check_output(
-            cmd, executable=executable, stderr=stderr, shell=True, text=True
-        )
-    return result.rstrip("\n")
 
 
 def chmod(perms: str, path: PathLike, /, *, user: bool = False) -> None:
@@ -371,7 +353,17 @@ ${eof}"""
         direnv_cmd=EVAL_DIRENV_EXPORT if direnv else "",
         cmds="\n".join(cmds),
     )
-    return check_output_shell(cmd, suppress=suppress, stderr=stderr)
+    return run_check_output(cmd, suppress=suppress, stderr=stderr)
+
+
+def run_check_output(cmd: str, /, *, suppress: bool = False, stderr: int = PIPE) -> str:
+    if suppress:
+        try:
+            return _run_check_output_as_shell(cmd, stderr=stderr)
+        except CalledProcessError:
+            return ""
+    else:
+        return _run_check_output_as_shell(cmd, stderr=stderr)
 
 
 def ssh_keygen_and_scan(
@@ -482,6 +474,12 @@ def _install_uv(*, user: bool = False) -> None:
             user=user,
             env={"UV_NO_MODIFY_PATH": "1"},
         )
+
+
+def _run_check_output_as_shell(cmd: str, /, *, stderr: int = PIPE) -> str:
+    return check_output(
+        cmd, executable=which("bash"), stderr=stderr, shell=True, text=True
+    ).rstrip("\n")
 
 
 # public
