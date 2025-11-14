@@ -2,15 +2,16 @@
 from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from dataclasses import dataclass
 from ipaddress import IPv4Address
 from logging import basicConfig, getLogger
 from os import environ
 from pathlib import Path
+from shutil import which
 from socket import AF_INET, SOCK_DGRAM, gethostname, socket
 from string import Template
-from subprocess import CalledProcessError, check_output
+from subprocess import DEVNULL, PIPE, CalledProcessError, check_output
 from time import sleep
 from typing import TYPE_CHECKING, Any, Literal, Self, assert_never, get_args
 from urllib.error import HTTPError
@@ -56,6 +57,7 @@ __all__ = [
     "replace_text",
     "rm",
     "run",
+    "run_check_output",
     "ssh_keygen_and_scan",
     "substitute",
     "sudo_cmd",
@@ -66,7 +68,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.32"
+__version__ = "0.7.33"
 
 
 # types
@@ -331,6 +333,8 @@ def run(
     eof: str | None = None,
     cwd: PathLike | None = None,
     direnv: bool = False,
+    suppress: bool = False,
+    stderr: int = PIPE,
 ) -> str:
     template = """\
 ${user_cmd} ${quote} ${env_vars} bash -s ${quote} <<'${eof}'
@@ -349,7 +353,17 @@ ${eof}"""
         direnv_cmd=EVAL_DIRENV_EXPORT if direnv else "",
         cmds="\n".join(cmds),
     )
-    return check_output(cmd, shell=True, text=True).rstrip("\n")
+    return run_check_output(cmd, suppress=suppress, stderr=stderr)
+
+
+def run_check_output(cmd: str, /, *, suppress: bool = False, stderr: int = PIPE) -> str:
+    if suppress:
+        try:
+            return _run_check_output_as_shell(cmd, stderr=stderr)
+        except CalledProcessError:
+            return ""
+    else:
+        return _run_check_output_as_shell(cmd, stderr=stderr)
 
 
 def ssh_keygen_and_scan(
@@ -362,8 +376,7 @@ def ssh_keygen_and_scan(
     sleep_dur: int = 1,
 ) -> None:
     mkdir(known_hosts := "~/.ssh/known_hosts", parent=True, user=user)
-    with suppress(CalledProcessError):
-        _ = run(f"ssh-keygen -R {hostname}", user=user)
+    _ = run(f"ssh-keygen -R {hostname}", user=user, suppress=True, stderr=DEVNULL)
     parts: list[str] = ["ssh-keyscan -H -q -t ed25519"]
     if port is not None:
         parts.append(f"-p {port}")
@@ -371,7 +384,7 @@ def ssh_keygen_and_scan(
     cmd = " ".join(parts)
     for _ in range(1, max_tries + 1):
         try:
-            _ = run(cmd, user=user)
+            _ = run(cmd, user=user, stderr=DEVNULL)
         except CalledProcessError:
             sleep(sleep_dur)
         else:
@@ -461,6 +474,12 @@ def _install_uv(*, user: bool = False) -> None:
             user=user,
             env={"UV_NO_MODIFY_PATH": "1"},
         )
+
+
+def _run_check_output_as_shell(cmd: str, /, *, stderr: int = PIPE) -> str:
+    return check_output(
+        cmd, executable=which("bash"), stderr=stderr, shell=True, text=True
+    ).rstrip("\n")
 
 
 # public
@@ -641,7 +660,7 @@ def _clone_infra_repo(*, user: bool = False, github_repo: bool = False) -> None:
 
 def _create_user() -> None:
     try:
-        _ = run(f"id -u {NONROOT}")
+        _ = run(f"id -u {NONROOT}", stderr=DEVNULL)
     except CalledProcessError:
         _LOGGER.info("Creating %r...", NONROOT)
         _ = run(
