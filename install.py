@@ -70,7 +70,7 @@ __all__ = [
     "uv",
     "write_text",
 ]
-__version__ = "0.7.36"
+__version__ = "0.7.37"
 
 
 # types
@@ -947,7 +947,7 @@ def _setup_proxmox(*, version: str | None = None) -> None:
             text_subs={"subnet": subnet},
         )
     _setup_pve_fake_subscription()
-    _setup_resolv_conf(version=version)
+    _setup_resolv_conf(version=version, immutable=True)
 
 
 def _setup_pve_fake_subscription() -> None:
@@ -1023,7 +1023,7 @@ def _setup_vm(*, version: str | None = None) -> None:
             f"truenas.qrt:/mnt/qrt-pool/qrt-dataset {_QRT_DATASET} nfs vers=4 0 0",
         )
         _ = run("mount -a")
-    _setup_resolv_conf(version=version)
+    _setup_resolv_conf(version=version, immutable=True)
 
 
 if __name__ == "__main__":
