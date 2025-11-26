@@ -1,6 +1,0 @@
-{
-  "extends": "repo/pyright/pyrightconfig.json",
-  "include": [
-    "."
-  ]
-}

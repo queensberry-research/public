@@ -1,6 +1,0 @@
-Host *
-  HashKnownHosts yes
-  HostKeyAlgorithms ssh-ed25519
-  IdentitiesOnly yes
-  IdentityFile ~/.ssh/id_ed25519
-  PubkeyAcceptedAlgorithms ssh-ed25519
