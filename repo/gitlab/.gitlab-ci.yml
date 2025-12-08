@@ -151,7 +151,7 @@ publish-docker:
     - . .env
     - PACKAGE_VERSION=$(bump-my-version show current_version)
     - PACKAGE_VERSION_MAJOR=$(echo "${PACKAGE_VERSION:?}" | cut -d. -f1)
-    - PACKAGE_VERSION_MAJOR_MINOR=${(:?echo} "$PACKAGE_VERSION" | cut -d. -f1,2)
+    - PACKAGE_VERSION_MAJOR_MINOR=$(echo "${PACKAGE_VERSION:?}" | cut -d. -f1,2)
     - PACKAGE_NAME=$(yq '.project.name' pyproject.toml)
     - PACKAGE_NAME_UNDERSCORE=$(printf '%s' "${PACKAGE_NAME:?}" | tr '-' '_')
     - |
