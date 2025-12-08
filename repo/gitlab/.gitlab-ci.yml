@@ -134,7 +134,12 @@ publish-docker:
     - .stage--publish
   before_script:
     - . .env
-    - echo "${DOCKER_REGISTRY_PASSWORD:?}" | docker login --username "${DOCKER_REGISTRY_USER:?}" --password-stdin "${DOCKER_REGISTRY_URL:?}"
+    - |
+      echo "${DOCKER_REGISTRY_PASSWORD:?}" | \
+      docker login \
+        --username "${DOCKER_REGISTRY_USER:?}" \
+        --password-stdin \
+        "${DOCKER_REGISTRY_URL:?}"
   rules:
     - exists:
         - docker/Dockerfile
