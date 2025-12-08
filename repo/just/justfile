@@ -17,24 +17,24 @@ release *args:
 
 _buildx *args:
   #!/usr/bin/env sh
-  tag="$DOCKER_REGISTRY_URL/$PACKAGE_NAME"
+  tag="${DOCKER_REGISTRY_URL:?}/${PACKAGE_NAME:?}"
   docker buildx build \
-    --build-arg DEBIAN_VERSION=$DEBIAN_VERSION \
-    --build-arg PYTHON_VERSION=$PYTHON_VERSION \
-    --build-arg PACKAGE_NAME_UNDERSCORE=$PACKAGE_NAME_UNDERSCORE \
-    --build-arg PACKAGE_HAS_SCRIPTS=$PACKAGE_HAS_SCRIPTS \
+    --build-arg DEBIAN_VERSION=${DEBIAN_VERSION:?} \
+    --build-arg PYTHON_VERSION=${PYTHON_VERSION:?} \
+    --build-arg PACKAGE_NAME_UNDERSCORE=${PACKAGE_NAME_UNDERSCORE:?} \
+    --build-arg PACKAGE_HAS_SCRIPTS=${PACKAGE_HAS_SCRIPTS:?} \
     --file docker/Dockerfile \
     --no-cache \
     --tag=$tag:latest \
-    --tag=$tag:$PACKAGE_VERSION \
-    --tag=$tag:$PACKAGE_VERSION_MAJOR \
-    --tag=$tag:$PACKAGE_VERSION_MAJOR_MINOR \
+    --tag=$tag:${PACKAGE_VERSION:?} \
+    --tag=$tag:${PACKAGE_VERSION_MAJOR:?} \
+    --tag=$tag:${PACKAGE_VERSION_MAJOR_MINOR:?} \
     "$@" \
     .
 
 registry *args:
   #!/usr/bin/env sh
-  url="https://$DOCKER_REGISTRY_URL/v2"
+  url="https://${DOCKER_REGISTRY_URL:?}/v2"
   if [ $# -eq 0 ]; then
     curl -sS "$url/_catalog" | jq
   else
