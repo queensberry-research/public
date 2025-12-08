@@ -134,7 +134,7 @@ publish-docker:
     - .stage--publish
   before_script:
     - . .env
-    - echo "$DOCKER_REGISTRY_PASSWORD" | docker login --username "$DOCKER_REGISTRY_USER" --password-stdin "$DOCKER_REGISTRY_URL"
+    - echo "${DOCKER_REGISTRY_PASSWORD:?}" | docker login --username "${DOCKER_REGISTRY_USER:?}" --password-stdin "${DOCKER_REGISTRY_URL:?}"
   rules:
     - exists:
         - docker/Dockerfile
@@ -145,10 +145,10 @@ publish-docker:
       fi
     - . .env
     - PACKAGE_VERSION=$(bump-my-version show current_version)
-    - PACKAGE_VERSION_MAJOR=$(echo "$PACKAGE_VERSION" | cut -d. -f1)
-    - PACKAGE_VERSION_MAJOR_MINOR=$(echo "$PACKAGE_VERSION" | cut -d. -f1,2)
+    - PACKAGE_VERSION_MAJOR=$(echo "${PACKAGE_VERSION:?}" | cut -d. -f1)
+    - PACKAGE_VERSION_MAJOR_MINOR=${(:?echo} "$PACKAGE_VERSION" | cut -d. -f1,2)
     - PACKAGE_NAME=$(yq '.project.name' pyproject.toml)
-    - PACKAGE_NAME_UNDERSCORE=$(printf '%s' "$PACKAGE_NAME" | tr '-' '_')
+    - PACKAGE_NAME_UNDERSCORE=$(printf '%s' "${PACKAGE_NAME:?}" | tr '-' '_')
     - |
       if yq --exit-status --input-format toml --output-format yaml \
         '.project."optional-dependencies".scripts' pyproject.toml >/dev/null 2>&1; then
@@ -158,14 +158,14 @@ publish-docker:
       fi
     - |
       docker buildx build \
-        --build-arg DEBIAN_VERSION=$DEBIAN_VERSION \
-        --build-arg PYTHON_VERSION=$PYTHON_VERSION \
-        --build-arg PACKAGE_NAME_UNDERSCORE=$PACKAGE_NAME_UNDERSCORE \
-        --build-arg PACKAGE_HAS_SCRIPTS=$PACKAGE_HAS_SCRIPTS \
+        --build-arg DEBIAN_VERSION=${DEBIAN_VERSION:?} \
+        --build-arg PYTHON_VERSION=${PYTHON_VERSION:?} \
+        --build-arg PACKAGE_NAME_UNDERSCORE=${PACKAGE_NAME_UNDERSCORE:?} \
+        --build-arg PACKAGE_HAS_SCRIPTS=${PACKAGE_HAS_SCRIPTS:?} \
         --file docker/Dockerfile \
         --push \
-        --tag $DOCKER_REGISTRY_URL/$PACKAGE_NAME:latest \
-        --tag $DOCKER_REGISTRY_URL/$PACKAGE_NAME:$PACKAGE_VERSION \
-        --tag $DOCKER_REGISTRY_URL/$PACKAGE_NAME:$PACKAGE_VERSION_MAJOR \
-        --tag $DOCKER_REGISTRY_URL/$PACKAGE_NAME:$PACKAGE_VERSION_MAJOR_MINOR \
+        --tag ${DOCKER_REGISTRY_URL:?}/${PACKAGE_NAME:?}:latest \
+        --tag ${DOCKER_REGISTRY_URL:?}/${PACKAGE_NAME:?}:${PACKAGE_VERSION:?} \
+        --tag ${DOCKER_REGISTRY_URL:?}/${PACKAGE_NAME:?}:${PACKAGE_VERSION_MAJOR:?} \
+        --tag ${DOCKER_REGISTRY_URL:?}/${PACKAGE_NAME:?}:${PACKAGE_VERSION_MAJOR_MINOR:?} \
         .
