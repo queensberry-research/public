@@ -17,7 +17,7 @@ release *args:
 
 _buildx *args:
   #!/usr/bin/env sh
-  tag="$DOCKER_REGISTRY_URL:$DOCKER_REGISTRY_PORT/$PACKAGE_NAME"
+  tag="$DOCKER_REGISTRY_URL/$PACKAGE_NAME"
   docker buildx build \
     --build-arg DEBIAN_VERSION=$DEBIAN_VERSION \
     --build-arg PYTHON_VERSION=$PYTHON_VERSION \
@@ -34,7 +34,7 @@ _buildx *args:
 
 registry *args:
   #!/usr/bin/env sh
-  url="https://$DOCKER_REGISTRY_URL:$DOCKER_REGISTRY_PORT/v2"
+  url="https://$DOCKER_REGISTRY_URL/v2"
   if [ $# -eq 0 ]; then
     curl -sS "$url/_catalog" | jq
   else
