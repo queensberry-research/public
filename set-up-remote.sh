@@ -11,7 +11,11 @@ if ! command -v git >/dev/null 2>&1; then
 fi
 
 repo="${HOME}/starship"
-if ! [ -d "${repo}" ]; then
+if [ -d "${repo}" ]; then
+    git -C "${repo}" fetch origin
+    git -C "${repo}" reset --hard origin/master
+    git -C "${repo}" submodule update --init --recursive
+else
     git clone https://github.com/queensberry-research/starship.git "${repo}"
 fi
 
