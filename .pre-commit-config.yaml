@@ -1,0 +1,6 @@
+repos:
+  - repo: https://github.com/dycw/pre-commit-hooks
+    rev: 0.15.22
+    hooks:
+      - id: run-version-bump
+        priority: 20
