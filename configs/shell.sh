@@ -21,8 +21,10 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 
 # env vars
-export EDITOR=vim
-export VISUAL=vim
+if command -v vim >/dev/null 2>&1; then
+    export EDITOR=vim
+    export VISUAL=vim
+fi
 
 # ls
 l() { la "$@"; }
