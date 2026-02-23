@@ -18,7 +18,7 @@ if [ -d "${repo}" ]; then
     git -C "${repo}" reset --hard origin/master
     git -C "${repo}" submodule update --init --recursive
 else
-    git clone https://github.com/queensberry-research/public.git "${repo}"
+    git clone --recurse-submodules https://github.com/queensberry-research/public.git "${repo}"
 fi
 
 # run

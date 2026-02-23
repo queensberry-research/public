@@ -6,6 +6,7 @@ set -eu
 scripts=$(dirname -- "$(realpath -- "$0")")
 repo_root=$(dirname -- "${scripts}")
 configs="${repo_root}/configs"
+submodules="${repo_root}/submodules"
 xdg_config="${XDG_CONFIG_HOME:-${HOME}/.config}"
 
 # apt
@@ -21,10 +22,20 @@ for executable in bat curl rsync vim; do
     fi
 done
 
+# authorized keys
+auth_keys="${HOME}/.ssh/authorized_keys"
+mkdir -p "$(dirname "${auth_keys}")"
+while IFS= read -r line; do
+    [ -z "${line}" ] && continue
+    if ! grep -Fxq -- "${line}" "${auth_keys}"; then
+        printf '%s\n' "${line}" >>"${auth_keys}"
+    fi
+done <"${submodules}/authorized-keys/authorized_keys"
+
 # shell.sh
 text="[ -f \"${configs}/shell.sh\" ] && . \"${configs}/shell.sh\""
 bashrc="${HOME}/.bashrc"
-if ! grep -qF "${text}" "${bashrc}"; then
+if ! grep -Fqx "${text}" "${bashrc}"; then
     # shellcheck disable=SC2016
     printf '%s\n' "${text}" >>"${bashrc}"
 fi
