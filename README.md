@@ -1,9 +1,9 @@
-# starship
+# `public`
 
-`starship` config
+Public configs
 
 ## Installation
 
 ```console
-curl -fsSL https://raw.githubusercontent.com/queensberry-research/starship/refs/heads/master/set-up-remote.sh | sh
+curl -fsSL https://raw.githubusercontent.com/queensberry-research/public/refs/heads/master/scripts/remote.sh | sh
 ```
