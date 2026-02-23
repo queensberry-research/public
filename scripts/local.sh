@@ -10,7 +10,7 @@ submodules="${repo_root}/submodules"
 xdg_config="${XDG_CONFIG_HOME:-${HOME}/.config}"
 
 # apt
-for executable in bat curl rsync vim; do
+for executable in curl rsync vim; do
     if ! command -v "${executable}" >/dev/null 2>&1; then
         if [ "$(id -u)" = 0 ]; then
             apt-get update
@@ -18,6 +18,19 @@ for executable in bat curl rsync vim; do
         else
             sudo apt-get update
             sudo apt-get install -y "${executable}"
+        fi
+    fi
+done
+for executable_package in batcat/bat rg/ripgrep; do
+    executable="${executable_package%%/*}"
+    package="${executable_package#*/}"
+    if ! command -v "${executable}" >/dev/null 2>&1; then
+        if [ "$(id -u)" = 0 ]; then
+            apt-get update
+            apt-get install -y "${package}"
+        else
+            sudo apt-get update
+            sudo apt-get install -y "${package}"
         fi
     fi
 done
