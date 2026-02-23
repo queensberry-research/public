@@ -33,7 +33,10 @@ fi
 gl() { git log "$@"; }
 gpl() { git pull --prune "$@"; }
 gs() { git status "$@"; }
-gsu() { git submodule update --init --recursive "$@"; }
+gsu() {
+    git submodule update --init --recursive
+    git submodule foreach --recursive 'git checkout --force master && git pull --prune'
+}
 
 # ls
 l() { la "$@"; }
@@ -41,7 +44,9 @@ la() { ls -ahl --color=always "$@"; }
 
 # public
 update_public() {
-    git -C "${HOME}/public" pull
+    git -C "${HOME}/public" --prune pull
+    git -C "${HOME}/public" submodule update --init --recursive
+    git -C "${HOME}/public" submodule foreach --recursive 'git checkout --force master && git pull --prune'
     "${HOME}/public/scripts/local.sh"
     resource_bashrc
 }
