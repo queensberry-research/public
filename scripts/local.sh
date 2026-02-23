@@ -9,7 +9,7 @@ configs="${repo_root}/configs"
 xdg_config="${XDG_CONFIG_HOME:-${HOME}/.config}"
 
 # apt
-for executable in curl rsync vim; do
+for executable in bat curl rsync vim; do
     if ! command -v "${executable}" >/dev/null 2>&1; then
         if [ "$(id -u)" = 0 ]; then
             apt-get update

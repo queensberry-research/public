@@ -10,6 +10,11 @@ if [ -f "${HOME}/.local/bin/env" ]; then
     . "${HOME}/.local/bin/env"
 fi
 
+# bat
+if command -v batcat >/dev/null 2>&1; then
+    alias bat='batcat'
+fi
+
 # cd
 alias ..='cd ..'
 alias ...='cd ../..'
