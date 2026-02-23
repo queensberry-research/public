@@ -58,3 +58,8 @@ fi
 
 # tail
 tf() { tail -F --verbose "$@"; }
+
+# vi mode
+if [ -n "${BASH_VERSION-}" ]; then
+    set -o vi
+fi
