@@ -5,8 +5,10 @@ set -eu
 # git
 if ! command -v git >/dev/null 2>&1; then
     if [ "$(id -u)" = 0 ]; then
+        apt-get update
         apt-get install -y git
     else
+        sudo apt-get update
         sudo apt-get install -y git
     fi
 fi
