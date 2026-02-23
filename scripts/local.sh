@@ -10,20 +10,15 @@ submodules="${repo_root}/submodules"
 xdg_config="${XDG_CONFIG_HOME:-${HOME}/.config}"
 
 # apt
-apt-get update 1>/dev/null
-for executable in curl rsync vim; do
+if [ "$(id -u)" = 0 ]; then
+    apt-get update 1>/dev/null
+else
+    sudo apt-get update 1>/dev/null
+fi
+for exec_pkg in batcat/bat curl/curl rg/ripgrep rsync/rsync vim/vim; do
+    executable="${exec_pkg%%/*}"
     if ! command -v "${executable}" >/dev/null 2>&1; then
-        if [ "$(id -u)" = 0 ]; then
-            apt-get install -y "${executable}"
-        else
-            sudo apt-get install -y "${executable}"
-        fi
-    fi
-done
-for executable_package in batcat/bat rg/ripgrep; do
-    executable="${executable_package%%/*}"
-    if ! command -v "${executable}" >/dev/null 2>&1; then
-        package="${executable_package#*/}"
+        package="${exec_pkg#*/}"
         if [ "$(id -u)" = 0 ]; then
             apt-get update
             apt-get install -y "${package}"
@@ -33,8 +28,13 @@ for executable_package in batcat/bat rg/ripgrep; do
         fi
     fi
 done
-apt-get upgrade -y
-apt-get autoremove -y
+if [ "$(id -u)" = 0 ]; then
+    apt-get upgrade -y
+    apt-get autoremove -y
+else
+    sudo apt-get upgrade -y
+    sudo apt-get autoremove -y
+fi
 
 # authorized keys
 auth_keys="${HOME}/.ssh/authorized_keys"
