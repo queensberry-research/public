@@ -56,4 +56,5 @@ if ! grep -Fqx "${text}" "${bashrc}"; then
 fi
 
 # starship.toml
+mkdir -p "${xdg_config}"
 ln -sfn "${configs}/starship.toml" "${xdg_config}/starship.toml"
