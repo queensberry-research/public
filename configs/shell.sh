@@ -11,7 +11,7 @@ if [ -f "${HOME}/.local/bin/env" ]; then
 fi
 
 # bashrc
-alias sbashrc='source "${HOME}/.bashrc"'
+resource_bashrc() { . "${HOME}/.bashrc"; }
 
 # bat
 if command -v batcat >/dev/null 2>&1; then
@@ -32,6 +32,13 @@ fi
 # ls
 l() { la "$@"; }
 la() { ls -ahl --color=always "$@"; }
+
+# public
+update_public() {
+    git -C "${HOME}/public" pull
+    "${HOME}/public/scripts/local.sh"
+    resource_bashrc
+}
 
 # starship
 if [ -n "${BASH_VERSION-}" ] && command -v starship >/dev/null 2>&1; then
