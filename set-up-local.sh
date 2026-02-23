@@ -5,13 +5,13 @@ set -eu
 config="${XDG_CONFIG_HOME:-${HOME}/.config}"
 link() {
     src="$(dirname -- "$(realpath -- "$0")")/$1"
-    dest="${config}/$2"
+    dest="$2"
     mkdir -p "$(dirname -- "${dest}")"
     ln -sfn "${src}" "${dest}"
 }
 
 if [ "$(id -u)" = 0 ]; then
-    link starship.sh /etc/profile.d/starship.sh 2>/dev/null
+    link starship.sh /etc/profile.d/starship.sh
 else
     header='#### starship ####'
     bashrc="${HOME}/.bashrc"
@@ -27,7 +27,6 @@ fi
 '
         printf '%\n' "${text}" >>"${bashrc}"
     fi
-    link starship.sh /etc/profile.d/starship.sh 2>/dev/null
 fi
 
 link starship.toml "${config}/starship.toml"
