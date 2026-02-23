@@ -36,7 +36,7 @@ ${character}
 
 [container]
   format = '( [${symbol}](${style}))'
-  style = 'white'
+  style = 'blue'
   symbol = '⬢'
 
 [custom]
@@ -47,14 +47,14 @@ ${character}
     when = true
 
   [custom.tz]
-    command = "date +%Z"
-    format = "[${output}](${style})"
-    style = "white"
-    when = "true"
+    command = 'date +%Z'
+    format = '[${output}](${style})'
+    style = 'dimmed white'
+    when = 'true'
 
 [directory]
   format = '[${path}](${style})[${read_only}](${read_only_style})'
-  style = 'white'
+  style = 'blue'
   truncate_to_repo = false
   truncation_length = 8
   truncation_symbol = './'
@@ -65,13 +65,13 @@ ${character}
 [git_branch]
   always_show_remote = true
   format = '( │ ${symbol}[${branch}](${style}))'
-  style = 'dimmer white'
+  style = 'dimmed white'
   symbol = ''
   truncation_length = 20
 
 [git_commit]
   format = '( [${hash}${tag}](${style}))'
-  style = 'dimmer white'
+  style = 'dimmed white'
   tag_disabled = false
 
 [git_metrics]
@@ -99,7 +99,7 @@ ${character}
   format = '[${hostname}](${style})'
   ssh_only = false
   ssh_symbol = '🌐'
-  style = 'white'
+  style = 'blue'
 
 [jobs]
   disabled = false
@@ -110,7 +110,7 @@ ${character}
   disabled = false
   format = '( [${localipv4}]($style))'
   ssh_only = true
-  style = 'white'
+  style = 'blue'
 
 [lua]
   format = '( [${symbol}](${style}))'
@@ -165,11 +165,11 @@ ${character}
 [time]
   disabled = false
   format = '[${time}](${style})'
-  style = 'white'
+  style = 'dimmed white'
   time_format = '%T'
 
 [username]
   format = '[${user}](${style})'
   show_always = true
-  style_root = 'white'
-  style_user = 'white'
+  style_root = 'dimmed white'
+  style_user = 'dimmed white'
