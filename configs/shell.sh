@@ -29,6 +29,12 @@ if command -v vim >/dev/null 2>&1; then
     export VISUAL=vim
 fi
 
+# git
+gl() { git log "$@"; }
+gpl() { git pull --prune "$@"; }
+gs() { git status "$@"; }
+gsu() { git submodule update --init --recursive "$@"; }
+
 # ls
 l() { la "$@"; }
 la() { ls -ahl --color=always "$@"; }
