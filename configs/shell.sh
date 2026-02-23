@@ -10,6 +10,9 @@ if [ -f "${HOME}/.local/bin/env" ]; then
     . "${HOME}/.local/bin/env"
 fi
 
+# bashrc
+alias sbashrc='source "${HOME}/.bashrc"'
+
 # bat
 if command -v batcat >/dev/null 2>&1; then
     alias bat='batcat'
