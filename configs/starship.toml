@@ -109,7 +109,7 @@ ${character}
 [localip]
   disabled = false
   format = '( [${localipv4}]($style))'
-  ssh_only = true
+  ssh_only = false
   style = 'blue'
 
 [lua]
