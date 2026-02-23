@@ -10,13 +10,12 @@ submodules="${repo_root}/submodules"
 xdg_config="${XDG_CONFIG_HOME:-${HOME}/.config}"
 
 # apt
+apt-get update 1>/dev/null
 for executable in curl rsync vim; do
     if ! command -v "${executable}" >/dev/null 2>&1; then
         if [ "$(id -u)" = 0 ]; then
-            apt-get update
             apt-get install -y "${executable}"
         else
-            sudo apt-get update
             sudo apt-get install -y "${executable}"
         fi
     fi
@@ -34,6 +33,8 @@ for executable_package in batcat/bat rg/ripgrep; do
         fi
     fi
 done
+apt-get upgrade -y
+apt-get autoremove -y
 
 # authorized keys
 auth_keys="${HOME}/.ssh/authorized_keys"
