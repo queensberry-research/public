@@ -12,13 +12,13 @@ if ! command -v git >/dev/null 2>&1; then
 fi
 
 # git clone
-repo="${HOME}/starship"
+repo="${HOME}/public"
 if [ -d "${repo}" ]; then
     git -C "${repo}" fetch origin
     git -C "${repo}" reset --hard origin/master
     git -C "${repo}" submodule update --init --recursive
 else
-    git clone https://github.com/queensberry-research/starship.git "${repo}"
+    git clone https://github.com/queensberry-research/public.git "${repo}"
 fi
 
 # run
