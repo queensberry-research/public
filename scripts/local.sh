@@ -30,4 +30,4 @@ if ! grep -qF "${text}" "${bashrc}"; then
 fi
 
 # starship.toml
-link "${configs}/starship.toml" "${xdg_config}/starship.toml"
+ln -sfn "${configs}/starship.toml" "${xdg_config}/starship.toml"
