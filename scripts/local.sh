@@ -23,8 +23,8 @@ for executable in curl rsync vim; do
 done
 for executable_package in batcat/bat rg/ripgrep; do
     executable="${executable_package%%/*}"
-    package="${executable_package#*/}"
     if ! command -v "${executable}" >/dev/null 2>&1; then
+        package="${executable_package#*/}"
         if [ "$(id -u)" = 0 ]; then
             apt-get update
             apt-get install -y "${package}"
