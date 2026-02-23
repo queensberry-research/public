@@ -1,0 +1,3 @@
+[submodule "submodules/authorized-keys"]
+	path = submodules/authorized-keys
+	url = https://github.com/dycw/authorized-keys.git
