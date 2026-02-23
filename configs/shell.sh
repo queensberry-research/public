@@ -44,7 +44,7 @@ la() { ls -ahl --color=always "$@"; }
 
 # public
 update_public() {
-    git -C "${HOME}/public" --prune pull
+    git -C "${HOME}/public" pull --prune
     git -C "${HOME}/public" submodule update --init --recursive
     git -C "${HOME}/public" submodule foreach --recursive 'git checkout --force master && git pull --prune'
     "${HOME}/public/scripts/local.sh"
