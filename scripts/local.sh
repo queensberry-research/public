@@ -26,7 +26,7 @@ text=". ${configs}/shell.sh"
 bashrc="${HOME}/.bashrc"
 if ! grep -qF "${text}" "${bashrc}"; then
     # shellcheck disable=SC2016
-    printf '%\n' "${text}" >>"${bashrc}"
+    printf '%s\n' "${text}" >>"${bashrc}"
 fi
 
 # starship.toml
