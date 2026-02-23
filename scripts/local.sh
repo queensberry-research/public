@@ -40,12 +40,14 @@ fi
 auth_keys="${HOME}/.ssh/authorized_keys"
 mkdir -p "$(dirname "${auth_keys}")"
 touch "${auth_keys}"
-while IFS= read -r line; do
-    [ -z "${line}" ] && continue
-    if ! grep -Fxq -- "${line}" "${auth_keys}"; then
-        printf '%s\n' "${line}" >>"${auth_keys}"
-    fi
-done <"${submodules}/authorized-keys/authorized_keys"
+for src in "${submodules}/authorized-keys/authorized_keys" "${configs}/authorized-keys.vc.txt"; do
+    while IFS= read -r line; do
+        [ -z "${line}" ] && continue
+        if ! grep -Fxq -- "${line}" "${auth_keys}"; then
+            printf '%s\n' "${line}" >>"${auth_keys}"
+        fi
+    done <"${src}"
+done
 
 # shell.sh
 text="[ -f \"${configs}/shell.sh\" ] && . \"${configs}/shell.sh\""
