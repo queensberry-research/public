@@ -1,0 +1,175 @@
+format = """\
+${directory} │ ${hostname}${custom.subnet}${container}${localip}\
+${git_branch}${git_commit}${git_state}${git_status}${git_metrics}\
+${golang}${lua}${nodejs}${python}${rust}${package}\
+${fill}\
+${battery}${jobs}${memory_usage}${shlvl}\
+${time}${custom.tz} │ ${username}${sudo}\
+\
+${line_break}\
+\
+${character}
+"""
+
+###########################################################################
+
+[battery]
+  charging_symbol = '󰂄'
+  discharging_symbol = '󰂃'
+  empty_symbol = '󰂎'
+  format = '([${symbol}${percentage}](${style}) │ )'
+  full_symbol = '󰁹'
+  unknown_symbol = '󰁽'
+
+  [[battery.display]]
+    style = 'bold red'
+    threshold = 10
+
+  [[battery.display]]
+    style = 'bold yellow'
+    threshold = 30
+
+[cmd_duration]
+  format = '([${duration}](${style}) │ )'
+  min_time = 10_000
+  style = 'white'
+
+[container]
+  format = '( [${symbol}](${style}))'
+  style = 'white'
+  symbol = '⬢'
+
+[custom]
+  [custom.subnet]
+    command = '[[ -n "$SUBNET" ]] && echo ".${SUBNET}" || echo ""'
+    format = "[${output}](${style})"
+    style = 'blue'
+    when = true
+
+  [custom.tz]
+    command = "date +%Z"
+    format = "[${output}](${style})"
+    style = "white"
+    when = "true"
+
+[directory]
+  format = '[${path}](${style})[${read_only}](${read_only_style})'
+  style = 'white'
+  truncate_to_repo = false
+  truncation_length = 8
+  truncation_symbol = './'
+
+[fill]
+  symbol = ' '
+
+[git_branch]
+  always_show_remote = true
+  format = '( │ ${symbol}[${branch}](${style}))'
+  style = 'dimmer white'
+  symbol = ''
+  truncation_length = 20
+
+[git_commit]
+  format = '( [${hash}${tag}](${style}))'
+  style = 'dimmer white'
+  tag_disabled = false
+
+[git_metrics]
+  added_style = 'white'
+  deleted_style = 'white'
+  disabled = false
+  format = '((+${added})(${added_style})(-${deleted})(${deleted_style}))'
+  ignore_submodules = true
+
+[git_state]
+  format = '( [${state}(${progress_current}/${progress_total})]($style))'
+  style = 'bold white'
+
+[git_status]
+  format = '( [${all_status}${ahead_behind}]($style))'
+  style = 'white'
+
+[golang]
+  format = '( [${symbol}](${style}))'
+  style = 'white'
+  symbol = '🐹'
+  version_format = '${raw}'
+
+[hostname]
+  format = '[${hostname}](${style})'
+  ssh_only = false
+  ssh_symbol = '🌐'
+  style = 'white'
+
+[jobs]
+  disabled = false
+  format = '([${symbol}${number}](${style}) │ )'
+  style = 'bold red'
+
+[localip]
+  disabled = false
+  format = '( [${localipv4}]($style))'
+  ssh_only = true
+  style = 'white'
+
+[lua]
+  format = '( [${symbol}](${style}))'
+  style = 'white'
+  symbol = '🌙'
+  version_format = '${raw}'
+
+[memory_usage]
+  disabled = false
+  format = '(${symbol}[${ram}(|${swap})](${style}) ‹ )'
+  style = 'bold red'
+  symbol = '🐏'
+  threshold = 80
+
+[nodejs]
+  format = '( [${symbol}](${style}))'
+  style = 'white'
+  symbol = ' '
+  version_format = '${raw}'
+
+[package]
+  format = '( [${symbol}${version}](${style}))'
+  style = 'white'
+  symbol = '📦'
+  version_format = '${raw}'
+
+[python]
+  format = '( [${symbol}](${style}))'
+  style = 'white'
+  symbol = '🐍'
+  version_format = '${raw}'
+
+[rust]
+  format = '( [${symbol}](${style}))'
+  style = 'white'
+  symbol = '🦀'
+  version_format = '${raw}'
+
+[shlvl]
+  disabled = false
+  format = '([${symbol}${shlvl}]($style) ‹ )'
+  repeat = true
+  style = 'bold red'
+  symbol = '↕️'
+  threshold = 3
+
+[sudo]
+  disabled = false
+  format = '( [${symbol}]($style))'
+  symbol = '🧙'
+
+[time]
+  disabled = false
+  format = '[${time}](${style})'
+  style = 'white'
+  time_format = '%T'
+
+[username]
+  format = '[${user}](${style})'
+  show_always = true
+  style_root = 'white'
+  style_user = 'white'
