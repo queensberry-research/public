@@ -22,7 +22,7 @@ for executable in bat curl rsync vim; do
 done
 
 # shell.sh
-text=". ${configs}/shell.sh"
+text="[ -f \"${configs}/shell.sh\" ] && . \"${configs}/shell.sh\""
 bashrc="${HOME}/.bashrc"
 if ! grep -qF "${text}" "${bashrc}"; then
     # shellcheck disable=SC2016
