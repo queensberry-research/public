@@ -2,6 +2,7 @@
 
 set -eu
 
+# git
 if ! command -v git >/dev/null 2>&1; then
     if [ "$(id -u)" = 0 ]; then
         apt-get install -y git
@@ -10,6 +11,7 @@ if ! command -v git >/dev/null 2>&1; then
     fi
 fi
 
+# git clone
 repo="${HOME}/starship"
 if [ -d "${repo}" ]; then
     git -C "${repo}" fetch origin
@@ -19,4 +21,5 @@ else
     git clone https://github.com/queensberry-research/starship.git "${repo}"
 fi
 
-"${repo}/set-up-local.sh"
+# run
+"${repo}/scripts/local.sh"
