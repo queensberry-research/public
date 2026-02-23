@@ -10,6 +10,11 @@ if [ -f "${HOME}/.local/bin/env" ]; then
     . "${HOME}/.local/bin/env"
 fi
 
+# cd
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+
 # env vars
 export EDITOR=vim
 export VISUAL=vim
