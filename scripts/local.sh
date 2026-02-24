@@ -15,7 +15,7 @@ if [ "$(id -u)" = 0 ]; then
 else
     sudo apt-get update 1>/dev/null
 fi
-for exec_pkg in batcat/bat curl/curl rg/ripgrep rsync/rsync vim/vim; do
+for exec_pkg in batcat/bat curl/curl rg/ripgrep rsync/rsync starship/starship vim/vim; do
     executable="${exec_pkg%%/*}"
     if ! command -v "${executable}" >/dev/null 2>&1; then
         package="${exec_pkg#*/}"
