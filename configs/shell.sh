@@ -67,14 +67,14 @@ fi
 # watch
 wcat() {
     if command -v batcat >/dev/null 2>&1; then
-        watch --color --differences --interval=0.5 --no-title --no-wrap -- \
+        watch --color --differences --interval=0.5 --no-title -- \
             batcat --color=always "$@"
     else
-        watch --color --differences --interval=0.5 --no-title --no-wrap -- \
+        watch --color --differences --interval=0.5 --no-title -- \
             cat -n "$@"
     fi
 }
 wl() {
-    watch --color --differences --interval=0.5 --no-title --no-wrap -- \
+    watch --color --differences --interval=0.5 --no-title -- \
         ls -al --color=yes --sort=time "$@"
 }
