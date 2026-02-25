@@ -1,3 +1,1 @@
 # Project Title
-
-## Usage
