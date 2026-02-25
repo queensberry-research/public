@@ -65,4 +65,16 @@ if [ -n "${BASH_VERSION-}" ]; then
 fi
 
 # watch
-wl() { watch -n0.5 --color --differences -- ls -al --color=yes --sort=time "$@"; }
+wcat() {
+    if command -v batcat >/dev/null 2>&1; then
+        watch --color --differences --interval=0.5 --no-title --no-wrap -- \
+            batcat --color=always "$@"
+    else
+        watch --color --differences --interval=0.5 --no-title --no-wrap -- \
+            cat -n "$@"
+    fi
+}
+wl() {
+    watch --color --differences --interval=0.5 --no-title --no-wrap -- \
+        ls -al --color=yes --sort=time "$@"
+}
