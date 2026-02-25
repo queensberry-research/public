@@ -63,3 +63,6 @@ tf() { tail -F --verbose "$@"; }
 if [ -n "${BASH_VERSION-}" ]; then
     set -o vi
 fi
+
+# watch
+wl() { watch -n0.5 --color --differences -- ls -al --color=yes --sort=time "$@"; }
