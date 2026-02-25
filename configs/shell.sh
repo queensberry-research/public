@@ -24,7 +24,19 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 
 # env vars
-if command -v vim >/dev/null 2>&1; then
+if command -v nvim >/dev/null 2>&1 && command -v vim >/dev/null 2>&1; then
+    alias n=nvim
+    alias v=vim
+    export EDITOR=nvim
+    export VISUAL=nvim
+elif command -v nvim >/dev/null 2>&1 && ! command -v vim >/dev/null 2>&1; then
+    alias n=nvim
+    alias v=nvim
+    export EDITOR=nvim
+    export VISUAL=nvim
+elif command -v vim >/dev/null 2>&1 && ! command -v nvim >/dev/null 2>&1; then
+    alias n=vim
+    alias v=vim
     export EDITOR=vim
     export VISUAL=vim
 fi
