@@ -152,7 +152,6 @@ ${character}
 [shlvl]
   disabled = false
   format = '([${symbol}${shlvl}]($style) ‹ )'
-  repeat = true
   style = 'bold red'
   symbol = '↕️'
   threshold = 3
