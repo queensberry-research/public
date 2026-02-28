@@ -60,3 +60,8 @@ fi
 # starship.toml
 mkdir -p "${xdg_config}"
 ln -sfn "${configs}/starship.toml" "${xdg_config}/starship.toml"
+
+# uv
+if ! command -v uv >/dev/null 2>&1 || ! command -v uvx >/dev/null 2>&1; then
+    UV_NO_MODIFY_PATH=1 curl -LsSf https://astral.sh/uv/install.sh | sh -s
+fi
