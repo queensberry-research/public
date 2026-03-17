@@ -15,16 +15,14 @@ if [ "$(id -u)" = 0 ]; then
 else
     sudo apt-get update 1>/dev/null
 fi
-for exec_pkg in batcat/bat curl/curl rg/ripgrep rsync/rsync starship/starship vim/vim; do
-    executable="${exec_pkg%%/*}"
-    if ! command -v "${executable}" >/dev/null 2>&1; then
-        package="${exec_pkg#*/}"
+for pkg in curl rsync starship vim; do
+    if ! command -v "${pkg}" >/dev/null 2>&1; then
         if [ "$(id -u)" = 0 ]; then
             apt-get update
-            apt-get install -y "${package}"
+            apt-get install -y "${pkg}"
         else
             sudo apt-get update
-            sudo apt-get install -y "${package}"
+            sudo apt-get install -y "${pkg}"
         fi
     fi
 done
@@ -60,8 +58,3 @@ fi
 # starship.toml
 mkdir -p "${xdg_config}"
 ln -sfn "${configs}/starship.toml" "${xdg_config}/starship.toml"
-
-# uv
-if ! command -v uv >/dev/null 2>&1 || ! command -v uvx >/dev/null 2>&1; then
-    UV_NO_MODIFY_PATH=1 curl -LsSf https://astral.sh/uv/install.sh | sh -s
-fi
